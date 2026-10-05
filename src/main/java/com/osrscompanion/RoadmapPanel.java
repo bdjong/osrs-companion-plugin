@@ -30,8 +30,6 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import net.runelite.client.config.ConfigManager;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -86,20 +84,11 @@ public class RoadmapPanel extends PluginPanel {
 	/** Opens or closes the in-game gear progression window. */
 	private final Runnable openGearProgression;
 
-	private final OSRSCompanionConfig config;
-	private final ConfigManager configManager;
-	/** Show / hide the game-window boxes; the same settings as in the plugin configuration. */
-	private final JCheckBox showRoadmapBox = new JCheckBox("Show roadmap box");
-	private final JCheckBox showGearBox = new JCheckBox("Show gear progression box");
-
-	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker, Runnable openGearProgression,
-			OSRSCompanionConfig config, ConfigManager configManager) {
+	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker, Runnable openGearProgression) {
 		super(false);
 		this.roadmapManager = roadmapManager;
 		this.goalProgressTracker = goalProgressTracker;
 		this.openGearProgression = openGearProgression;
-		this.config = config;
-		this.configManager = configManager;
 
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -165,21 +154,6 @@ public class RoadmapPanel extends PluginPanel {
 		gearButton.setToolTipText("Open or close your gear progression in the game window (Escape closes it).");
 		gearButton.addActionListener(e -> openGearProgression.run());
 		header.add(gearButton);
-		header.add(Box.createVerticalStrut(6));
-
-		for (JCheckBox box : new JCheckBox[]{showRoadmapBox, showGearBox}) {
-			box.setAlignmentX(Component.LEFT_ALIGNMENT);
-			box.setOpaque(false);
-			box.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-			header.add(box);
-		}
-		showRoadmapBox.setToolTipText("Show your current roadmap goal as a box in the game window.");
-		showGearBox.setToolTipText("Show the next step of your active gear roadmap as a box in the game window.");
-		showRoadmapBox.addActionListener(e -> configManager.setConfiguration(
-				OSRSCompanionConfig.CONFIG_GROUP, "showNextGoal", showRoadmapBox.isSelected()));
-		showGearBox.addActionListener(e -> configManager.setConfiguration(
-				OSRSCompanionConfig.CONFIG_GROUP, "showGearProgress", showGearBox.isSelected()));
-		refreshBoxToggles();
 		header.add(Box.createVerticalStrut(8));
 
 		statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -187,12 +161,6 @@ public class RoadmapPanel extends PluginPanel {
 		header.add(statusLabel);
 
 		return header;
-	}
-
-	/** Re-reads the show/hide settings into the checkboxes (after a change in the plugin configuration). */
-	public void refreshBoxToggles() {
-		showRoadmapBox.setSelected(config.showNextGoal());
-		showGearBox.setSelected(config.showGearProgress());
 	}
 
 	private JPanel buildFooterNote() {

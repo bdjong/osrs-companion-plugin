@@ -260,7 +260,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle, config, configManager);
+		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -449,11 +449,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
-		// Keep the side panel's show/hide checkboxes in step with the plugin settings.
-		if (OSRSCompanionConfig.CONFIG_GROUP.equals(event.getGroup()) && roadmapPanel != null
-				&& ("showNextGoal".equals(event.getKey()) || "showGearProgress".equals(event.getKey()))) {
-			SwingUtilities.invokeLater(roadmapPanel::refreshBoxToggles);
-		}
 		if (!SyncGuard.isCompleteAppKeyEntry(event.getGroup(), event.getKey(), event.getNewValue())) {
 			return;
 		}
