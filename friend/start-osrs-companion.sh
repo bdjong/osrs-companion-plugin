@@ -124,17 +124,28 @@ if ! find_jdk; then
   problem "Java (JDK 11) is missing." \
     "Building RuneLite needs a Java Development Kit (JDK), version 11 (recommended), 17 or 21." \
     "None was found on this Mac. (The Java that RuneLite brings along is not enough.)"
-  if command -v brew >/dev/null 2>&1; then
-    if ask "Install Eclipse Temurin JDK 11 now with Homebrew (free, from adoptium.net)?"; then
-      brew install --cask temurin@11
-      find_jdk
+  # The installer (.pkg) for this Mac's chip; the .tar.gz downloads are only a folder of files.
+  if [ "$(uname -m)" = "arm64" ]; then JDK_ARCH=aarch64; CHIP="Apple M-chip"; else JDK_ARCH=x64; CHIP="Intel"; fi
+  PKG_URL="https://api.adoptium.net/v3/installer/latest/11/ga/mac/$JDK_ARCH/jdk/hotspot/normal/eclipse?project=jdk"
+  if ask "Download the free Java 11 installer for your Mac ($CHIP, Eclipse Temurin from adoptium.net) and open it?"; then
+    PKG="$HOME/Downloads/Temurin-JDK-11-$JDK_ARCH.pkg"
+    info "Downloading (about 180 MB)..."
+    if curl -L --fail --progress-bar -o "$PKG" "$PKG_URL"; then
+      open "$PKG"
+      echo
+      echo "  ${YELLOW}NEXT: the Java installer is open. Click Continue and Install (it asks for your Mac password),${RESET}"
+      echo "  ${YELLOW}      then double-click \"Start OSRS Companion.command\" again.${RESET}"
+      stop_here 0
     fi
+    warn "The download failed."
+  elif command -v brew >/dev/null 2>&1 && ask "Install it with Homebrew instead?"; then
+    brew install --cask temurin@11
+    find_jdk
   fi
   if [ -z "$JDK_HOME" ]; then
-    info "Install it yourself from: https://adoptium.net/temurin/releases/?version=11&os=mac"
-    info "(choose macOS, your chip: aarch64 for Apple M1/M2/M3/M4, x64 for Intel; JDK, .pkg),"
+    info "Download the installer yourself (a .pkg file, double-click it to install):"
+    info "$PKG_URL"
     info "then double-click \"Start OSRS Companion.command\" again."
-    open "https://adoptium.net/temurin/releases/?version=11&os=mac" >/dev/null 2>&1
     stop_here 1
   fi
 fi
