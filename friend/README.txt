@@ -10,12 +10,14 @@ Windows:
 Mac:
 1. Double-click the zip in Finder to unzip it. Move the OSRS-Companion folder somewhere
    handy, for example Documents.
-2. Double-click "Start OSRS Companion.command". A Terminal window opens.
-   If macOS says it cannot be opened ("unidentified developer" / "not verified"):
-   - right-click (or Control-click) the file > Open > Open, or
-   - System Settings > Privacy & Security > scroll down > "Open Anyway", or
-   - open Terminal, type  bash  and a space, drag the file into the Terminal window,
-     and press Enter.
+2. macOS blocks scripts downloaded from the internet ("Apple could not verify ... is free
+   of malware", with only "Done" and "Move to Trash"). Allow the folder once:
+   a. Open Terminal (Cmd + Space, type Terminal, Enter).
+   b. Type:  xattr -dr com.apple.quarantine   (with a space at the end, don't press Enter)
+   c. Drag the OSRS-Companion folder from Finder into the Terminal window, then press Enter.
+   (Or: double-click the file, click Done, then System Settings > Privacy & Security >
+   scroll down > "Open Anyway" and confirm with your password.)
+3. Double-click "Start OSRS Companion.command". A Terminal window opens.
 
 Either way it checks everything it needs and tells you in plain words if something is missing:
 - Java (JDK 11). It can install it for you (free, Eclipse Temurin from adoptium.net):
