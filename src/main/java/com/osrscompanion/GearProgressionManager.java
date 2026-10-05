@@ -166,8 +166,8 @@ public class GearProgressionManager {
 		});
 	}
 
-	/** Hides an item: it leaves the window and stops counting. It can be unhidden on the website. */
-	public void hide(GearPlan.Item item) {
+	/** Hides or unhides an item. Hidden items stay in the window (faded) but are not counted. */
+	public void toggleHidden(GearPlan.Item item) {
 		String player = roadmapManager.getPlayerUsername();
 		if (item == null || player == null || busy) {
 			return;
@@ -176,15 +176,17 @@ public class GearProgressionManager {
 		apiClient.toggleGearHidden(item.getId(), player, new OSRSCompanionApiClient.RoadmapCallback<GearPlan.Response>() {
 			@Override
 			public void onSuccess(GearPlan.Response result) {
-				selectedItemId = -1;
 				apply(result);
-				status = item.getName() + " hidden. Unhide it on the website (Show hidden items).";
+				GearPlan.Item updated = plan == null ? null : plan.findItem(item.getId());
+				status = updated != null && updated.isHidden()
+						? item.getName() + " hidden: it is no longer counted."
+						: item.getName() + " is counted again.";
 				busy = false;
 			}
 
 			@Override
 			public void onError(String message) {
-				status = "Could not hide " + item.getName() + " (" + message + ").";
+				status = "Could not change " + item.getName() + " (" + message + ").";
 				busy = false;
 			}
 		});
