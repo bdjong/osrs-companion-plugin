@@ -1,0 +1,120 @@
+#!/usr/bin/env node
+/**
+ * Copies farming and hunter timer classes from RuneLite into this project.
+ * Run from repo root: cd scripts && npm install && node update.js
+ * Requires RuneLite cloned as a sibling: ../runelite/
+ * Based on https://github.com/queicherius/runelite-time-tracking-reminder
+ */
+const fs = require('fs-extra')
+const path = require('path')
+
+const RUNELITE_PLUGIN_PATH = path.join(__dirname, '../../runelite/runelite-client/src/main/java/net/runelite/client/plugins/timetracking')
+const RUNELITE_COPY_PATH = path.join(__dirname, '../src/main/java/com/osrscompanion/runelite')
+
+// Exclude UI/panel classes we don't need for OSRS Companion, plus the vendored BirdHouseTracker stack —
+// OSRS Companion reads bird house state directly from the timetracking RS profile config in TimerMonitor.
+const IGNORED_FILES = [
+  'FarmingTabPanel.java',
+  'FarmingNextTickPanel.java',
+  'FarmingContractInfoBox.java',
+  'FarmingContractManager.java',
+  'BirdHouseTabPanel.java',
+  'BirdHouseTracker.java',
+  'BirdHouseData.java',
+  'BirdHouseState.java',
+]
+
+function patchCopiedFiles(search, replace) {
+  const files = getDirectoryFiles(RUNELITE_COPY_PATH)
+  for (const file of files) {
+    let content = fs.readFileSync(file, 'utf-8')
+    const newContent = typeof search === 'string' ? content.replace(search, replace) : content.replace(search, replace)
+    if (newContent !== content) {
+      fs.writeFileSync(file, newContent, 'utf-8')
+    }
+  }
+}
+
+function getDirectoryFiles(directory) {
+  if (!fs.existsSync(directory)) return []
+  const entries = fs.readdirSync(directory, { withFileTypes: true })
+  const files = entries.map((entry) => {
+    const entryPath = path.resolve(directory, entry.name)
+    if (entry.isFile() && !entry.name.endsWith('.java')) return null
+    return entry.isDirectory() ? getDirectoryFiles(entryPath) : entryPath
+  })
+  return files.filter(Boolean).flat()
+}
+
+if (!fs.existsSync(RUNELITE_PLUGIN_PATH)) {
+  console.error('RuneLite not found. Clone it as a sibling:')
+  console.error('  cd .. && git clone https://github.com/runelite/runelite.git')
+  console.error('  cd osrs-companion-plugin && node update.js')
+  process.exit(1)
+}
+
+console.log('Creating RuneLite copy directories')
+fs.mkdirpSync(path.join(RUNELITE_COPY_PATH, 'hunter'), { recursive: true })
+fs.mkdirpSync(path.join(RUNELITE_COPY_PATH, 'farming'), { recursive: true })
+
+console.log('Copying Tab.java')
+fs.mkdirpSync(RUNELITE_COPY_PATH, { recursive: true })
+fs.copySync(path.join(RUNELITE_PLUGIN_PATH, 'Tab.java'), path.join(RUNELITE_COPY_PATH, 'Tab.java'))
+
+console.log('Copying farming and hunter files')
+const copyOptions = {
+  overwrite: true,
+  filter: (src) => !IGNORED_FILES.includes(path.basename(src)),
+}
+fs.copySync(path.join(RUNELITE_PLUGIN_PATH, 'hunter'), path.join(RUNELITE_COPY_PATH, 'hunter'), copyOptions)
+fs.copySync(path.join(RUNELITE_PLUGIN_PATH, 'farming'), path.join(RUNELITE_COPY_PATH, 'farming'), copyOptions)
+
+console.log('Patching: Change package to com.osrscompanion.runelite')
+patchCopiedFiles(
+  'package net.runelite.client.plugins.timetracking.',
+  'package com.osrscompanion.runelite.'
+)
+patchCopiedFiles(
+  'package net.runelite.client.plugins.timetracking;',
+  'package com.osrscompanion.runelite;'
+)
+patchCopiedFiles('import net.runelite.client.plugins.timetracking.Tab;', 'import com.osrscompanion.runelite.Tab;')
+
+console.log('Patching: Remove @Inject and @Singleton')
+patchCopiedFiles(/\s*@Inject\n/g, '\n')
+patchCopiedFiles(/\s*@Singleton\n/g, '\n')
+
+console.log('Patching: Make classes and constructors public')
+patchCopiedFiles(/access = AccessLevel\.PACKAGE,?/g, '')
+patchCopiedFiles(/access = AccessLevel\.PRIVATE,?/g, '')
+patchCopiedFiles('private void updateCompletionTime', 'public void updateCompletionTime')
+patchCopiedFiles('private FarmingTracker(', 'public FarmingTracker(')
+patchCopiedFiles(/\bclass FarmingWorld\b/, 'public class FarmingWorld')
+patchCopiedFiles(/\tFarmingWorld\(/, '\tpublic FarmingWorld(')
+patchCopiedFiles(/\bclass FarmingPatch\b/, 'public class FarmingPatch')
+patchCopiedFiles(/\bclass PatchPrediction\b/, 'public class PatchPrediction')
+patchCopiedFiles(/\tFarmingRegion\(/, '\tpublic FarmingRegion(')
+
+console.log('Patching: Stub UI methods (FarmingTabPanel not copied)')
+patchCopiedFiles('public FarmingTabPanel createTabPanel(Tab tab, FarmingContractManager farmingContractManager)', 'public Object createTabPanel(Tab tab, Object farmingContractManager)')
+patchCopiedFiles('return new FarmingTabPanel(this, compostTracker, paymentTracker, itemManager, configManager, config, farmingWorld.getTabs().get(tab), farmingContractManager);', 'return null;')
+
+console.log('Patching: Remove config write calls (read-only for OSRS Companion)')
+patchCopiedFiles(
+  /configManager\.setRSProfileConfiguration\([^)]+\);/g,
+  '/* config write removed - OSRS Companion is read-only */'
+)
+
+console.log('Patching: Add generation comment')
+const GENERATED_COMMENT = '// Auto-generated from RuneLite. Do not edit. Run: node update.js\n\n'
+patchCopiedFiles(/\/\*\s*\n\s*\* Copyright/, GENERATED_COMMENT + '/*\n * Copyright')
+
+// Handle duplicate comment
+const files = getDirectoryFiles(RUNELITE_COPY_PATH)
+for (const file of files) {
+  let content = fs.readFileSync(file, 'utf-8')
+  content = content.replace(GENERATED_COMMENT + GENERATED_COMMENT, GENERATED_COMMENT)
+  fs.writeFileSync(file, content, 'utf-8')
+}
+
+console.log('Done. Run ./gradlew build to verify.')
