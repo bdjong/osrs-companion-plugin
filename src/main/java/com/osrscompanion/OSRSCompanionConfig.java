@@ -178,8 +178,8 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigItem(
 			keyName = "showNextGoal",
-			name = "Show current goal overlay",
-			description = "Show your current (next uncompleted) goal from the selected roadmap as an overlay in the game window.",
+			name = "Show roadmap box",
+			description = "Show your current (next uncompleted) goal from the selected roadmap as a box in the game window.",
 			section = FEATURES_SECTION,
 			position = 0)
 	default boolean showNextGoal() {
@@ -189,9 +189,9 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "showGoalProgress",
 			name = "Show goal progress bar",
-			description = "Show a progress bar with current / target numbers under the goal in the overlay.",
+			description = "Show a progress bar with current / target numbers under the goal in the roadmap box.",
 			section = FEATURES_SECTION,
-			position = 1)
+			position = 2)
 	default boolean showGoalProgress() {
 		return true;
 	}
@@ -201,7 +201,7 @@ public interface OSRSCompanionConfig extends Config {
 			name = "Goal completion popup",
 			description = "Show an in-game popup (like the collection log one) when you complete a roadmap goal.",
 			section = FEATURES_SECTION,
-			position = 2)
+			position = 3)
 	default boolean showGoalPopup() {
 		return true;
 	}
@@ -211,7 +211,7 @@ public interface OSRSCompanionConfig extends Config {
 			name = "Goal completion sound",
 			description = "Sound to play when you complete a roadmap goal. Custom file: ~/.runelite/osrscompanion/goal-complete.wav",
 			section = FEATURES_SECTION,
-			position = 3)
+			position = 4)
 	default GoalCompleteSound goalCompleteSound() {
 		return GoalCompleteSound.IN_GAME;
 	}
@@ -219,9 +219,9 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "showGearProgress",
 			name = "Show gear progression box",
-			description = "Show the next step of your active gear roadmap as a box in the game window, next to the current goal box.",
+			description = "Show the next step of your active gear roadmap as a box in the game window, next to the roadmap box.",
 			section = FEATURES_SECTION,
-			position = 4)
+			position = 1)
 	default boolean showGearProgress() {
 		return true;
 	}
