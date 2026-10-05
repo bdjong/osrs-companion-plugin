@@ -35,10 +35,10 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "apiBaseUrl",
 			name = "API Base URL",
-			description = "Base URL of the sync server. Use http://localhost:3000 for local testing, or your production URL when deployed.",
+			description = "Base URL of the OSRS Companion website. Use http://localhost:3000 when testing the website locally.",
 			position = 1)
 	default String apiBaseUrl() {
-		return "http://localhost:3000";
+		return "https://osrs-companion-web.vercel.app";
 	}
 
 	// --- Data Syncing ---
@@ -166,11 +166,11 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncDeaths",
 			name = "Deaths",
-			description = "Sync your deaths (what killed you, where and when) to OSRS Companion for your weekly recap and stream overlays.",
+			description = "Send your deaths (what killed you, where and when) to OSRS Companion. Off by default: the website does not store deaths yet.",
 			section = SYNC_SECTION,
 			position = 12)
 	default boolean syncDeaths() {
-		return true;
+		return false;
 	}
 
 	// --- Plugin Features ---
