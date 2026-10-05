@@ -155,6 +155,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private GearProgressionOverlay gearProgressionOverlay;
 
 	@Inject
+	private GearNextOverlay gearNextOverlay;
+
+	@Inject
 	private MouseManager mouseManager;
 
 	@Inject
@@ -257,7 +260,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle);
+		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle, config, configManager);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -267,8 +270,10 @@ public class OSRSCompanionPlugin extends Plugin {
 				.build();
 		clientToolbar.addNavigation(navButton);
 
-		// Next-goal game overlay (rendered only while showNextGoal is enabled).
+		// Next-goal game overlay (rendered only while showNextGoal is enabled), and the
+		// gear roadmap's next step below it (showGearProgress).
 		overlayManager.add(nextGoalOverlay);
+		overlayManager.add(gearNextOverlay);
 		// Roadmap progress drawn under the goal completion popup while it shows.
 		overlayManager.add(goalCompletionOverlay);
 
@@ -378,6 +383,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		}
 		roadmapPanel = null;
 		overlayManager.remove(nextGoalOverlay);
+		overlayManager.remove(gearNextOverlay);
 		overlayManager.remove(goalCompletionOverlay);
 		overlayManager.remove(gearProgressionOverlay);
 		mouseManager.unregisterMouseListener(gearProgressionOverlay);
@@ -443,6 +449,11 @@ public class OSRSCompanionPlugin extends Plugin {
 	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
+		// Keep the side panel's show/hide checkboxes in step with the plugin settings.
+		if (OSRSCompanionConfig.CONFIG_GROUP.equals(event.getGroup()) && roadmapPanel != null
+				&& ("showNextGoal".equals(event.getKey()) || "showGearProgress".equals(event.getKey()))) {
+			SwingUtilities.invokeLater(roadmapPanel::refreshBoxToggles);
+		}
 		if (!SyncGuard.isCompleteAppKeyEntry(event.getGroup(), event.getKey(), event.getNewValue())) {
 			return;
 		}

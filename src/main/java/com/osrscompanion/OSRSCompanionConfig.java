@@ -217,11 +217,21 @@ public interface OSRSCompanionConfig extends Config {
 	}
 
 	@ConfigItem(
+			keyName = "showGearProgress",
+			name = "Show gear progression box",
+			description = "Show the next step of your active gear roadmap as a box in the game window, next to the current goal box.",
+			section = FEATURES_SECTION,
+			position = 4)
+	default boolean showGearProgress() {
+		return true;
+	}
+
+	@ConfigItem(
 			keyName = "gearProgressionHotkey",
 			name = "Gear progression hotkey",
 			description = "Opens or closes the gear progression window. It also opens from the button in the OSRS Companion side panel.",
 			section = FEATURES_SECTION,
-			position = 4)
+			position = 5)
 	default Keybind gearProgressionHotkey() {
 		return Keybind.NOT_SET;
 	}
