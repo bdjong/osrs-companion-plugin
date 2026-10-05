@@ -4,6 +4,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Keybind;
 
 @ConfigGroup(OSRSCompanionConfig.CONFIG_GROUP)
 public interface OSRSCompanionConfig extends Config {
@@ -213,5 +214,15 @@ public interface OSRSCompanionConfig extends Config {
 			position = 3)
 	default GoalCompleteSound goalCompleteSound() {
 		return GoalCompleteSound.IN_GAME;
+	}
+
+	@ConfigItem(
+			keyName = "gearProgressionHotkey",
+			name = "Gear progression hotkey",
+			description = "Opens or closes the gear progression window. It also opens from the button in the OSRS Companion side panel.",
+			section = FEATURES_SECTION,
+			position = 4)
+	default Keybind gearProgressionHotkey() {
+		return Keybind.NOT_SET;
 	}
 }

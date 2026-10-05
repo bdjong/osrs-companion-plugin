@@ -10,6 +10,7 @@ import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
 import com.osrscompanion.model.CombatAchievementsSyncPayload;
 import com.osrscompanion.model.DeathSyncPayload;
+import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.KillCountsSyncPayload;
 import com.osrscompanion.model.KingdomSyncPayload;
 import com.osrscompanion.model.LoadoutSyncPayload;
@@ -79,6 +80,7 @@ public class OSRSCompanionApiClient
 	private static final String LOOT_ENDPOINT = "/api/runelite/loot/";
 	private static final String LOOT_DROP_ENDPOINT = "/api/runelite/loot/drop/";
 	private static final String ROADMAPS_ENDPOINT = "/api/runelite/roadmaps/";
+	private static final String GEAR_ENDPOINT = "/api/runelite/gear/";
 	private static final String SLAYER_ENDPOINT = "/api/runelite/slayer/";
 	private static final String SLAYER_CATALOG_ENDPOINT = "/api/runelite/slayer/catalog/";
 	private static final String SLAYER_CATALOG_STATUS_ENDPOINT = "/api/runelite/slayer/catalog/status/";
@@ -372,6 +374,30 @@ public class OSRSCompanionApiClient
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("player", playerUsername);
 		postForResult(url, gson.toJson(body), "roadmap-goal-delete", Roadmap.class, callback);
+	}
+
+	/** Fetches the player's gear progression ({ plan: null } until loaded on the website). */
+	public void getGearPlan(String playerUsername, RoadmapCallback<GearPlan.Response> callback)
+	{
+		getAsync(GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "gear", GearPlan.Response.class, callback);
+	}
+
+	/** Toggles the player's own "done" tick on a gear item and returns the re-rendered plan. */
+	public void toggleGearDone(int itemId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/done/", gson.toJson(body), "gear-done",
+			GearPlan.Response.class, callback);
+	}
+
+	/** Puts a gear item at the top of the player's roadmap. */
+	public void setGearGoal(int itemId, String playerUsername, RoadmapCallback<GearPlan.GoalResult> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/goal/", gson.toJson(body), "gear-goal",
+			GearPlan.GoalResult.class, callback);
 	}
 
 	private <T> void getAsync(String endpoint, String label, Class<T> type, RoadmapCallback<T> callback)

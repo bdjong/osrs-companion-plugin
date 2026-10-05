@@ -18,6 +18,9 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.input.KeyManager;
+import net.runelite.client.input.MouseManager;
+import net.runelite.client.util.HotkeyListener;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
@@ -145,6 +148,20 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private GoalImageCache goalImageCache;
 
+	@Inject
+	private GearProgressionManager gearProgressionManager;
+
+	@Inject
+	private GearProgressionOverlay gearProgressionOverlay;
+
+	@Inject
+	private MouseManager mouseManager;
+
+	@Inject
+	private KeyManager keyManager;
+
+	private HotkeyListener gearHotkeyListener;
+
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
 
@@ -240,7 +257,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker);
+		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -254,6 +271,19 @@ public class OSRSCompanionPlugin extends Plugin {
 		overlayManager.add(nextGoalOverlay);
 		// Roadmap progress drawn under the goal completion popup while it shows.
 		overlayManager.add(goalCompletionOverlay);
+
+		// Gear progression window: side-panel button or hotkey opens it, Escape closes it.
+		overlayManager.add(gearProgressionOverlay);
+		mouseManager.registerMouseListener(gearProgressionOverlay);
+		mouseManager.registerMouseWheelListener(gearProgressionOverlay);
+		keyManager.registerKeyListener(gearProgressionOverlay);
+		gearHotkeyListener = new HotkeyListener(config::gearProgressionHotkey) {
+			@Override
+			public void hotkeyPressed() {
+				gearProgressionManager.toggle();
+			}
+		};
+		keyManager.registerKeyListener(gearHotkeyListener);
 	}
 
 	@Override
@@ -349,6 +379,15 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapPanel = null;
 		overlayManager.remove(nextGoalOverlay);
 		overlayManager.remove(goalCompletionOverlay);
+		overlayManager.remove(gearProgressionOverlay);
+		mouseManager.unregisterMouseListener(gearProgressionOverlay);
+		mouseManager.unregisterMouseWheelListener(gearProgressionOverlay);
+		keyManager.unregisterKeyListener(gearProgressionOverlay);
+		if (gearHotkeyListener != null) {
+			keyManager.unregisterKeyListener(gearHotkeyListener);
+			gearHotkeyListener = null;
+		}
+		gearProgressionManager.clear();
 		roadmapManager.clear();
 		log.debug("OSRS Companion stopped");
 	}
