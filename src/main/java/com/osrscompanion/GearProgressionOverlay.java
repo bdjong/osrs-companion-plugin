@@ -338,15 +338,16 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 			scroll = 0;
 		}
 
-		// Lay the steps out left to right, wrapping into rows. Hidden items are left out.
-		List<GearPlan.Step> steps = tier.getVisibleSteps();
+		// Lay the steps out left to right, wrapping into rows. Hidden items are drawn faded
+		// with an eye-off icon (as on the website), so they can be selected and unhidden.
+		List<GearPlan.Step> steps = tier.getSteps();
 		int[] colX = new int[steps.size()];
 		int[] colY = new int[steps.size()];
 		int cx = 0;
 		int cy = 0;
 		int rowHeight = 0;
 		for (int i = 0; i < steps.size(); i++) {
-			int colH = 14 + steps.get(i).getVisibleItems().size() * (SLOT_HEIGHT + SLOT_GAP);
+			int colH = 14 + steps.get(i).getItems().size() * (SLOT_HEIGHT + SLOT_GAP);
 			if (cx > 0 && cx + SLOT_WIDTH > view.width) {
 				cx = 0;
 				cy += rowHeight + ROW_GAP;
@@ -373,7 +374,7 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 			String label = String.valueOf(i + 1);
 			centred(g, label, sx + SLOT_WIDTH / 2, sy + 10, labelColor);
 			int slotY = sy + 14;
-			for (GearPlan.Item item : step.getVisibleItems()) {
+			for (GearPlan.Item item : step.getItems()) {
 				Rectangle slot = new Rectangle(sx, slotY, SLOT_WIDTH, SLOT_HEIGHT);
 				drawSlot(g, slot, item, selected != null && selected.getId() == item.getId());
 				if (view.contains(slot.x, slot.y + slot.height / 2)) {
@@ -415,13 +416,13 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 
 		int stepNumber = 0;
 		List<String> sameLevel = new ArrayList<>();
-		List<GearPlan.Step> steps = tier.getVisibleSteps();
+		List<GearPlan.Step> steps = tier.getSteps();
 		for (int i = 0; i < steps.size(); i++) {
-			for (GearPlan.Item other : steps.get(i).getVisibleItems()) {
+			for (GearPlan.Item other : steps.get(i).getItems()) {
 				if (other.getId() == item.getId()) {
 					stepNumber = i + 1;
-					for (GearPlan.Item sibling : steps.get(i).getVisibleItems()) {
-						if (sibling.getId() != item.getId()) {
+					for (GearPlan.Item sibling : steps.get(i).getItems()) {
+						if (sibling.getId() != item.getId() && !sibling.isHidden()) {
 							sameLevel.add(sibling.getName());
 						}
 					}
@@ -437,15 +438,26 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 		String where = "Tier " + tier.getTier() + " - step " + stepNumber
 				+ (sameLevel.isEmpty() ? "" : " - same level as " + String.join(", ", sameLevel));
 		text(g, truncate(where, g.getFontMetrics(), textW), textX, area.y + 36, Color.WHITE);
-		String state = item.isAuto() ? "Done - ticked automatically" : item.isManual() ? "Done - you ticked it" : item.isNext() ? "Next up" : "Not done yet";
-		Color stateColor = item.isDone() ? GREEN : item.isNext() ? YELLOW : RED;
+		String state = item.isHidden() ? "Hidden - not counted"
+				: item.isAuto() ? "Done - ticked automatically" : item.isManual() ? "Done - you ticked it" : item.isNext() ? "Next up" : "Not done yet";
+		Color stateColor = item.isHidden() ? GREY : item.isDone() ? GREEN : item.isNext() ? YELLOW : RED;
 		text(g, state, textX, area.y + 52, stateColor);
 		g.setFont(FontManager.getRunescapeSmallFont());
-		text(g, truncate(item.getHow(), g.getFontMetrics(), textW), textX, area.y + 67, GREY);
+		String how = item.isHidden() ? "Left out of your progress and of \"next up\". Unhide it to count it again." : item.getHow();
+		text(g, truncate(how, g.getFontMetrics(), textW), textX, area.y + 67, GREY);
 
 		int buttonX = area.x + area.width - BUTTON_WIDTH - 10;
 		int buttonY = area.y + 10;
 		boolean busy = manager.isBusy();
+		if (item.isHidden()) {
+			Rectangle unhide = new Rectangle(buttonX, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT);
+			button(g, unhide, "Unhide", busy);
+			if (!busy) {
+				newHits.add(new Hit(unhide, () -> manager.toggleHidden(item), null));
+			}
+			statusLine(g, area);
+			return;
+		}
 		if (!item.isAuto()) {
 			Rectangle tick = new Rectangle(buttonX, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT);
 			button(g, tick, item.isManual() ? "Undo my tick" : "Mark as done", busy);
@@ -465,7 +477,7 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 		Rectangle hide = new Rectangle(buttonX, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT);
 		button(g, hide, "Hide", busy);
 		if (!busy) {
-			newHits.add(new Hit(hide, () -> manager.hide(item), "Hide it from your roadmap (unhide on the website)"));
+			newHits.add(new Hit(hide, () -> manager.toggleHidden(item), "Hide it: it stays visible but is not counted"));
 		}
 		statusLine(g, area);
 	}
@@ -484,7 +496,9 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 		BufferedImage image = imageFor(item);
 		if (image != null) {
 			Composite old = g.getComposite();
-			if (!item.isDone() && !item.isNext()) {
+			if (item.isHidden()) {
+				g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
+			} else if (!item.isDone() && !item.isNext()) {
 				g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.45f));
 			}
 			g.drawImage(image, slot.x + (slot.width - image.getWidth()) / 2, slot.y + (slot.height - image.getHeight()) / 2, null);
@@ -497,9 +511,27 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 			g.drawRect(slot.x + 1, slot.y + 1, slot.width - 2, slot.height - 2);
 			g.setStroke(old);
 		}
-		if (item.isDone()) {
+		if (item.isHidden()) {
+			eyeOff(g, slot.x + slot.width - 15, slot.y + 3);
+		} else if (item.isDone()) {
 			tick(g, slot.x + slot.width - 14, slot.y + slot.height - 12);
 		}
+	}
+
+	/** A small crossed-out eye (the website's "hidden" icon), 12x8 at x,y, with a black shadow. */
+	private static void eyeOff(Graphics2D g, int x, int y) {
+		Stroke old = g.getStroke();
+		for (int pass = 0; pass < 2; pass++) {
+			Color c = pass == 0 ? Color.BLACK : new Color(0xC9B98F);
+			int o = pass == 0 ? 1 : 0;
+			g.setColor(c);
+			g.setStroke(new BasicStroke(pass == 0 ? 2.5f : 1.2f));
+			g.drawArc(x + o, y + o, 12, 8, 0, 180);
+			g.drawArc(x + o, y + o, 12, 8, 180, 180);
+			g.fillOval(x + 4 + o, y + 2 + o, 4, 4);
+			g.drawLine(x - 1 + o, y + 9 + o, x + 13 + o, y - 1 + o);
+		}
+		g.setStroke(old);
 	}
 
 	/** Package-private so a preview harness can supply images without a game client. */
