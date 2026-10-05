@@ -85,6 +85,13 @@ case "$PACKAGE_DIR" in
     stop_here 1 ;;
 esac
 ok "Plugin files found ($PLUGIN_DIR)"
+# Files from a downloaded zip carry macOS's "downloaded from the internet" mark, which makes
+# Gatekeeper block every double-click. The player already allowed this folder once to get
+# here, so clear the mark for the whole folder: Update RuneLite.command and the desktop
+# shortcut then open without the warning.
+if command -v xattr >/dev/null 2>&1 && xattr -r "$PACKAGE_DIR" 2>/dev/null | grep -q com.apple.quarantine; then
+  xattr -dr com.apple.quarantine "$PACKAGE_DIR" 2>/dev/null && ok "Allowed the OSRS-Companion folder to run on this Mac"
+fi
 
 # ---------------------------------------------------------------------------
 title "2/5  Checking Java (JDK 11 or newer)"
