@@ -2,3 +2,8 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
 *.ps1 text eol=crlf
+
+# Mac / Linux scripts must have Unix line endings, or the shell refuses to run them.
+*.command text eol=lf
+*.sh text eol=lf
+gradlew text eol=lf
