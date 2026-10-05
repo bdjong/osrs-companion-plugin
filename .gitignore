@@ -1,0 +1,16 @@
+.gradle
+build
+bin/
+
+.cursor/
+AGENTS.md
+
+.idea/
+.project
+.settings/
+.classpath
+nbactions.xml
+nb-configuration.xml
+nbproject/
+.vscode/
+node_modules/

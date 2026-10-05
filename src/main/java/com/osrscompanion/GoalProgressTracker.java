@@ -1,0 +1,346 @@
+package com.osrscompanion;
+
+import com.osrscompanion.model.BankSyncPayload;
+import com.osrscompanion.model.DiaryTierResult;
+import com.osrscompanion.model.LootSyncPayload;
+import com.osrscompanion.model.Roadmap;
+import com.osrscompanion.model.RoadmapGoal;
+import com.osrscompanion.model.TimerSyncItem;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.NPCComposition;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.StatChanged;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.ItemManager;
+
+/**
+ * Bridges game events and the monitors to {@link GoalProgressState}, and turns
+ * the state's outbound requests into monitor calls. Registered on the event bus
+ * and wired to the monitors' listeners by {@link OSRSCompanionPlugin}.
+ */
+@Slf4j
+@Singleton
+public class GoalProgressTracker implements GoalProgressState.SyncHooks {
+	private final Client client;
+	private final ClientThread clientThread;
+	private final ItemManager itemManager;
+	private final PlayerSkillsMonitor playerSkillsMonitor;
+	private final LootMonitor lootMonitor;
+	private final BankMemoryMonitor bankMemoryMonitor;
+	private final RoadmapManager roadmapManager;
+	private final GoalCompletionNotifier completionNotifier;
+	private final GoalProgressState state;
+	/** Storage-item monitors (rune pouch, barrels...) to flush on a local completion; set by the plugin. */
+	private volatile Runnable storageSyncNow;
+
+	/** Farming completions are time-based, so re-check every few ticks. */
+	private static final int FARMING_CHECK_TICKS = 8;
+
+
+	@Inject
+	public GoalProgressTracker(
+			Client client,
+			ClientThread clientThread,
+			ItemManager itemManager,
+			PlayerSkillsMonitor playerSkillsMonitor,
+			LootMonitor lootMonitor,
+			BankMemoryMonitor bankMemoryMonitor,
+			RoadmapManager roadmapManager,
+			GoalCompletionNotifier completionNotifier) {
+		this.client = client;
+		this.clientThread = clientThread;
+		this.itemManager = itemManager;
+		this.playerSkillsMonitor = playerSkillsMonitor;
+		this.lootMonitor = lootMonitor;
+		this.bankMemoryMonitor = bankMemoryMonitor;
+		this.roadmapManager = roadmapManager;
+		this.completionNotifier = completionNotifier;
+		this.state = new GoalProgressState(this);
+	}
+
+	public void setStorageSyncNow(Runnable storageSyncNow) {
+		this.storageSyncNow = storageSyncNow;
+	}
+
+	// ---------------------------------------------------------- game events
+
+	@Subscribe
+	public void onStatChanged(StatChanged event) {
+		state.onSkillXp(event.getSkill().getName(), event.getXp());
+	}
+
+	/** Inventory and equipment changes keep owned-item goals exact between bank
+	 * visits: cutting or picking up raises them, dropping lowers them. */
+	@Subscribe
+	public void onItemContainerChanged(ItemContainerChanged event) {
+		boolean equipment;
+		if (event.getContainerId() == InventoryID.INV) {
+			equipment = false;
+		} else if (event.getContainerId() == InventoryID.WORN) {
+			equipment = true;
+		} else {
+			return;
+		}
+		ItemContainer container = event.getItemContainer();
+		Map<Integer, Integer> quantities = new HashMap<>();
+		if (container != null) {
+			for (Item item : container.getItems()) {
+				if (item == null || item.getId() <= 0 || item.getQuantity() <= 0) {
+					continue;
+				}
+				quantities.merge(canonicalItemId(item.getId()), item.getQuantity(), Integer::sum);
+			}
+		}
+		state.onInventoryChanged(equipment, quantities);
+	}
+
+	/** A bank upload was built: its bank section (and any deposit-box deposits)
+	 * become this session's snapshots for those sources (ids folded onto the
+	 * unnoted item). Inventory is tracked live from container events. */
+	public void onBankPayload(BankSyncPayload payload) {
+		if (payload == null) {
+			return;
+		}
+		for (Map.Entry<String, List<BankSyncPayload.BankItem>> e : payload.getItems().entrySet()) {
+			if (BankMemoryMonitor.SOURCE_INVENTORY.equals(e.getKey()) || e.getValue() == null) {
+				continue;
+			}
+			Map<Integer, Integer> quantities = new HashMap<>();
+			for (BankSyncPayload.BankItem item : e.getValue()) {
+				quantities.merge(canonicalItemId(item.getItemId()), item.getQuantity(), Integer::sum);
+			}
+			state.onContainerSnapshot(e.getKey(), quantities);
+		}
+	}
+
+	/**
+	 * A storage container that syncs as its own bank-memory source (seed vault,
+	 * looting bag, a boat's cargo hold, the fish barrel ledger...) was read:
+	 * its contents become this session's snapshot for that source, so moving
+	 * items into it no longer reads as a loss. Client thread.
+	 */
+	public void onContainerSnapshot(String source, Map<Integer, Integer> quantities) {
+		Map<Integer, Integer> canonical = new HashMap<>();
+		if (quantities != null) {
+			for (Map.Entry<Integer, Integer> e : quantities.entrySet()) {
+				if (e.getKey() == null || e.getValue() == null || e.getValue() <= 0) {
+					continue;
+				}
+				canonical.merge(canonicalItemId(e.getKey()), e.getValue(), Integer::sum);
+			}
+		}
+		state.onContainerSnapshot(source, canonical);
+	}
+
+	/** Noted items map to their unnoted item id (client thread). */
+	private int canonicalItemId(int itemId) {
+		ItemComposition composition = itemManager.getItemComposition(itemId);
+		if (composition != null && composition.getNote() != -1) {
+			return composition.getLinkedNoteId();
+		}
+		return itemId;
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event) {
+		state.settleOwned();
+		if (client.getTickCount() % FARMING_CHECK_TICKS == 0) {
+			state.checkFarming(System.currentTimeMillis());
+		}
+	}
+
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged event) {
+		if (endsSession(event.getGameState())) {
+			state.resetSession();
+		}
+	}
+
+	/**
+	 * Only a real logout ends the local session. Region loads, world hops and
+	 * brief connection drops pass through LOADING / HOPPING / CONNECTION_LOST on
+	 * the way back to LOGGED_IN with the player's XP, inventory and kills intact,
+	 * so treating them as a logout would wipe progress made since the last
+	 * server read (a goal completed seconds before a teleport, for example).
+	 */
+	static boolean endsSession(GameState newState) {
+		return newState == GameState.LOGIN_SCREEN
+				|| newState == GameState.LOGIN_SCREEN_AUTHENTICATOR;
+	}
+
+	// ------------------------------------------------ monitor / manager feeds
+
+	public void onServerRoadmap(Roadmap roadmap) {
+		state.onServerRoadmap(roadmap);
+		if (roadmap != null) {
+			resolveNpcNames(roadmap);
+		}
+	}
+
+	/** The player's current set of roadmaps; any others are forgotten. */
+	public void retainRoadmaps(Set<Integer> collectionIds) {
+		state.retainRoadmaps(collectionIds);
+	}
+
+	/**
+	 * Kill-count goals carry one canonical NPC id, but many NPCs (guards, for
+	 * example) have several in-game ids sharing a name. The server sends the
+	 * canonical name; for older responses without it, resolve the id to a name
+	 * on the client thread as a fallback (multi-form NPCs resolve to "null").
+	 */
+	private void resolveNpcNames(Roadmap roadmap) {
+		clientThread.invokeLater(() -> {
+			for (RoadmapGoal goal : roadmap.getGoals()) {
+				Integer npcId = goal.getNpcId();
+				if (npcId == null || goal.getNpcName() != null) {
+					continue; // the server already told us the canonical name
+				}
+				NPCComposition composition = client.getNpcDefinition(npcId);
+				String name = composition == null ? null : composition.getName();
+				log.debug("Goal {} npc {} resolves to name '{}'", goal.getId(), npcId, name);
+				if (name != null && !"null".equals(name)) {
+					state.setNpcName(goal.getId(), name);
+				}
+			}
+		});
+	}
+
+	public void onSkillsUploaded(Map<String, Integer> xpBySkillName) {
+		state.onSkillsUploaded(xpBySkillName);
+	}
+
+	public void onLootDrop(int npcId, String npcName, int kills, List<LootSyncPayload.LootItem> items) {
+		log.debug("Goal progress: loot drop npc {} '{}' x{}", npcId, npcName, kills);
+		state.onLootDrop(npcId, npcName, kills, items);
+	}
+
+	public void onCollectionLogItemObtained(int itemId, int quantity) {
+		state.onCollectionLogItemObtained(itemId, quantity);
+	}
+
+	public void onSourceSynced(SyncSource source) {
+		state.onSourceSynced(source);
+	}
+
+	public void onQuestStates(Map<String, Integer> statusByQuestName) {
+		state.onQuestStates(statusByQuestName);
+	}
+
+	public void onDiaryRead(Map<String, Map<String, DiaryTierResult>> diaries) {
+		state.onDiaryRead(diaries);
+	}
+
+	public void onCombatTasksCompleted(List<Integer> taskIds) {
+		state.onCombatTasksCompleted(taskIds);
+	}
+
+	public void onFarmingTimers(List<TimerSyncItem> timers) {
+		state.onFarmingTimers(timers, System.currentTimeMillis());
+	}
+
+	public void clear() {
+		state.clearAll();
+	}
+
+	/** What the server last held in a bank-memory source for each in-progress owned goal's item. */
+	public Map<Integer, Integer> serverHeldFor(String source) {
+		return state.serverHeldFor(source);
+	}
+
+	/** Item ids of owned-item goals still in progress: the sources holding them upload on the short debounce. */
+	public Set<Integer> ownedGoalItemIds() {
+		return state.ownedGoalItemIds();
+	}
+
+	// ----------------------------------------------------------------- reads
+
+	public GoalProgressView progressFor(RoadmapGoal goal) {
+		return state.progressFor(goal);
+	}
+
+	public boolean isComplete(RoadmapGoal goal) {
+		return state.isComplete(goal);
+	}
+
+	/** True when the goal's completion was first seen this session (it lingers in the tree). */
+	public boolean completedThisSession(RoadmapGoal goal) {
+		return goal != null && state.completedThisSession(goal.getId());
+	}
+
+	/** The first goal in sort order the plugin does not consider complete. */
+	public RoadmapGoal firstIncompleteGoal(Roadmap roadmap) {
+		if (roadmap == null) {
+			return null;
+		}
+		for (RoadmapGoal goal : roadmap.getGoalsSorted()) {
+			if (!isComplete(goal)) {
+				return goal;
+			}
+		}
+		return null;
+	}
+
+	// ------------------------------------------------------------- SyncHooks
+
+	@Override
+	public void forceSkillsSync() {
+		playerSkillsMonitor.forceSync();
+	}
+
+	@Override
+	public void flushLootDrops() {
+		lootMonitor.flushDropsNow();
+	}
+
+	@Override
+	public void forceBankSync() {
+		// Inventory and gear (plus the bank when it was opened this session) so
+		// the server can confirm without waiting for a bank visit.
+		bankMemoryMonitor.syncInventoryNow();
+		Runnable storage = storageSyncNow;
+		if (storage != null) {
+			storage.run();
+		}
+	}
+
+	@Override
+	public void requestReconcile(int delaySeconds) {
+		roadmapManager.requestReconcile(delaySeconds);
+	}
+
+	@Override
+	public void goalCompleted(RoadmapGoal goal, Roadmap roadmap) {
+		log.debug("Roadmap goal completed: {}", goal.getName());
+		int total = 0;
+		int done = 0;
+		if (roadmap != null) {
+			for (RoadmapGoal g : roadmap.getGoals()) {
+				total++;
+				// The just-completed goal is already marked complete in the state.
+				if (isComplete(g)) {
+					done++;
+				}
+			}
+			// A completion in another roadmap makes that roadmap the active one.
+			roadmapManager.selectRoadmap(roadmap);
+		}
+		completionNotifier.show(goal, roadmap == null ? null : roadmap.getTitle(), done, total);
+		// Move the goal into the panel's Completed section right away.
+		roadmapManager.notifyPanel();
+	}
+}
