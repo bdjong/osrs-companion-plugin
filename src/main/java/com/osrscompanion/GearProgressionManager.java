@@ -20,6 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 public class GearProgressionManager {
 	/** While the window is open the plan is re-read at most this often. */
 	static final long REFRESH_INTERVAL_MS = 60_000;
+	/** For the in-game box alone (window closed) the plan is re-read at most this often. */
+	static final long OVERLAY_REFRESH_INTERVAL_MS = 120_000;
+	/** After a failed read the box waits this long before trying again. */
+	static final long OVERLAY_RETRY_MS = 300_000;
 
 	private final OSRSCompanionApiClient apiClient;
 	private final RoadmapManager roadmapManager;
@@ -67,6 +71,21 @@ public class GearProgressionManager {
 	/** Re-reads the plan when the window is open and the copy is older than the refresh interval. */
 	public void refreshIfStale() {
 		if (open && !loading && System.currentTimeMillis() - fetchedAtMs > REFRESH_INTERVAL_MS) {
+			refresh();
+		}
+	}
+
+	/**
+	 * Keeps the plan fresh for the in-game box while the window is closed: re-reads it
+	 * every couple of minutes when logged in with an App Key, and backs off after a
+	 * failed read. Cheap enough to call every render frame.
+	 */
+	public void refreshForOverlay() {
+		if (open || loading || roadmapManager.getPlayerUsername() == null || !roadmapManager.hasAppKey()) {
+			return;
+		}
+		long wait = error != null ? OVERLAY_RETRY_MS : OVERLAY_REFRESH_INTERVAL_MS;
+		if (System.currentTimeMillis() - fetchedAtMs > wait) {
 			refresh();
 		}
 	}
