@@ -391,6 +391,24 @@ public class OSRSCompanionApiClient
 			GearPlan.Response.class, callback);
 	}
 
+	/** Hides (or unhides) a gear item and returns the re-rendered roadmap. */
+	public void toggleGearHidden(int itemId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/hide/", gson.toJson(body), "gear-hide",
+			GearPlan.Response.class, callback);
+	}
+
+	/** Makes another of the player's gear roadmaps the active one and returns the new state. */
+	public void activateGearPlan(int planId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(GEAR_ENDPOINT + "plans/" + planId + "/activate/", gson.toJson(body), "gear-activate",
+			GearPlan.Response.class, callback);
+	}
+
 	/** Puts a gear item at the top of the player's roadmap. */
 	public void setGearGoal(int itemId, String playerUsername, RoadmapCallback<GearPlan.GoalResult> callback)
 	{

@@ -2,6 +2,8 @@ package com.osrscompanion;
 
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.GearPlan;
+import java.util.Collections;
+import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ public class GearProgressionManager {
 	private volatile boolean loading;
 	private volatile boolean loaded;
 	private volatile GearPlan plan;
+	private volatile List<GearPlan.Summary> plans = Collections.emptyList();
 	private volatile String error;
 	private volatile String status;
 	private volatile long fetchedAtMs;
@@ -83,7 +86,7 @@ public class GearProgressionManager {
 		apiClient.getGearPlan(player, new OSRSCompanionApiClient.RoadmapCallback<GearPlan.Response>() {
 			@Override
 			public void onSuccess(GearPlan.Response result) {
-				setPlan(result.getPlan());
+				apply(result);
 				error = null;
 				loaded = true;
 				loading = false;
@@ -107,7 +110,7 @@ public class GearProgressionManager {
 		apiClient.toggleGearDone(item.getId(), player, new OSRSCompanionApiClient.RoadmapCallback<GearPlan.Response>() {
 			@Override
 			public void onSuccess(GearPlan.Response result) {
-				setPlan(result.getPlan());
+				apply(result);
 				GearPlan.Item updated = plan == null ? null : plan.findItem(item.getId());
 				status = updated != null && updated.isDone() ? item.getName() + " marked as done." : item.getName() + " is no longer ticked.";
 				busy = false;
@@ -144,7 +147,58 @@ public class GearProgressionManager {
 		});
 	}
 
-	private void setPlan(GearPlan newPlan) {
+	/** Hides an item: it leaves the window and stops counting. It can be unhidden on the website. */
+	public void hide(GearPlan.Item item) {
+		String player = roadmapManager.getPlayerUsername();
+		if (item == null || player == null || busy) {
+			return;
+		}
+		busy = true;
+		apiClient.toggleGearHidden(item.getId(), player, new OSRSCompanionApiClient.RoadmapCallback<GearPlan.Response>() {
+			@Override
+			public void onSuccess(GearPlan.Response result) {
+				selectedItemId = -1;
+				apply(result);
+				status = item.getName() + " hidden. Unhide it on the website (Show hidden items).";
+				busy = false;
+			}
+
+			@Override
+			public void onError(String message) {
+				status = "Could not hide " + item.getName() + " (" + message + ").";
+				busy = false;
+			}
+		});
+	}
+
+	/** Makes another roadmap the active one (also on the website) and shows it. */
+	public void activatePlan(GearPlan.Summary summary) {
+		String player = roadmapManager.getPlayerUsername();
+		if (summary == null || player == null || busy) {
+			return;
+		}
+		busy = true;
+		apiClient.activateGearPlan(summary.getId(), player, new OSRSCompanionApiClient.RoadmapCallback<GearPlan.Response>() {
+			@Override
+			public void onSuccess(GearPlan.Response result) {
+				selectedTier = -1;
+				selectedItemId = -1;
+				apply(result);
+				status = "Switched to " + summary.getName() + ".";
+				busy = false;
+			}
+
+			@Override
+			public void onError(String message) {
+				status = "Could not switch to " + summary.getName() + " (" + message + ").";
+				busy = false;
+			}
+		});
+	}
+
+	private void apply(GearPlan.Response result) {
+		GearPlan newPlan = result.getPlan();
+		plans = result.getPlans();
 		plan = newPlan;
 		if (newPlan != null && selectedItemId >= 0 && newPlan.findItem(selectedItemId) == null) {
 			selectedItemId = -1;
@@ -153,6 +207,11 @@ public class GearProgressionManager {
 
 	public GearPlan getPlan() {
 		return plan;
+	}
+
+	/** Every roadmap of the character (the active one included), oldest first. */
+	public List<GearPlan.Summary> getPlans() {
+		return plans;
 	}
 
 	public boolean isLoading() {
@@ -229,6 +288,7 @@ public class GearProgressionManager {
 	public void clear() {
 		open = false;
 		plan = null;
+		plans = Collections.emptyList();
 		loaded = false;
 		error = null;
 		status = null;

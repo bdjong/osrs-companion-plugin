@@ -96,6 +96,8 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 	private volatile int scroll;
 	private volatile int maxScroll;
 	private int scrolledTier = -1;
+	/** Whether the roadmap list under the Switch button is open. */
+	private volatile boolean switcherOpen;
 
 	private static final class Hit {
 		final Rectangle area;
@@ -177,10 +179,21 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 			return new Dimension(w, h);
 		}
 
-		// Subtitle: plan name and overall progress.
+		// Subtitle: active roadmap (with a switcher when there are several) and overall progress.
 		int subY = y + TITLE_HEIGHT + 16;
 		g.setFont(FontManager.getRunescapeSmallFont());
-		text(g, plan.getTitle(), x + 12, subY, BEIGE);
+		int afterName = text(g, "Roadmap: ", x + 12, subY, BEIGE);
+		g.setFont(FontManager.getRunescapeFont());
+		afterName = text(g, truncate(plan.getTitle(), g.getFontMetrics(), w / 3), afterName, subY, Color.WHITE);
+		List<GearPlan.Summary> plans = manager.getPlans();
+		Rectangle switchButton = null;
+		if (plans.size() > 1) {
+			switchButton = new Rectangle(afterName + 8, subY - 13, 62, 17);
+			button(g, switchButton, switcherOpen ? "Close" : "Switch", manager.isBusy());
+			newHits.add(new Hit(switchButton, () -> switcherOpen = !switcherOpen, "Switch to another roadmap"));
+		} else {
+			switcherOpen = false;
+		}
 		int barW = 160;
 		bar(g, x + w - 12 - barW, subY - 7, barW, 7, plan.getDone(), plan.getTotal());
 		String overall = "Overall " + plan.getDone() + " / " + plan.getTotal();
@@ -201,8 +214,48 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 			renderSteps(g, tier, steps, newHits);
 			renderDetail(g, tier, detail, newHits);
 		}
+		if (switcherOpen && switchButton != null) {
+			renderSwitcher(g, plans, switchButton, newHits);
+		}
 		finish(g, win, newHits, steps);
 		return new Dimension(w, h);
+	}
+
+	/** The roadmap list under the Switch button, drawn last so it sits on top. Its hits go first. */
+	private void renderSwitcher(Graphics2D g, List<GearPlan.Summary> plans, Rectangle anchor, List<Hit> newHits) {
+		g.setFont(FontManager.getRunescapeFont());
+		FontMetrics fm = g.getFontMetrics();
+		int rowH = 18;
+		int width = 220;
+		Rectangle list = new Rectangle(anchor.x, anchor.y + anchor.height + 2, width, plans.size() * rowH + 6);
+		box(g, list, BG, FRAME_DARK, BUTTON_INNER);
+		List<Hit> optionHits = new ArrayList<>();
+		int rowY = list.y + 3;
+		for (GearPlan.Summary p : plans) {
+			Rectangle row = new Rectangle(list.x + 3, rowY, list.width - 6, rowH);
+			Point m = mouse;
+			if (m != null && row.contains(m)) {
+				g.setColor(TAB_ON);
+				g.fillRect(row.x, row.y, row.width, row.height);
+			}
+			String label = truncate(p.getName(), fm, row.width - 50);
+			text(g, label, row.x + 6, row.y + 13, p.isActive() ? ORANGE : Color.WHITE);
+			if (p.isActive()) {
+				g.setFont(FontManager.getRunescapeSmallFont());
+				text(g, "active", row.x + row.width - 38, row.y + 13, GREEN);
+				g.setFont(FontManager.getRunescapeFont());
+			} else {
+				final GearPlan.Summary target = p;
+				optionHits.add(new Hit(row, () -> {
+					switcherOpen = false;
+					manager.activatePlan(target);
+				}, null));
+			}
+			rowY += rowH;
+		}
+		// Clicks inside the list never fall through to what is drawn underneath.
+		optionHits.add(new Hit(list, () -> { }, null));
+		newHits.addAll(0, optionHits);
 	}
 
 	private void finish(Graphics2D g, Rectangle win, List<Hit> newHits, Rectangle steps) {
@@ -285,15 +338,15 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 			scroll = 0;
 		}
 
-		// Lay the steps out left to right, wrapping into rows.
-		List<GearPlan.Step> steps = tier.getSteps();
+		// Lay the steps out left to right, wrapping into rows. Hidden items are left out.
+		List<GearPlan.Step> steps = tier.getVisibleSteps();
 		int[] colX = new int[steps.size()];
 		int[] colY = new int[steps.size()];
 		int cx = 0;
 		int cy = 0;
 		int rowHeight = 0;
 		for (int i = 0; i < steps.size(); i++) {
-			int colH = 14 + steps.get(i).getItems().size() * (SLOT_HEIGHT + SLOT_GAP);
+			int colH = 14 + steps.get(i).getVisibleItems().size() * (SLOT_HEIGHT + SLOT_GAP);
 			if (cx > 0 && cx + SLOT_WIDTH > view.width) {
 				cx = 0;
 				cy += rowHeight + ROW_GAP;
@@ -320,7 +373,7 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 			String label = String.valueOf(i + 1);
 			centred(g, label, sx + SLOT_WIDTH / 2, sy + 10, labelColor);
 			int slotY = sy + 14;
-			for (GearPlan.Item item : step.getItems()) {
+			for (GearPlan.Item item : step.getVisibleItems()) {
 				Rectangle slot = new Rectangle(sx, slotY, SLOT_WIDTH, SLOT_HEIGHT);
 				drawSlot(g, slot, item, selected != null && selected.getId() == item.getId());
 				if (view.contains(slot.x, slot.y + slot.height / 2)) {
@@ -362,12 +415,12 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 
 		int stepNumber = 0;
 		List<String> sameLevel = new ArrayList<>();
-		List<GearPlan.Step> steps = tier.getSteps();
+		List<GearPlan.Step> steps = tier.getVisibleSteps();
 		for (int i = 0; i < steps.size(); i++) {
-			for (GearPlan.Item other : steps.get(i).getItems()) {
+			for (GearPlan.Item other : steps.get(i).getVisibleItems()) {
 				if (other.getId() == item.getId()) {
 					stepNumber = i + 1;
-					for (GearPlan.Item sibling : steps.get(i).getItems()) {
+					for (GearPlan.Item sibling : steps.get(i).getVisibleItems()) {
 						if (sibling.getId() != item.getId()) {
 							sameLevel.add(sibling.getName());
 						}
@@ -407,6 +460,12 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 			if (!busy) {
 				newHits.add(new Hit(goal, () -> manager.setAsGoal(item), null));
 			}
+			buttonY += BUTTON_HEIGHT + 6;
+		}
+		Rectangle hide = new Rectangle(buttonX, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT);
+		button(g, hide, "Hide", busy);
+		if (!busy) {
+			newHits.add(new Hit(hide, () -> manager.hide(item), "Hide it from your roadmap (unhide on the website)"));
 		}
 		statusLine(g, area);
 	}
@@ -415,7 +474,8 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 		String status = manager.getStatus();
 		if (status != null) {
 			g.setFont(FontManager.getRunescapeSmallFont());
-			text(g, truncate(status, g.getFontMetrics(), area.width - 20), area.x + 10, area.y + area.height - 7, BEIGE);
+			// Left of the button column, which can reach the bottom of the panel.
+			text(g, truncate(status, g.getFontMetrics(), area.width - BUTTON_WIDTH - 32), area.x + 10, area.y + area.height - 7, BEIGE);
 		}
 	}
 
@@ -578,11 +638,20 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 		}
 		if (SwingUtilities.isLeftMouseButton(e)) {
 			Point p = e.getPoint();
+			boolean listWasOpen = switcherOpen;
+			Hit clicked = null;
 			for (Hit hit : hits) {
 				if (hit.area.contains(p)) {
-					hit.action.run();
+					clicked = hit;
 					break;
 				}
+			}
+			if (clicked != null) {
+				clicked.action.run();
+			}
+			// Any click outside the open roadmap list (and not on its Switch button) closes it.
+			if (listWasOpen && switcherOpen && (clicked == null || clicked.tooltip == null || !clicked.tooltip.startsWith("Switch"))) {
+				switcherOpen = false;
 			}
 		}
 		e.consume();
@@ -653,7 +722,12 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 	@Override
 	public void keyPressed(KeyEvent e) {
 		if (manager.isOpen() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-			manager.close();
+			// Escape closes the roadmap list first, then the window.
+			if (switcherOpen) {
+				switcherOpen = false;
+			} else {
+				manager.close();
+			}
 			e.consume();
 		}
 	}
