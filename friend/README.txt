@@ -21,7 +21,11 @@ Mac:
 
 Either way it checks everything it needs and tells you in plain words if something is missing:
 - Java (JDK 11). It can install it for you (free, Eclipse Temurin from adoptium.net):
-  with winget on Windows, with Homebrew on a Mac (otherwise it opens the download page).
+  with winget on Windows; on a Mac it downloads the installer (.pkg) for your chip and
+  opens it, you click Continue and Install.
+  Installing Java yourself on a Mac? Take the .pkg installer, not the .tar.gz folder:
+    Apple M1/M2/M3/M4: https://api.adoptium.net/v3/installer/latest/11/ga/mac/aarch64/jdk/hotspot/normal/eclipse?project=jdk
+    Intel:             https://api.adoptium.net/v3/installer/latest/11/ga/mac/x64/jdk/hotspot/normal/eclipse?project=jdk
 - An internet connection (the first start downloads about 150 MB).
 - For Jagex accounts: a one-time login step (it explains what to do).
 Then it builds RuneLite with the plugin (first time 2-5 minutes, later a few seconds) and
