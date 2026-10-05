@@ -60,7 +60,7 @@ public class OSRSCompanionApiClient
 	 * releases apart (Plugin Hub builds carry no version of their own). Bump it
 	 * in the commit a Plugin Hub update points at.
 	 */
-	public static final String PLUGIN_VERSION = "2026.10.01";
+	public static final String PLUGIN_VERSION = "2026.10.05";
 	static final String VERSION_HEADER = "X-OSRSCompanion-Plugin-Version";
 	private static final Interceptor VERSION_INTERCEPTOR = chain -> chain.proceed(
 		chain.request().newBuilder().header(VERSION_HEADER, PLUGIN_VERSION).build());
