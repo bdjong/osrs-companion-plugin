@@ -178,6 +178,28 @@ fi
 # ---------------------------------------------------------------------------
 title "4/5  Checking the login (Jagex account)"
 # ---------------------------------------------------------------------------
+find_runelite_app() {
+  # RuneLite can live in /Applications, ~/Applications or wherever it was unpacked.
+  local p
+  for p in "$RUNELITE_APP" "$HOME/Applications/RuneLite.app"; do
+    [ -d "$p" ] && { echo "$p"; return 0; }
+  done
+  if command -v mdfind >/dev/null 2>&1; then
+    p="$(mdfind "kMDItemFSName == 'RuneLite.app'" 2>/dev/null | head -n 1)"
+    [ -n "$p" ] && [ -d "$p" ] && { echo "$p"; return 0; }
+  fi
+  p="$(find "$HOME/Applications" "$HOME/Downloads" "$HOME/Library/Application Support" -maxdepth 6 -name 'RuneLite.app' -type d 2>/dev/null | head -n 1)"
+  [ -n "$p" ] && { echo "$p"; return 0; }
+  return 1
+}
+open_runelite_configure() {
+  # Let macOS find the app by name first (works wherever it is installed), else search for it.
+  if open -n -a RuneLite --args --configure >/dev/null 2>&1; then return 0; fi
+  local app
+  app="$(find_runelite_app)" || return 1
+  open -n "$app" --args --configure >/dev/null 2>&1 || "$app/Contents/MacOS/RuneLite" --configure >/dev/null 2>&1 &
+  return 0
+}
 if [ -f "$CREDENTIALS" ]; then
   ok "Jagex account login file found"
 else
@@ -186,12 +208,6 @@ else
   if ! ask "Do you log in with a Jagex account (the Jagex Launcher)?"; then
     ok "Old-style account: you log in with your username and password in RuneLite."
   else
-    if [ ! -d "$RUNELITE_APP" ]; then
-      problem "RuneLite is not installed." \
-        "Install RuneLite from https://runelite.net (drag it to Applications) and log in once" \
-        "through the Jagex Launcher, then run this again."
-      stop_here 1
-    fi
     echo
     warn "RuneLite will write your Jagex login session to:"
     info "$CREDENTIALS"
@@ -202,10 +218,14 @@ else
     info "  1. In \"Client arguments\" type:  --insecure-write-credentials"
     info "  2. Click Save."
     if ask "Open RuneLite's configure window now?"; then
-      "$RUNELITE_APP/Contents/MacOS/RuneLite" --configure >/dev/null 2>&1 &
+      if ! open_runelite_configure; then
+        warn "Could not find RuneLite on this Mac."
+        info "Open RuneLite's configure window yourself: in Terminal, type  open -n -a  and a space,"
+        info "drag RuneLite (the app) from Finder into the Terminal window, then type  --args --configure"
+        info "and press Enter. No RuneLite yet? Install it from https://runelite.net first."
+      fi
     else
-      info "You can open it later in Terminal with:"
-      info "  /Applications/RuneLite.app/Contents/MacOS/RuneLite --configure"
+      info "You can open it later in Terminal with:  open -n -a RuneLite --args --configure"
     fi
     echo
     echo "  ${YELLOW}NEXT: after saving, start RuneLite once through the Jagex Launcher (open it, then quit it),${RESET}"
