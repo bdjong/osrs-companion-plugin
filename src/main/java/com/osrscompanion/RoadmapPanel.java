@@ -81,10 +81,14 @@ public class RoadmapPanel extends PluginPanel {
 
 	private boolean suppressSelectorEvents = false;
 
-	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker) {
+	/** Opens or closes the in-game gear progression window. */
+	private final Runnable openGearProgression;
+
+	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker, Runnable openGearProgression) {
 		super(false);
 		this.roadmapManager = roadmapManager;
 		this.goalProgressTracker = goalProgressTracker;
+		this.openGearProgression = openGearProgression;
 
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -142,6 +146,14 @@ public class RoadmapPanel extends PluginPanel {
 		reloadButton.setToolTipText("Reload your roadmaps and goals from the OSRS Companion app.");
 		reloadButton.addActionListener(e -> loadRoadmaps());
 		header.add(reloadButton);
+		header.add(Box.createVerticalStrut(8));
+
+		JButton gearButton = new JButton("Gear progression");
+		gearButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+		gearButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+		gearButton.setToolTipText("Open or close your gear progression in the game window (Escape closes it).");
+		gearButton.addActionListener(e -> openGearProgression.run());
+		header.add(gearButton);
 		header.add(Box.createVerticalStrut(8));
 
 		statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
