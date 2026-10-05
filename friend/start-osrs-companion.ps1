@@ -60,7 +60,8 @@ if (-not (Test-Path (Join-Path $PluginDir 'gradlew.bat')) -or -not (Test-Path (J
     '"Start OSRS Companion.cmd" in the unzipped folder.')
   Stop-Here 1
 }
-if ($PackageDir -match '\\AppData\\Local\\Temp\\' -or $PackageDir -match '\.zip\\') {
+# Opening a file straight from a zip makes Windows run it from "...\Temp1_<name>.zip\...".
+if ($PackageDir -match '\\Temp\d*_[^\\]+\.zip(\\|$)' -or $PackageDir -match '\.zip\\') {
   Problem 'You started it from inside the zip.' @(
     'Windows runs it from a temporary folder, which does not work.',
     'Right-click the zip > "Extract All...", open the extracted folder and',
@@ -209,10 +210,11 @@ if ($firstBuild) { Info 'First build: downloads RuneLite and the build tool. Thi
 else { Info 'Updating the build (usually a few seconds).' }
 $gradleArgs = 'shadowJar --console=plain'
 if ($Refresh) { $gradleArgs += ' --refresh-dependencies' }
-Push-Location $PluginDir
-cmd /c "gradlew.bat $gradleArgs > `"$BuildLog`" 2>&1"
+# cmd does not inherit PowerShell's current folder, so change to the plugin folder inside cmd,
+# and call gradlew by its full path (some PCs do not run programs from the current folder by name).
+$gradlew = Join-Path $PluginDir 'gradlew.bat'
+cmd /c "cd /d `"$PluginDir`" && `"$gradlew`" $gradleArgs > `"$BuildLog`" 2>&1"
 $code = $LASTEXITCODE
-Pop-Location
 if ($code -ne 0) {
   $log = Get-Content $BuildLog -ErrorAction SilentlyContinue
   $hint = @("The full log is in: $BuildLog")
