@@ -1,6 +1,7 @@
 package com.osrscompanion.model;
 
 import com.google.gson.annotations.SerializedName;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -94,6 +95,17 @@ public class GearPlan {
 		public List<Step> getSteps() {
 			return steps == null ? Collections.emptyList() : steps;
 		}
+
+		/** The steps that still show something once hidden items are left out. */
+		public List<Step> getVisibleSteps() {
+			List<Step> visible = new ArrayList<>();
+			for (Step s : getSteps()) {
+				if (!s.getVisibleItems().isEmpty()) {
+					visible.add(s);
+				}
+			}
+			return visible;
+		}
 	}
 
 	public static class Step {
@@ -111,9 +123,20 @@ public class GearPlan {
 			return items == null ? Collections.emptyList() : items;
 		}
 
-		/** True when every item of the step is done. */
-		public boolean isDone() {
+		/** The items the player has not hidden. */
+		public List<Item> getVisibleItems() {
+			List<Item> visible = new ArrayList<>();
 			for (Item i : getItems()) {
+				if (!i.isHidden()) {
+					visible.add(i);
+				}
+			}
+			return visible;
+		}
+
+		/** True when every visible item of the step is done. */
+		public boolean isDone() {
+			for (Item i : getVisibleItems()) {
 				if (!i.isDone()) {
 					return false;
 				}
@@ -123,7 +146,7 @@ public class GearPlan {
 
 		/** True when this is the next open step. */
 		public boolean isNext() {
-			for (Item i : getItems()) {
+			for (Item i : getVisibleItems()) {
 				if (i.isNext()) {
 					return true;
 				}
@@ -159,6 +182,9 @@ public class GearPlan {
 
 		@SerializedName("next")
 		private boolean next;
+
+		@SerializedName("hidden")
+		private boolean hidden;
 
 		@SerializedName("how")
 		private String how;
@@ -204,18 +230,57 @@ public class GearPlan {
 			return next;
 		}
 
+		/** Hidden by the player: not shown in game and not counted. */
+		public boolean isHidden() {
+			return hidden;
+		}
+
 		public String getHow() {
 			return how == null ? "" : how;
 		}
 	}
 
-	/** Response wrapper: { "plan": … } where plan is null until loaded on the website. */
+	/**
+	 * Response wrapper: { "plan": …, "plans": […] }. plan is the active roadmap (null until one
+	 * is created on the website); plans lists every roadmap of the character to switch between.
+	 */
 	public static class Response {
 		@SerializedName("plan")
 		private GearPlan plan;
 
+		@SerializedName("plans")
+		private List<Summary> plans;
+
 		public GearPlan getPlan() {
 			return plan;
+		}
+
+		public List<Summary> getPlans() {
+			return plans == null ? Collections.emptyList() : plans;
+		}
+	}
+
+	/** One of the character's roadmaps, for the switcher. */
+	public static class Summary {
+		@SerializedName("id")
+		private int id;
+
+		@SerializedName("name")
+		private String name;
+
+		@SerializedName("active")
+		private boolean active;
+
+		public int getId() {
+			return id;
+		}
+
+		public String getName() {
+			return name == null ? "" : name;
+		}
+
+		public boolean isActive() {
+			return active;
 		}
 	}
 

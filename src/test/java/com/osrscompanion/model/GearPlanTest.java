@@ -48,6 +48,18 @@ public class GearPlanTest {
 	}
 
 	@Test
+	public void hiddenItemsAreLeftOut() {
+		String json = "{\"plan\":{\"tiers\":[{\"tier\":1,\"name\":\"T\",\"steps\":["
+				+ "{\"step\":1,\"items\":[{\"id\":1,\"name\":\"A\",\"done\":false,\"hidden\":true}]},"
+				+ "{\"step\":2,\"items\":[{\"id\":2,\"name\":\"B\",\"done\":true,\"hidden\":false},{\"id\":3,\"name\":\"C\",\"done\":false,\"hidden\":true}]}]}]}}";
+		GearPlan.Tier tier = new Gson().fromJson(json, GearPlan.Response.class).getPlan().getTiers().get(0);
+		assertEquals("a step with only hidden items disappears", 1, tier.getVisibleSteps().size());
+		GearPlan.Step step = tier.getVisibleSteps().get(0);
+		assertEquals(1, step.getVisibleItems().size());
+		assertTrue("a hidden open item does not keep the step open", step.isDone());
+	}
+
+	@Test
 	public void findsItemsById() {
 		GearPlan plan = new Gson().fromJson(JSON, GearPlan.Response.class).getPlan();
 		assertEquals("Spirit tree", plan.findItem(12).getName());
@@ -56,6 +68,19 @@ public class GearPlanTest {
 
 	@Test
 	public void noPlanYet() {
-		assertNull(new Gson().fromJson("{\"plan\":null}", GearPlan.Response.class).getPlan());
+		GearPlan.Response response = new Gson().fromJson("{\"plan\":null}", GearPlan.Response.class);
+		assertNull(response.getPlan());
+		assertTrue(response.getPlans().isEmpty());
+	}
+
+	@Test
+	public void parsesTheRoadmapList() {
+		String json = "{\"plan\":null,\"plans\":[{\"id\":3,\"name\":\"Main route\",\"active\":true},{\"id\":7,\"name\":\"Raids prep\",\"active\":false}]}";
+		GearPlan.Response response = new Gson().fromJson(json, GearPlan.Response.class);
+		assertEquals(2, response.getPlans().size());
+		assertEquals("Main route", response.getPlans().get(0).getName());
+		assertTrue(response.getPlans().get(0).isActive());
+		assertEquals(7, response.getPlans().get(1).getId());
+		assertFalse(response.getPlans().get(1).isActive());
 	}
 }
