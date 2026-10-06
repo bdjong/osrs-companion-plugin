@@ -5,7 +5,6 @@ import com.osrscompanion.api.OSRSCompanionApiClient;
 import java.awt.image.BufferedImage;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
-import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
@@ -196,6 +195,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private BossGearWindow bossGearWindow;
 
 	@Inject
+	private RoadmapWindow roadmapWindow;
+
+	@Inject
 	private ClientThread clientThread;
 
 	@Inject
@@ -313,7 +315,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, itemManager);
+		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, itemManager);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -361,6 +363,11 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		// Boss gear: the window (side-panel button or hotkey); the bank lays the set out while it is open.
 		overlayManager.add(bossGearWindow);
+		// Roadmap: the goal tree in its own window (side-panel tile).
+		overlayManager.add(roadmapWindow);
+		mouseManager.registerMouseListener(roadmapWindow);
+		mouseManager.registerMouseWheelListener(roadmapWindow);
+		keyManager.registerKeyListener(roadmapWindow);
 		mouseManager.registerMouseListener(bossGearWindow);
 		mouseManager.registerMouseWheelListener(bossGearWindow);
 		keyManager.registerKeyListener(bossGearWindow);
@@ -373,10 +380,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		keyManager.registerKeyListener(bossGearHotkeyListener);
 	}
 
-	/** The farm run and boss gear windows share the middle of the screen (and the bank): one at a time. */
+	/** The roadmap, farm run and boss gear windows share the middle of the screen (and the bank): one at a time. */
 	private void toggleFarmRun() {
 		if (!farmRunManager.isOpen()) {
 			bossGearManager.close();
+			roadmapWindow.close();
 		}
 		farmRunManager.toggle();
 	}
@@ -384,8 +392,17 @@ public class OSRSCompanionPlugin extends Plugin {
 	private void toggleBossGear() {
 		if (!bossGearManager.isOpen()) {
 			farmRunManager.close();
+			roadmapWindow.close();
 		}
 		bossGearManager.toggle();
+	}
+
+	private void toggleRoadmap() {
+		if (!roadmapWindow.isOpen()) {
+			farmRunManager.close();
+			bossGearManager.close();
+		}
+		roadmapWindow.toggle();
 	}
 
 	@Override
@@ -515,6 +532,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		clientThread.invoke(farmRunSceneOverlay::clearPointers);
 		farmRunManager.clear();
 		overlayManager.remove(bossGearWindow);
+		roadmapWindow.close();
+		overlayManager.remove(roadmapWindow);
+		mouseManager.unregisterMouseListener(roadmapWindow);
+		mouseManager.unregisterMouseWheelListener(roadmapWindow);
+		keyManager.unregisterKeyListener(roadmapWindow);
 		mouseManager.unregisterMouseListener(bossGearWindow);
 		mouseManager.unregisterMouseWheelListener(bossGearWindow);
 		keyManager.unregisterKeyListener(bossGearWindow);
@@ -591,17 +613,11 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	/**
-	 * Reloads the roadmap without forcing a data re-sync: refreshes the open panel
-	 * (which also warms the overlay cache) or, when the panel is closed, just warms
-	 * the overlay cache directly.
+	 * Reloads the roadmaps without forcing a data re-sync: the list and every roadmap, which
+	 * keeps the overlay and the roadmap window current.
 	 */
 	private void loadRoadmapQuietly() {
-		RoadmapPanel panel = roadmapPanel;
-		if (panel != null) {
-			SwingUtilities.invokeLater(panel::loadRoadmaps);
-		} else {
-			roadmapManager.refreshAllQuietly();
-		}
+		roadmapManager.refreshAllQuietly();
 	}
 
 	@Subscribe
