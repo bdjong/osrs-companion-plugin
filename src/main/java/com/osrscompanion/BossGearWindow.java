@@ -62,6 +62,10 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	private volatile Rectangle window;
 	private volatile Point mouse;
 	private volatile boolean switcherOpen;
+	/** In the switcher: first row shown (mouse wheel scrolls) and the boss whose setups are unfolded. */
+	private volatile int switcherScroll;
+	private volatile String expandedBoss;
+	private volatile Rectangle switcherArea;
 
 	private static final class Hit {
 		final Rectangle area;
@@ -131,6 +135,15 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		BossGear set = manager.getSet();
 		if (set == null) {
 			message(g, win);
+			Rectangle pick = null;
+			if (!manager.getCatalog().isEmpty()) {
+				pick = new Rectangle(x + (w - 120) / 2, y + h / 2 + 30, 120, BUTTON_HEIGHT);
+				button(g, pick, switcherOpen ? "Close" : "Pick a boss", false);
+				newHits.add(new Hit(pick, () -> switcherOpen = !switcherOpen, "Switch: pick any boss and setup"));
+			}
+			if (switcherOpen && pick != null) {
+				renderSwitcher(g, new Rectangle(x + (w - 300) / 2, y + TITLE_HEIGHT + 8, 300, 0), win, newHits);
+			}
 			finish(g, win, newHits);
 			return new Dimension(w, h);
 		}
@@ -188,7 +201,7 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		renderSide(g, set, side, slot, needs, newHits);
 
 		if (switcherOpen && switchButton != null) {
-			renderSwitcher(g, switchButton, newHits);
+			renderSwitcher(g, switchButton, win, newHits);
 		}
 		finish(g, win, newHits);
 		return new Dimension(w, h);
@@ -202,10 +215,10 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		g.setFont(FontManager.getRunescapeSmallFont());
 		after = text(g, truncate("  " + set.getStyle(), g.getFontMetrics(), win.width / 4), after, subY, BEIGE);
 		Rectangle switchButton = null;
-		if (manager.getSets().size() > 1) {
+		if (manager.getSets().size() > 1 || !manager.getCatalog().isEmpty()) {
 			switchButton = new Rectangle(after + 8, subY - 13, 62, 17);
 			button(g, switchButton, switcherOpen ? "Close" : "Switch", false);
-			newHits.add(new Hit(switchButton, () -> switcherOpen = !switcherOpen, "Switch to another saved setup"));
+			newHits.add(new Hit(switchButton, () -> switcherOpen = !switcherOpen, "Switch to a saved setup or any boss"));
 		} else {
 			switcherOpen = false;
 		}
@@ -280,35 +293,104 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		newHits.add(new Hit(refresh, manager::refresh, "Reload the setup from the website"));
 	}
 
-	private void renderSwitcher(Graphics2D g, Rectangle anchor, List<Hit> newHits) {
+	/** One line of the switcher: a heading, a saved set, a boss (unfolds) or one of its setups. */
+	private static final class Row {
+		final String text;
+		final Color color;
+		final int indent;
+		final Runnable action;
+		final boolean keepOpen;
+		final String note;
+
+		Row(String text, Color color, int indent, Runnable action, boolean keepOpen, String note) {
+			this.text = text;
+			this.color = color;
+			this.indent = indent;
+			this.action = action;
+			this.keepOpen = keepOpen;
+			this.note = note;
+		}
+	}
+
+	/** Your saved sets (presets and your own copies), then every boss: click one to unfold its setups. */
+	private List<Row> switcherRows() {
+		List<Row> rows = new ArrayList<>();
 		List<BossGear.SetSummary> sets = manager.getSets();
+		if (!sets.isEmpty()) {
+			rows.add(new Row("Saved", ORANGE, 0, null, true, null));
+			for (BossGear.SetSummary s : sets) {
+				rows.add(new Row(s.getName(), s.isActive() ? ORANGE : Color.WHITE, 8, s.isActive() ? null : () -> {
+					switcherOpen = false;
+					manager.activate(s);
+				}, false, s.isActive() ? "active" : s.isCustom() ? "mine" : null));
+			}
+		}
+		List<BossGear.CatalogBoss> catalog = manager.getCatalog();
+		if (!catalog.isEmpty()) {
+			rows.add(new Row("All bosses", ORANGE, 0, null, true, null));
+			for (BossGear.CatalogBoss b : catalog) {
+				boolean open = b.getKey().equals(expandedBoss);
+				rows.add(new Row((open ? "- " : "+ ") + b.getName(), Color.WHITE, 8, () -> expandedBoss = open ? null : b.getKey(), true,
+					b.getSetups().size() + (b.getSetups().size() == 1 ? " setup" : " setups")));
+				if (open) {
+					for (int i = 0; i < b.getSetups().size(); i++) {
+						final int setup = i;
+						rows.add(new Row(b.getSetups().get(i), BEIGE, 22, () -> {
+							switcherOpen = false;
+							expandedBoss = null;
+							manager.activatePreset(b, setup);
+						}, false, null));
+					}
+				}
+			}
+		}
+		return rows;
+	}
+
+	private void renderSwitcher(Graphics2D g, Rectangle anchor, Rectangle win, List<Hit> newHits) {
+		List<Row> rows = switcherRows();
 		g.setFont(FontManager.getRunescapeFont());
 		int rowH = 18;
-		Rectangle list = new Rectangle(anchor.x, anchor.y + anchor.height + 2, 260, sets.size() * rowH + 6);
+		int top = anchor.y + anchor.height + 2;
+		int maxRows = Math.max(3, (win.y + win.height - 12 - top - 6) / rowH);
+		int shown = Math.min(rows.size(), maxRows);
+		int maxScroll = Math.max(0, rows.size() - shown);
+		int scroll = Math.max(0, Math.min(switcherScroll, maxScroll));
+		switcherScroll = scroll;
+		Rectangle list = new Rectangle(anchor.x, top, 300, shown * rowH + 6);
+		switcherArea = list;
 		box(g, list, BG, FRAME_DARK, BUTTON_INNER);
 		List<Hit> optionHits = new ArrayList<>();
 		int rowY = list.y + 3;
-		for (BossGear.SetSummary s : sets) {
-			Rectangle row = new Rectangle(list.x + 3, rowY, list.width - 6, rowH);
+		for (int i = scroll; i < scroll + shown; i++) {
+			Row r = rows.get(i);
+			Rectangle row = new Rectangle(list.x + 3, rowY, list.width - 6 - (maxScroll > 0 ? 6 : 0), rowH);
 			Point m = mouse;
-			if (m != null && row.contains(m)) {
+			if (r.action != null && m != null && row.contains(m)) {
 				g.setColor(TAB_ON);
 				g.fillRect(row.x, row.y, row.width, row.height);
 			}
-			text(g, truncate(s.getName(), g.getFontMetrics(), row.width - 50), row.x + 6, row.y + 13, s.isActive() ? ORANGE : Color.WHITE);
-			if (s.isActive()) {
+			g.setFont(r.action == null && r.indent == 0 ? FontManager.getRunescapeBoldFont() : FontManager.getRunescapeFont());
+			text(g, truncate(r.text, g.getFontMetrics(), row.width - r.indent - 70), row.x + 6 + r.indent, row.y + 13, r.color);
+			if (r.note != null) {
 				g.setFont(FontManager.getRunescapeSmallFont());
-				text(g, "active", row.x + row.width - 38, row.y + 13, GREEN);
-				g.setFont(FontManager.getRunescapeFont());
-			} else {
-				optionHits.add(new Hit(row, () -> {
-					switcherOpen = false;
-					manager.activate(s);
-				}, null));
+				text(g, r.note, row.x + row.width - 6 - g.getFontMetrics().stringWidth(r.note), row.y + 13, "active".equals(r.note) ? GREEN : GREY);
+			}
+			if (r.action != null) {
+				// Unfolding a boss keeps the list open (the "Switch" tooltip prefix tells mousePressed so).
+				optionHits.add(new Hit(row, r.action, r.keepOpen ? "Switch: show its setups" : null));
 			}
 			rowY += rowH;
 		}
-		optionHits.add(new Hit(list, () -> { }, null));
+		if (maxScroll > 0) {
+			// A thin scroll bar: the mouse wheel moves the list.
+			int barH = Math.max(12, list.height * shown / rows.size());
+			int barY = list.y + (list.height - barH) * scroll / maxScroll;
+			g.setColor(PANEL_EDGE);
+			g.fillRect(list.x + list.width - 6, barY, 3, barH);
+		}
+		g.setFont(FontManager.getRunescapeFont());
+		optionHits.add(new Hit(list, () -> { }, "Switch list"));
 		newHits.addAll(0, optionHits);
 	}
 
@@ -382,7 +464,13 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 
 	private void finish(Graphics2D g, Rectangle win, List<Hit> newHits) {
 		Point m = mouse;
-		if (m != null && win.contains(m)) {
+		Rectangle list = switcherArea;
+		// No tooltips over the open switcher list (its rows say what they do).
+		boolean overList = switcherOpen && list != null && m != null && list.contains(m);
+		if (!switcherOpen) {
+			switcherArea = null;
+		}
+		if (m != null && win.contains(m) && !overList) {
 			for (Hit hit : newHits) {
 				if (hit.tooltip != null && hit.area.contains(m)) {
 					tooltip(g, hit.tooltip, m, win);
@@ -478,6 +566,10 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	@Override
 	public MouseWheelEvent mouseWheelMoved(MouseWheelEvent e) {
 		if (inside(e)) {
+			Rectangle list = switcherArea;
+			if (switcherOpen && list != null && list.contains(e.getPoint())) {
+				switcherScroll = Math.max(0, switcherScroll + e.getWheelRotation() * 3);
+			}
 			e.consume();
 		}
 		return e;

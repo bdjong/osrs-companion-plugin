@@ -477,6 +477,17 @@ public class OSRSCompanionApiClient
 		getAsync(BOSS_GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "boss-gear", BossGear.Response.class, callback);
 	}
 
+	/** Makes any boss preset (boss key + setup index) the active boss gear and returns it. */
+	public void activateBossGearPreset(String bossKey, int setup, String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("boss", bossKey);
+		body.put("setup", setup);
+		postForResult(BOSS_GEAR_ENDPOINT + "activate/", gson.toJson(body), "boss-gear-activate-preset",
+			BossGear.Response.class, callback);
+	}
+
 	/** Makes another saved boss gear set the active one and returns it. */
 	public void activateBossGear(int setId, String playerUsername, RoadmapCallback<BossGear.Response> callback)
 	{
