@@ -40,7 +40,7 @@ public class FarmRoute {
 	@SerializedName("review_changes")
 	private int reviewChanges;
 
-	/** The run is ready (website farmRoute.ts routeReady): no crop of it still growing or diseased, at least one ready; compost bins, empty, dead and never-checked patches do not count. */
+	/** The run is ready (website lib/timers.ts routeReady): no crop of it still growing or diseased, at least one ready; compost bins, empty, dead and never-checked patches do not count. */
 	@SerializedName("ready")
 	private boolean ready;
 
