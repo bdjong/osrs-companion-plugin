@@ -18,6 +18,7 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JViewport;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -99,6 +100,10 @@ public class RoadmapPanel extends PluginPanel {
 		JScrollPane scroll = new JScrollPane(top, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 		scroll.setBorder(BorderFactory.createEmptyBorder());
 		scroll.getVerticalScrollBar().setUnitIncrement(16);
+		// Paint everything again on scroll: the default (copying the pixels already drawn) leaves the
+		// hand-painted tiles grey until they are hovered.
+		scroll.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
+		scroll.getVerticalScrollBar().addAdjustmentListener(e -> scroll.getViewport().repaint());
 		add(scroll, BorderLayout.CENTER);
 		tick();
 
@@ -110,13 +115,24 @@ public class RoadmapPanel extends PluginPanel {
 		add(note, BorderLayout.SOUTH);
 	}
 
-	/** Repaints the live cards and shows or hides the boss gear display with its setting. */
+	/**
+	 * Repaints the live cards, shows or hides the boss gear display with its setting, and lays the
+	 * page out again when the display's height changed (a set loaded, switched or went Inactive).
+	 */
 	private void tick() {
-		boolean showGear = config.bossGearPanelDisplay();
-		if (gearView != null && gearView.isVisible() != showGear) {
-			gearView.setVisible(showGear);
-			gearViewGap.setVisible(showGear);
-			deck.revalidate();
+		if (gearView != null) {
+			boolean showGear = config.bossGearPanelDisplay();
+			if (gearView.isVisible() != showGear) {
+				gearView.setVisible(showGear);
+				gearViewGap.setVisible(showGear);
+				deck.revalidate();
+			} else if (showGear && gearView.getHeight() != gearView.getPreferredSize().height) {
+				gearView.revalidate();
+			}
+			// The display needs the setup loaded, like opening the Boss page does.
+			if (showGear && bossGear.getSet() == null && !bossGear.isLoading() && !bossGear.isLoaded() && bossGear.getError() == null) {
+				bossGear.refresh();
+			}
 		}
 		deck.repaint();
 	}

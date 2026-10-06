@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.swing.JComponent;
-import javax.swing.SwingUtilities;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.FontManager;
 
@@ -61,7 +60,17 @@ class BossGearPanelView extends JComponent {
 		this.itemManager = itemManager;
 		setMinimumSize(new Dimension(120, 54));
 		setToolTipText("");
-		fitHeight(54);
+	}
+
+	/** As tall as what it shows now: the side panel lays it out again when this changes. */
+	@Override
+	public Dimension getPreferredSize() {
+		return new Dimension(200, wantedHeight());
+	}
+
+	@Override
+	public Dimension getMaximumSize() {
+		return new Dimension(Integer.MAX_VALUE, wantedHeight());
 	}
 
 	@Override
@@ -83,22 +92,8 @@ class BossGearPanelView extends JComponent {
 		return set.getPouch().isEmpty() ? 578 : 638;
 	}
 
-	private void fitHeight(int h) {
-		setPreferredSize(new Dimension(200, h));
-		setMaximumSize(new Dimension(Integer.MAX_VALUE, h));
-	}
-
 	@Override
 	protected void paintComponent(Graphics graphics) {
-		int wanted = wantedHeight();
-		if (getPreferredSize().height != wanted) {
-			// The set loaded, changed or went Inactive: take the new height on the next layout.
-			fitHeight(wanted);
-			SwingUtilities.invokeLater(() -> {
-				revalidate();
-				repaint();
-			});
-		}
 		Graphics2D g = (Graphics2D) graphics.create();
 		try {
 			g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -112,11 +107,10 @@ class BossGearPanelView extends JComponent {
 			g.draw(card);
 			BossGear set = manager.getSet();
 			List<Tip> newTips = new ArrayList<>();
-			if (set == null || !manager.isSetActive() || h < 500) {
+			if (set == null || !manager.isSetActive()) {
 				String[] lines = set == null
 					? new String[]{manager.isLoading() ? "Loading..." : "No setup picked yet", "Load one in Gear overview"}
-					: !manager.isSetActive() ? new String[]{"Gear hidden while Inactive", "Set the setup Active above to show it"}
-					: new String[]{"Loading...", ""};
+					: new String[]{"Gear hidden while Inactive", "Set the setup Active above to show it"};
 				g.setFont(FontManager.getRunescapeSmallFont());
 				shadow(g, "ACTIVE GEAR", 12, 16, HEADING);
 				g.setFont(FontManager.getRunescapeFont());
