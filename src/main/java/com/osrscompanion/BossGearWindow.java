@@ -67,8 +67,13 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	private volatile int switcherScroll;
 	private volatile String expandedBoss;
 	private volatile Rectangle switcherArea;
-	/** The switcher's tab: your custom builds, else the wiki presets. */
-	private volatile boolean customTab;
+	/** The switcher's tab: {@link #TAB_RECENT}, {@link #TAB_WIKI} or {@link #TAB_CUSTOM}. */
+	private volatile int tab;
+	private static final int TAB_RECENT = 0;
+	private static final int TAB_WIKI = 1;
+	private static final int TAB_CUSTOM = 2;
+	/** How many builds the Recently used tab lists. */
+	private static final int RECENT_MAX = 10;
 
 	private static final class Hit {
 		final Rectangle area;
@@ -273,14 +278,13 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		return null;
 	}
 
-	/** Opens the switcher on the tab holding the build in use (wiki presets when none), or closes it. */
+	/** Opens the switcher on Recently used (the wiki presets when you used none yet), or closes it. */
 	private void toggleSwitcher() {
 		if (switcherOpen) {
 			switcherOpen = false;
 			return;
 		}
-		BossGear.SetSummary s = inUse(manager.getSet());
-		customTab = s != null && s.isCustom();
+		tab = manager.getSets().isEmpty() ? TAB_WIKI : TAB_RECENT;
 		switcherScroll = 0;
 		switcherOpen = true;
 	}
@@ -372,23 +376,28 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		}, false, null, null);
 	}
 
-	/** Wiki presets: the ones you used lately, then every boss (click one to unfold its setups). */
+	/** Recently used: the last builds you loaded (wiki presets and custom builds), newest first. */
+	private List<Row> recentRows() {
+		List<Row> rows = new ArrayList<>();
+		BossGear set = manager.getSet();
+		for (BossGear.SetSummary s : manager.getSets()) {
+			if (rows.size() >= RECENT_MAX) {
+				break;
+			}
+			Row row = buildRow(s.getName(), 8, Color.WHITE, set != null && set.getId() == s.getId(), () -> manager.activate(s));
+			// Says which kind it is, unless the row already says In use / Inactive.
+			rows.add(row.note != null ? row
+				: new Row(row.text, row.color, row.indent, row.action, row.keepOpen, s.isCustom() ? "Custom" : "Wiki", s.isCustom() ? YELLOW : GREY));
+		}
+		return rows;
+	}
+
+	/** Wiki presets: every boss (click one to unfold its setups). */
 	private List<Row> presetRows() {
 		List<Row> rows = new ArrayList<>();
 		BossGear set = manager.getSet();
-		int recent = 0;
-		for (BossGear.SetSummary s : manager.getSets()) {
-			if (s.isCustom() || recent >= 5) {
-				continue;
-			}
-			if (recent++ == 0) {
-				rows.add(new Row("Recently used", ORANGE, 0, null, true, null, null));
-			}
-			rows.add(buildRow(s.getName(), 8, Color.WHITE, set != null && set.getId() == s.getId(), () -> manager.activate(s)));
-		}
 		List<BossGear.CatalogBoss> catalog = manager.getCatalog();
 		if (!catalog.isEmpty()) {
-			rows.add(new Row("All bosses", ORANGE, 0, null, true, null, null));
 			BossGear.SetSummary inUse = inUse(set);
 			boolean presetInUse = set != null && (inUse == null || !inUse.isCustom());
 			for (BossGear.CatalogBoss b : catalog) {
@@ -424,8 +433,9 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	}
 
 	private void renderSwitcher(Graphics2D g, Rectangle anchor, Rectangle win, List<Hit> newHits) {
-		boolean custom = customTab;
-		List<Row> rows = custom ? customRows() : presetRows();
+		int shownTab = tab;
+		boolean custom = shownTab == TAB_CUSTOM;
+		List<Row> rows = custom ? customRows() : shownTab == TAB_RECENT ? recentRows() : presetRows();
 		int customCount = 0;
 		for (BossGear.SetSummary s : manager.getSets()) {
 			customCount += s.isCustom() ? 1 : 0;
@@ -448,19 +458,19 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		box(g, list, BG, FRAME_DARK, BUTTON_INNER);
 		List<Hit> optionHits = new ArrayList<>();
 
-		// The tabs: wiki presets | your custom builds.
+		// The tabs: recently used | wiki presets | your custom builds.
 		Point m = mouse;
-		String[] tabs = {"Wiki presets", "Custom builds (" + customCount + ")"};
-		for (int t = 0; t < 2; t++) {
-			boolean on = (t == 1) == custom;
-			Rectangle tab = new Rectangle(list.x + 3 + t * 147, list.y + 3, 147, 22);
+		String[] tabs = {"Recently used", "Wiki presets", "Custom builds (" + customCount + ")"};
+		for (int t = 0; t < tabs.length; t++) {
+			boolean on = t == shownTab;
+			Rectangle tabArea = new Rectangle(list.x + 3 + t * 98, list.y + 3, 98, 22);
 			g.setColor(on ? TAB_ON : PANEL);
-			g.fillRect(tab.x, tab.y, tab.width, tab.height);
-			g.setFont(FontManager.getRunescapeFont());
-			centred(g, tabs[t], tab.x + tab.width / 2, tab.y + 16, on ? ORANGE : GREY);
-			final boolean toCustom = t == 1;
-			optionHits.add(new Hit(tab, () -> {
-				customTab = toCustom;
+			g.fillRect(tabArea.x, tabArea.y, tabArea.width, tabArea.height);
+			g.setFont(FontManager.getRunescapeSmallFont());
+			centred(g, tabs[t], tabArea.x + tabArea.width / 2, tabArea.y + 15, on ? ORANGE : GREY);
+			final int to = t;
+			optionHits.add(new Hit(tabArea, () -> {
+				tab = to;
 				switcherScroll = 0;
 			}, null, true));
 		}
@@ -480,7 +490,9 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 				}
 			} else {
 				g.setFont(FontManager.getRunescapeFont());
-				centred(g, manager.isLoading() ? "Loading..." : "No bosses loaded: press Refresh", list.x + list.width / 2, rowY + 40, BEIGE);
+				String empty = manager.isLoading() ? "Loading..." : shownTab == TAB_RECENT ? "No builds used yet: pick one under Wiki presets"
+					: "No bosses loaded: press Refresh";
+				centred(g, empty, list.x + list.width / 2, rowY + 40, BEIGE);
 			}
 		}
 		for (int i = scroll; i < scroll + shown; i++) {
