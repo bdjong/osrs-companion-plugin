@@ -15,6 +15,7 @@ public class TimerSyncItem
 	String timerType;
 	String region;
 	String entity;
+	/** When it is done; null if unknown (a farming contract crop not planted yet). */
 	Instant completedAt;
 	boolean notificationsEnabled;
 	String playerUsername;
@@ -46,8 +47,11 @@ public class TimerSyncItem
 	{
 		sb.append("{\"timer_type\":\"").append(escapeJson(toApiFormat(timerType)))
 			.append("\",\"region\":\"").append(escapeJson(toApiFormat(region)))
-			.append("\",\"entity\":\"").append(escapeJson(toApiFormat(entity)))
-			.append("\",\"completed_at\":\"").append(completedAt.toString()).append("\"");
+			.append("\",\"entity\":\"").append(escapeJson(toApiFormat(entity))).append("\"");
+		if (completedAt != null)
+		{
+			sb.append(",\"completed_at\":\"").append(completedAt.toString()).append("\"");
+		}
 		if (startedAt != null)
 		{
 			sb.append(",\"started_at\":\"").append(startedAt.toString()).append("\"");
@@ -66,7 +70,7 @@ public class TimerSyncItem
 			.append("\"}");
 	}
 
-	private static String escapeJson(String s)
+	static String escapeJson(String s)
 	{
 		if (s == null)
 		{

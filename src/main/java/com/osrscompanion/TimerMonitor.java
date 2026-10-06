@@ -24,6 +24,7 @@ import com.osrscompanion.runelite.farming.CropState;
 import com.osrscompanion.runelite.farming.FarmingPatch;
 import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
+import com.osrscompanion.runelite.farming.PatchImplementation;
 import com.osrscompanion.runelite.farming.PatchPrediction;
 import com.osrscompanion.runelite.farming.Produce;
 import com.osrscompanion.runelite.hunter.BirdHouse;
@@ -38,6 +39,10 @@ public class TimerMonitor {
 	private static final int LEAGUES_GROWTH_RATE_DIVISOR = 5;
 	// Average time to harvest 10 birds, matches RuneLite's BirdHouseTracker.BIRD_HOUSE_DURATION.
 	private static final long BIRD_HOUSE_DURATION_SECONDS = Duration.ofMinutes(50).getSeconds();
+	/** RuneLite FarmingContractManager's key in the timetracking RS profile config (the crop's item id). */
+	private static final String FARMING_CONTRACT_KEY = "contract";
+	private static final String FARMING_CONTRACT_TYPE = "farming contract";
+	private static final String FARMING_GUILD = "Farming Guild";
 
 	private final Client client;
 	private final OSRSCompanionConfig config;
@@ -183,6 +188,7 @@ public class TimerMonitor {
 		List<TimerSyncItem> timers = new ArrayList<>();
 
 		collectFarmingTimers(timers, playerUsername, syncEnabled);
+		collectFarmingContractTimer(timers, playerUsername, syncEnabled);
 		collectBirdHouseTimers(timers, playerUsername, syncEnabled);
 		collectTearsOfGuthixTimer(timers, playerUsername, syncEnabled);
 
@@ -191,11 +197,11 @@ public class TimerMonitor {
 			listener.accept(timers);
 		}
 
-		String snapshot = TimersSyncPayload.toJson(timers);
+		String snapshot = TimersSyncPayload.toJson(timers, playerUsername);
 		if (!snapshot.equals(lastSentSnapshot)) {
 			lastSentSnapshot = snapshot;
 			log.debug("OSRS Companion syncing {} timer(s) for {}", timers.size(), playerUsername);
-			apiClient.sendTimersSync(timers);
+			apiClient.sendTimersSync(timers, playerUsername);
 			notifySynced();
 		}
 	}
@@ -269,11 +275,10 @@ public class TimerMonitor {
 	/**
 	 * Reads bird house state directly from the {@code timetracking} RS profile config
 	 * (written by the core Time Tracking plugin) and emits a TimerSyncItem for each
-	 * seeded house that has not yet completed.
+	 * seeded house, also once it is done (RuneLite shows it as done until it is emptied).
 	 */
 	private void collectBirdHouseTimers(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {
 		boolean birdHouseNotify = syncEnabled && isBirdHouseNotifyEnabled();
-		long now = Instant.now().getEpochSecond();
 
 		for (BirdHouseSpace space : BirdHouseSpace.values()) {
 			String key = TimeTrackingConfig.BIRD_HOUSE + "." + space.getVarp();
@@ -302,9 +307,6 @@ public class TimerMonitor {
 			}
 
 			long spaceCompletionTime = timestamp + BIRD_HOUSE_DURATION_SECONDS;
-			if (spaceCompletionTime <= now) {
-				continue;
-			}
 
 			BirdHouse birdHouse = BirdHouse.fromVarpValue(varp);
 			Integer birdHouseEntityId = birdHouse != null ? birdHouse.getItemID() : null;
@@ -322,6 +324,69 @@ public class TimerMonitor {
 					birdHouseEntityId,
 					space.getVarp()));
 		}
+	}
+
+	/**
+	 * The farming contract from Guildmaster Jane, as the core Time Tracking plugin stores it
+	 * (the contract crop's item id). Its state is that of the Farming Guild patch growing
+	 * the crop; "empty" (no completion time) while it is not planted yet.
+	 */
+	private void collectFarmingContractTimer(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {
+		String stored = configManager.getRSProfileConfiguration(TimeTrackingConfig.CONFIG_GROUP, FARMING_CONTRACT_KEY);
+		Produce contract = stored == null ? null : contractProduce(stored);
+		if (contract == null) {
+			return;
+		}
+
+		for (var entry : farmingWorld.getTabs().entrySet()) {
+			for (FarmingPatch patch : entry.getValue()) {
+				if (!FARMING_GUILD.equals(patch.getRegion().getName())) {
+					continue;
+				}
+				PatchPrediction prediction = farmingTracker.predictPatch(patch);
+				if (prediction == null || prediction.getProduce().getItemID() != contract.getItemID()
+						|| isCompost(prediction.getProduce())) {
+					continue;
+				}
+				long done = prediction.getDoneEstimate();
+				timers.add(new TimerSyncItem(
+						FARMING_CONTRACT_TYPE,
+						FARMING_GUILD,
+						contract.getName(),
+						done > 0 ? Instant.ofEpochSecond(done) : null,
+						syncEnabled && isFarmingNotifyEnabled(patch),
+						playerUsername,
+						done > 0 ? computeFarmingStartedAt(prediction, done) : null,
+						prediction.getCropState().name().toLowerCase(),
+						contract.getItemID(),
+						patch.getVarbit()));
+				return;
+			}
+		}
+
+		timers.add(new TimerSyncItem(FARMING_CONTRACT_TYPE, FARMING_GUILD, contract.getName(), null, syncEnabled,
+				playerUsername, null, CropState.EMPTY.name().toLowerCase(), contract.getItemID(), 0));
+	}
+
+	/** The crop a stored contract item id stands for (compost bins share item ids; they are never contracts). */
+	private static Produce contractProduce(String stored) {
+		int itemId;
+		try {
+			itemId = Integer.parseInt(stored.trim());
+		} catch (NumberFormatException e) {
+			return null;
+		}
+		for (Produce produce : Produce.values()) {
+			if (produce.getItemID() == itemId && produce != Produce.WEEDS && produce != Produce.SCARECROW && !isCompost(produce)) {
+				return produce;
+			}
+		}
+		return null;
+	}
+
+	private static boolean isCompost(Produce produce) {
+		return produce.getPatchImplementation() == PatchImplementation.COMPOST
+				|| produce.getPatchImplementation() == PatchImplementation.BIG_COMPOST;
 	}
 
 	private void collectTearsOfGuthixTimer(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {

@@ -3,6 +3,8 @@ package com.osrscompanion.model;
 import java.time.Instant;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class TimerSyncItemTest
@@ -47,6 +49,29 @@ public class TimerSyncItemTest
 		TimerSyncItem item = new TimerSyncItem("tree", "region \"quotes\"", "entity", Instant.EPOCH, true, "User", null, null, null, 0);
 		String json = TimersSyncPayload.toJson(java.util.Collections.singletonList(item));
 		assertTrue(json.contains("\\\""));
+	}
+
+	@Test
+	public void testPlayerNamedAtTopLevel()
+	{
+		String json = TimersSyncPayload.toJson(java.util.Collections.emptyList(), "Test \"Player\"");
+		assertTrue(json.startsWith("{\"player_username\":\"Test \\\"Player\\\"\",\"timers\":[]"));
+	}
+
+	@Test
+	public void testNoPlayerKeepsOldShape()
+	{
+		assertEquals("{\"timers\":[]}", TimersSyncPayload.toJson(java.util.Collections.emptyList(), null));
+	}
+
+	@Test
+	public void testCompletedAtOmittedWhenNull()
+	{
+		TimerSyncItem item = new TimerSyncItem("farming contract", "Farming Guild", "Ranarr", null, true, "P", null, "empty", 257, 0);
+		String json = TimersSyncPayload.toJson(java.util.Collections.singletonList(item), "P");
+		assertFalse(json.contains("completed_at"));
+		assertTrue(json.contains("\"crop_state\":\"empty\""));
+		assertTrue(json.contains("\"timer_type\":\"farming contract\",\"region\":\"farming guild\",\"entity\":\"ranarr\",\"crop_state\""));
 	}
 
 	@Test
