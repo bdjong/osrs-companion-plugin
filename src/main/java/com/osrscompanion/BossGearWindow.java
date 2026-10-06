@@ -21,6 +21,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.input.KeyListener;
 import net.runelite.client.input.MouseListener;
@@ -92,7 +93,8 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 
 	@Override
 	public Dimension render(Graphics2D g) {
-		if (!manager.isOpen()) {
+		// Out of the way while the bank is open (it is laid out underneath).
+		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null || !manager.isOpen()) {
 			window = null;
 			hits = Collections.emptyList();
 			return null;

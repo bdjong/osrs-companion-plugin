@@ -325,4 +325,14 @@ public interface OSRSCompanionConfig extends Config {
 	default boolean bankLayoutPositions() {
 		return true;
 	}
+
+	@ConfigItem(
+			keyName = "bossGearBankAuto",
+			name = "Always lay out active boss setup",
+			description = "Opening the bank lays out your active boss setup (picked on the website or in the Boss gear window) even with the window closed. A farm run window or run going comes first. Click another bank tab to see everything.",
+			section = FEATURES_SECTION,
+			position = 14)
+	default boolean bossGearBankAuto() {
+		return true;
+	}
 }
