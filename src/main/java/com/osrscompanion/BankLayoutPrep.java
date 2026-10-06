@@ -141,7 +141,7 @@ public class BankLayoutPrep {
 			retries = 0;
 			// An active setup / route lays the bank out even with its window closed: make sure it is loaded and current.
 			long now = System.currentTimeMillis();
-			if (config.bossGearBankLayout() && !bossGear.isOpen() && !bossGear.isLoading()
+			if (config.bossGearBankLayout() && config.bossGearActive() && !bossGear.isOpen() && !bossGear.isLoading()
 					&& (bossGear.getSet() == null || now - lastBossRefresh > AUTO_REFRESH_MS)) {
 				lastBossRefresh = now;
 				bossGear.refresh();
@@ -181,7 +181,7 @@ public class BankLayoutPrep {
 	 * gear window wins, then the farm run, then the boss setup.
 	 */
 	Driver driver() {
-		boolean boss = bossGear.getSet() != null && config.bossGearBankLayout();
+		boolean boss = bossGear.isSetActive() && config.bossGearBankLayout();
 		boolean farm = farmRun.getRoute() != null && config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isComplete();
 		if (boss && bossGear.isOpen()) {
 			return Driver.BOSS;

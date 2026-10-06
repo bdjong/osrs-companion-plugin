@@ -190,8 +190,13 @@ public class BossGear {
 		}
 
 		public String getName() {
-			String label = custom && name != null ? name : style;
+			String label = getLabel();
 			return (bossName == null ? "Boss" : bossName) + (label == null || label.isEmpty() ? "" : " - " + label);
+		}
+
+		/** The build without the boss: your own name for a custom build, else the wiki setup's style. */
+		public String getLabel() {
+			return custom && name != null ? name : style;
 		}
 
 		public boolean isCustom() {

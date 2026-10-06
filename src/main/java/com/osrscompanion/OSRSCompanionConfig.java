@@ -308,8 +308,8 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigItem(
 			keyName = "bossGearBankLayout",
-			name = "Boss gear active in the bank",
-			description = "When you open the bank, it shows only your active boss setup's items, laid out like the worn gear and the inventory (see Exact bank layout), with or without the window open. Click another bank tab to see everything.",
+			name = "Boss gear bank layout",
+			description = "While the setup is Active, when you open the bank, it shows only your boss setup's items, laid out like the worn gear and the inventory (see Exact bank layout), with or without the window open. Click another bank tab to see everything.",
 			section = FEATURES_SECTION,
 			position = 12)
 	default boolean bossGearBankLayout() {
@@ -323,6 +323,26 @@ public interface OSRSCompanionConfig extends Config {
 			section = FEATURES_SECTION,
 			position = 13)
 	default boolean bankLayoutPositions() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "bossGearPanelDisplay",
+			name = "Boss gear in side panel",
+			description = "Shows the active setup's worn gear, inventory and rune pouch in the side panel, coloured by what you carry.",
+			section = FEATURES_SECTION,
+			position = 14)
+	default boolean bossGearPanelDisplay() {
+		return false;
+	}
+
+	/** Set from the side panel's Active / Inactive switch: Inactive keeps the setup selected but leaves the bank alone. */
+	@ConfigItem(
+			keyName = "bossGearActive",
+			name = "Boss gear setup active",
+			description = "Off (Inactive): the setup stays selected, but the bank is left alone and no gear is shown.",
+			hidden = true)
+	default boolean bossGearActive() {
 		return true;
 	}
 }

@@ -67,16 +67,25 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	private volatile int switcherScroll;
 	private volatile String expandedBoss;
 	private volatile Rectangle switcherArea;
+	/** The switcher's tab: your custom builds, else the wiki presets. */
+	private volatile boolean customTab;
 
 	private static final class Hit {
 		final Rectangle area;
 		final Runnable action;
 		final String tooltip;
+		/** Clicking it leaves the switcher list open (tabs, unfolding a boss, the list itself). */
+		final boolean keepOpen;
 
 		Hit(Rectangle area, Runnable action, String tooltip) {
+			this(area, action, tooltip, false);
+		}
+
+		Hit(Rectangle area, Runnable action, String tooltip, boolean keepOpen) {
 			this.area = area;
 			this.action = action;
 			this.tooltip = tooltip;
+			this.keepOpen = keepOpen;
 		}
 	}
 
@@ -140,8 +149,8 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 			Rectangle pick = null;
 			if (!manager.getCatalog().isEmpty()) {
 				pick = new Rectangle(x + (w - 120) / 2, y + h / 2 + 30, 120, BUTTON_HEIGHT);
-				button(g, pick, switcherOpen ? "Close" : "Pick a boss", false);
-				newHits.add(new Hit(pick, () -> switcherOpen = !switcherOpen, "Switch: pick any boss and setup"));
+				button(g, pick, switcherOpen ? "Close" : "Pick a build", false);
+				newHits.add(new Hit(pick, this::toggleSwitcher, "Load a wiki preset or one of your custom builds", true));
 			}
 			if (switcherOpen && pick != null) {
 				renderSwitcher(g, new Rectangle(x + (w - 300) / 2, y + TITLE_HEIGHT + 8, 300, 0), win, newHits);
@@ -209,45 +218,71 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		return new Dimension(w, h);
 	}
 
-	/** Boss and style (with a switcher), and how much of it you carry. Returns the switch button. */
+	/**
+	 * Boss, build and where it comes from (wiki preset / custom build), the button to change it, and
+	 * how much of it you carry (or that it is Inactive, with a button to set it active). Returns the button.
+	 */
 	private Rectangle subtitle(Graphics2D g, BossGear set, Rectangle win, List<Hit> newHits) {
 		int subY = win.y + TITLE_HEIGHT + 16;
+		BossGear.SetSummary inUse = inUse(set);
+		boolean custom = inUse != null && inUse.isCustom();
 		g.setFont(FontManager.getRunescapeFont());
-		int after = text(g, truncate(set.getBossName(), g.getFontMetrics(), win.width / 3), win.x + 12, subY, Color.WHITE);
+		int after = text(g, truncate(set.getBossName(), g.getFontMetrics(), Math.min(170, win.width / 4)), win.x + 12, subY, Color.WHITE);
 		g.setFont(FontManager.getRunescapeSmallFont());
-		after = text(g, truncate("  " + set.getStyle(), g.getFontMetrics(), win.width / 4), after, subY, BEIGE);
-		Rectangle switchButton = null;
-		if (manager.getSets().size() > 1 || !manager.getCatalog().isEmpty()) {
-			switchButton = new Rectangle(after + 8, subY - 13, 62, 17);
-			button(g, switchButton, switcherOpen ? "Close" : "Switch", false);
-			newHits.add(new Hit(switchButton, () -> switcherOpen = !switcherOpen, "Switch to a saved setup or any boss"));
-		} else {
-			switcherOpen = false;
+		String label = custom && inUse.getLabel() != null ? inUse.getLabel() : set.getStyle();
+		after = text(g, truncate("  " + label, g.getFontMetrics(), 120), after, subY, BEIGE);
+		after = badge(g, custom ? "Custom build" : "Wiki preset", after + 8, subY, custom ? YELLOW : BEIGE);
+		Rectangle switchButton = new Rectangle(after + 8, subY - 13, 84, 17);
+		button(g, switchButton, switcherOpen ? "Close" : "Change build", false);
+		newHits.add(new Hit(switchButton, this::toggleSwitcher, "Load a wiki preset or one of your custom builds", true));
+		int right = win.x + win.width - 12;
+		if (!manager.isSetActive()) {
+			Rectangle activate = new Rectangle(right - 76, subY - 13, 76, 17);
+			button(g, activate, "Set active", false);
+			newHits.add(new Hit(activate, () -> manager.setSetActive(true), "Lay out the bank for this setup again"));
+			g.setFont(FontManager.getRunescapeSmallFont());
+			badge(g, "Inactive", activate.x - 6 - 54, subY, ORANGE);
+			return switchButton;
 		}
-		int[] c = carriedCount(set);
+		int[] c = manager.carriedCount(set);
 		String info = c[0] + " / " + c[1] + " carried";
 		g.setFont(FontManager.getRunescapeFont());
-		text(g, info, win.x + win.width - 12 - g.getFontMetrics().stringWidth(info), subY, c[0] == c[1] ? GREEN : Color.WHITE);
+		text(g, info, right - g.getFontMetrics().stringWidth(info), subY, c[0] == c[1] ? GREEN : Color.WHITE);
 		return switchButton;
 	}
 
-	/** Items carried in full / all different items of the set. */
-	private int[] carriedCount(BossGear set) {
-		int carried = 0;
-		int total = 0;
-		java.util.Set<Integer> seen = new java.util.HashSet<>();
-		Map<Integer, Integer> needs = manager.inventoryNeeds();
-		for (BossGear.Item it : BossGearManager.items(set)) {
-			if (!seen.add(it.getItem())) {
-				continue;
-			}
-			total++;
-			int need = it instanceof BossGear.Slot ? 1 : needs.getOrDefault(it.getItem(), it.getQty());
-			if (manager.carried(it) >= need) {
-				carried++;
+	/** A small labelled box on the subtitle line (Wiki preset, Custom build, Inactive). Returns its right edge. */
+	private static int badge(Graphics2D g, String label, int x, int baseline, Color color) {
+		g.setFont(FontManager.getRunescapeSmallFont());
+		int bw = Math.max(54, g.getFontMetrics().stringWidth(label) + 10);
+		box(g, new Rectangle(x, baseline - 12, bw, 15), PANEL, PANEL_EDGE, PANEL_INNER);
+		centred(g, label, x + bw / 2, baseline - 1, color);
+		return x + bw;
+	}
+
+	/** The saved set the loaded build is (for its name and whether it is a custom build), or null. */
+	private BossGear.SetSummary inUse(BossGear set) {
+		if (set == null) {
+			return null;
+		}
+		for (BossGear.SetSummary s : manager.getSets()) {
+			if (s.getId() == set.getId()) {
+				return s;
 			}
 		}
-		return new int[]{carried, total};
+		return null;
+	}
+
+	/** Opens the switcher on the tab holding the build in use (wiki presets when none), or closes it. */
+	private void toggleSwitcher() {
+		if (switcherOpen) {
+			switcherOpen = false;
+			return;
+		}
+		BossGear.SetSummary s = inUse(manager.getSet());
+		customTab = s != null && s.isCustom();
+		switcherScroll = 0;
+		switcherOpen = true;
 	}
 
 	private void renderSide(Graphics2D g, BossGear set, Rectangle area, int slot, Map<Integer, Integer> needs, List<Hit> newHits) {
@@ -282,8 +317,9 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		ly += 13;
 		text(g, "Missing", lx, ly, RED);
 		ly += 18;
-		for (String line : wrap("Open your bank with this window open: it shows only these items, laid out like your gear and inventory.",
-			g.getFontMetrics(), textW)) {
+		String hint = manager.isSetActive() ? "Open your bank with this window open: it shows only these items, laid out like your gear and inventory."
+			: "Inactive: the bank is left alone. Press Set active to lay it out.";
+		for (String line : wrap(hint, g.getFontMetrics(), textW)) {
 			if (ly > area.y + area.height - BUTTON_HEIGHT - 16) {
 				break;
 			}
@@ -292,10 +328,10 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		}
 		Rectangle refresh = new Rectangle(area.x + (area.width - BUTTON_WIDTH) / 2, area.y + area.height - BUTTON_HEIGHT - 10, BUTTON_WIDTH, BUTTON_HEIGHT);
 		button(g, refresh, manager.isLoading() ? "Loading..." : "Refresh", manager.isLoading());
-		newHits.add(new Hit(refresh, manager::refresh, "Reload the setup from the website"));
+		newHits.add(new Hit(refresh, manager::refresh, "Reload your builds from the website"));
 	}
 
-	/** One line of the switcher: a heading, a saved set, a boss (unfolds) or one of its setups. */
+	/** One line of the switcher: a heading, a build, a boss (unfolds) or one of its setups. */
 	private static final class Row {
 		final String text;
 		final Color color;
@@ -303,45 +339,71 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		final Runnable action;
 		final boolean keepOpen;
 		final String note;
+		final Color noteColor;
 
-		Row(String text, Color color, int indent, Runnable action, boolean keepOpen, String note) {
+		Row(String text, Color color, int indent, Runnable action, boolean keepOpen, String note, Color noteColor) {
 			this.text = text;
 			this.color = color;
 			this.indent = indent;
 			this.action = action;
 			this.keepOpen = keepOpen;
 			this.note = note;
+			this.noteColor = noteColor;
 		}
 	}
 
-	/** Your saved sets (presets and your own copies), then every boss: click one to unfold its setups. */
-	private List<Row> switcherRows() {
+	private static final int TAB_BAR = 25;
+	private static final int SWITCHER_WIDTH = 300;
+	private static final String CUSTOM_FOOTER = "Custom builds are edited on the website (Tools > Boss Gear > My sets). Press Refresh to load changes.";
+	private static final String CUSTOM_EMPTY = "On the website, open Tools > Boss Gear and pick a boss. Under Wiki sets, choose a setup and press "
+		+ "Copy to my sets. Edit your copy there, then press Refresh here to load it.";
+
+	/** A build's row: "In use" when it is the loaded one (Inactive: clicking sets it active), else clicking loads it (and makes it Active). */
+	private Row buildRow(String text, int indent, Color color, boolean loaded, Runnable load) {
+		if (loaded && manager.isSetActive()) {
+			return new Row(text, ORANGE, indent, null, false, "In use", GREEN);
+		}
+		if (loaded) {
+			return new Row(text, ORANGE, indent, () -> manager.setSetActive(true), false, "Inactive", ORANGE);
+		}
+		return new Row(text, color, indent, () -> {
+			manager.setSetActive(true);
+			load.run();
+		}, false, null, null);
+	}
+
+	/** Wiki presets: the ones you used lately, then every boss (click one to unfold its setups). */
+	private List<Row> presetRows() {
 		List<Row> rows = new ArrayList<>();
-		List<BossGear.SetSummary> sets = manager.getSets();
-		if (!sets.isEmpty()) {
-			rows.add(new Row("Saved", ORANGE, 0, null, true, null));
-			for (BossGear.SetSummary s : sets) {
-				rows.add(new Row(s.getName(), s.isActive() ? ORANGE : Color.WHITE, 8, s.isActive() ? null : () -> {
-					switcherOpen = false;
-					manager.activate(s);
-				}, false, s.isActive() ? "active" : s.isCustom() ? "mine" : null));
+		BossGear set = manager.getSet();
+		int recent = 0;
+		for (BossGear.SetSummary s : manager.getSets()) {
+			if (s.isCustom() || recent >= 5) {
+				continue;
 			}
+			if (recent++ == 0) {
+				rows.add(new Row("Recently used", ORANGE, 0, null, true, null, null));
+			}
+			rows.add(buildRow(s.getName(), 8, Color.WHITE, set != null && set.getId() == s.getId(), () -> manager.activate(s)));
 		}
 		List<BossGear.CatalogBoss> catalog = manager.getCatalog();
 		if (!catalog.isEmpty()) {
-			rows.add(new Row("All bosses", ORANGE, 0, null, true, null));
+			rows.add(new Row("All bosses", ORANGE, 0, null, true, null, null));
+			BossGear.SetSummary inUse = inUse(set);
+			boolean presetInUse = set != null && (inUse == null || !inUse.isCustom());
 			for (BossGear.CatalogBoss b : catalog) {
 				boolean open = b.getKey().equals(expandedBoss);
 				rows.add(new Row((open ? "- " : "+ ") + b.getName(), Color.WHITE, 8, () -> expandedBoss = open ? null : b.getKey(), true,
-					b.getSetups().size() + (b.getSetups().size() == 1 ? " setup" : " setups")));
+					b.getSetups().size() + (b.getSetups().size() == 1 ? " setup" : " setups"), GREY));
 				if (open) {
 					for (int i = 0; i < b.getSetups().size(); i++) {
 						final int setup = i;
-						rows.add(new Row(b.getSetups().get(i), BEIGE, 22, () -> {
-							switcherOpen = false;
+						String style = b.getSetups().get(i);
+						boolean loaded = presetInUse && b.getKey().equals(set.getBoss()) && style.equals(set.getStyle());
+						rows.add(buildRow(style, 22, BEIGE, loaded, () -> {
 							expandedBoss = null;
 							manager.activatePreset(b, setup);
-						}, false, null));
+						}));
 					}
 				}
 			}
@@ -349,25 +411,81 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		return rows;
 	}
 
+	/** Your own builds (made and edited on the website). */
+	private List<Row> customRows() {
+		List<Row> rows = new ArrayList<>();
+		BossGear set = manager.getSet();
+		for (BossGear.SetSummary s : manager.getSets()) {
+			if (s.isCustom()) {
+				rows.add(buildRow(s.getName(), 8, Color.WHITE, set != null && set.getId() == s.getId(), () -> manager.activate(s)));
+			}
+		}
+		return rows;
+	}
+
 	private void renderSwitcher(Graphics2D g, Rectangle anchor, Rectangle win, List<Hit> newHits) {
-		List<Row> rows = switcherRows();
-		g.setFont(FontManager.getRunescapeFont());
+		boolean custom = customTab;
+		List<Row> rows = custom ? customRows() : presetRows();
+		int customCount = 0;
+		for (BossGear.SetSummary s : manager.getSets()) {
+			customCount += s.isCustom() ? 1 : 0;
+		}
 		int rowH = 18;
+		int x = Math.min(anchor.x, win.x + win.width - 10 - SWITCHER_WIDTH);
 		int top = anchor.y + anchor.height + 2;
-		int maxRows = Math.max(3, (win.y + win.height - 12 - top - 6) / rowH);
+		g.setFont(FontManager.getRunescapeSmallFont());
+		List<String> footer = custom ? wrap(rows.isEmpty() ? CUSTOM_EMPTY : CUSTOM_FOOTER, g.getFontMetrics(), rows.isEmpty() ? 270 : 288)
+			: Collections.emptyList();
+		int footerH = rows.isEmpty() ? 0 : footer.isEmpty() ? 0 : footer.size() * 13 + 8;
+		int maxRows = Math.max(3, (win.y + win.height - 12 - top - 6 - TAB_BAR - footerH) / rowH);
 		int shown = Math.min(rows.size(), maxRows);
 		int maxScroll = Math.max(0, rows.size() - shown);
 		int scroll = Math.max(0, Math.min(switcherScroll, maxScroll));
 		switcherScroll = scroll;
-		Rectangle list = new Rectangle(anchor.x, top, 300, shown * rowH + 6);
+		int bodyH = rows.isEmpty() ? Math.max(90, 34 + footer.size() * 13) : shown * rowH;
+		Rectangle list = new Rectangle(x, top, SWITCHER_WIDTH, TAB_BAR + bodyH + footerH + 6);
 		switcherArea = list;
 		box(g, list, BG, FRAME_DARK, BUTTON_INNER);
 		List<Hit> optionHits = new ArrayList<>();
-		int rowY = list.y + 3;
+
+		// The tabs: wiki presets | your custom builds.
+		Point m = mouse;
+		String[] tabs = {"Wiki presets", "Custom builds (" + customCount + ")"};
+		for (int t = 0; t < 2; t++) {
+			boolean on = (t == 1) == custom;
+			Rectangle tab = new Rectangle(list.x + 3 + t * 147, list.y + 3, 147, 22);
+			g.setColor(on ? TAB_ON : PANEL);
+			g.fillRect(tab.x, tab.y, tab.width, tab.height);
+			g.setFont(FontManager.getRunescapeFont());
+			centred(g, tabs[t], tab.x + tab.width / 2, tab.y + 16, on ? ORANGE : GREY);
+			final boolean toCustom = t == 1;
+			optionHits.add(new Hit(tab, () -> {
+				customTab = toCustom;
+				switcherScroll = 0;
+			}, null, true));
+		}
+		g.setColor(PANEL_EDGE);
+		g.drawLine(list.x + 3, list.y + TAB_BAR, list.x + list.width - 4, list.y + TAB_BAR);
+
+		int rowY = list.y + TAB_BAR + 3;
+		if (rows.isEmpty()) {
+			if (custom) {
+				g.setFont(FontManager.getRunescapeBoldFont());
+				centred(g, "No custom builds yet", list.x + list.width / 2, rowY + 17, Color.WHITE);
+				g.setFont(FontManager.getRunescapeSmallFont());
+				int ly = rowY + 34;
+				for (String line : footer) {
+					centred(g, line, list.x + list.width / 2, ly, BEIGE);
+					ly += 13;
+				}
+			} else {
+				g.setFont(FontManager.getRunescapeFont());
+				centred(g, manager.isLoading() ? "Loading..." : "No bosses loaded: press Refresh", list.x + list.width / 2, rowY + 40, BEIGE);
+			}
+		}
 		for (int i = scroll; i < scroll + shown; i++) {
 			Row r = rows.get(i);
 			Rectangle row = new Rectangle(list.x + 3, rowY, list.width - 6 - (maxScroll > 0 ? 6 : 0), rowH);
-			Point m = mouse;
 			if (r.action != null && m != null && row.contains(m)) {
 				g.setColor(TAB_ON);
 				g.fillRect(row.x, row.y, row.width, row.height);
@@ -376,30 +494,40 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 			text(g, truncate(r.text, g.getFontMetrics(), row.width - r.indent - 70), row.x + 6 + r.indent, row.y + 13, r.color);
 			if (r.note != null) {
 				g.setFont(FontManager.getRunescapeSmallFont());
-				text(g, r.note, row.x + row.width - 6 - g.getFontMetrics().stringWidth(r.note), row.y + 13, "active".equals(r.note) ? GREEN : GREY);
+				text(g, r.note, row.x + row.width - 6 - g.getFontMetrics().stringWidth(r.note), row.y + 13, r.noteColor);
 			}
 			if (r.action != null) {
-				// Unfolding a boss keeps the list open (the "Switch" tooltip prefix tells mousePressed so).
-				optionHits.add(new Hit(row, r.action, r.keepOpen ? "Switch: show its setups" : null));
+				optionHits.add(new Hit(row, r.action, null, r.keepOpen));
 			}
 			rowY += rowH;
 		}
 		if (maxScroll > 0) {
 			// A thin scroll bar: the mouse wheel moves the list.
-			int barH = Math.max(12, list.height * shown / rows.size());
-			int barY = list.y + (list.height - barH) * scroll / maxScroll;
+			int barH = Math.max(12, bodyH * shown / rows.size());
+			int barY = list.y + TAB_BAR + 3 + (bodyH - barH) * scroll / maxScroll;
 			g.setColor(PANEL_EDGE);
 			g.fillRect(list.x + list.width - 6, barY, 3, barH);
 		}
+		if (!rows.isEmpty() && !footer.isEmpty()) {
+			int fy = list.y + TAB_BAR + 3 + bodyH + 4;
+			g.setColor(PANEL_EDGE);
+			g.drawLine(list.x + 3, fy, list.x + list.width - 4, fy);
+			g.setFont(FontManager.getRunescapeSmallFont());
+			fy += 14;
+			for (String line : footer) {
+				text(g, line, list.x + 8, fy, GREY);
+				fy += 13;
+			}
+		}
 		g.setFont(FontManager.getRunescapeFont());
-		optionHits.add(new Hit(list, () -> { }, "Switch list"));
+		optionHits.add(new Hit(list, () -> { }, null, true));
 		newHits.addAll(0, optionHits);
 	}
 
 	private void message(Graphics2D g, Rectangle win) {
 		String message = manager.isLoading() || !manager.isLoaded() && manager.getError() == null ? "Loading your boss gear..."
 			: manager.getError() != null ? manager.getError()
-			: "No boss gear picked yet. On the OSRS Companion website, open Tools > Boss Gear, pick a boss and setup and press Use in RuneLite.";
+			: "No build loaded yet. Press Pick a build to load a wiki preset, or make a custom build on the website (Tools > Boss Gear > My sets).";
 		g.setFont(FontManager.getRunescapeFont());
 		int lineY = win.y + win.height / 2 - 10;
 		for (String line : wrap(message, g.getFontMetrics(), win.width - 80)) {
@@ -445,23 +573,7 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		if (it.isNoted()) {
 			text(g, "N", r.x + 2, r.y + r.height - 3, YELLOW);
 		}
-		StringBuilder tip = new StringBuilder(it.getName());
-		if (it.getQty() > 1) {
-			tip.append(" x").append(it.getQty());
-		}
-		if (it.isNoted()) {
-			tip.append(" (noted)");
-		}
-		if (it instanceof BossGear.Slot) {
-			BossGear.Slot s = (BossGear.Slot) it;
-			tip.append("bis".equals(s.getStatus()) ? " - best in slot" : "partial".equals(s.getStatus()) ? " - best you own (rank " + s.getRank() + ")"
-				: "missing".equals(s.getStatus()) ? " - best in slot, not owned" : "");
-		}
-		tip.append(" - carrying ").append(carried);
-		if (carried < want) {
-			tip.append(it.isOwned() ? ", in your bank or storage" : synced ? ", not in your bank" : "");
-		}
-		newHits.add(new Hit(r, () -> { }, tip.toString()));
+		newHits.add(new Hit(r, () -> { }, manager.slotTooltip(it, need, synced)));
 	}
 
 	private void finish(Graphics2D g, Rectangle win, List<Hit> newHits) {
@@ -513,7 +625,7 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 			if (clicked != null) {
 				clicked.action.run();
 			}
-			if (listWasOpen && switcherOpen && (clicked == null || clicked.tooltip == null || !clicked.tooltip.startsWith("Switch"))) {
+			if (listWasOpen && switcherOpen && (clicked == null || !clicked.keepOpen)) {
 				switcherOpen = false;
 			}
 		}
