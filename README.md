@@ -10,7 +10,7 @@ The goal overlay updates as you play: XP, kills, drops and collection log unlock
 
 ## Gear progression
 
-Load the ironman gear progression on the website (Tools > Gear progression), then open it in game with the **Gear progression** button in the side panel or the hotkey from the plugin settings. It shows the tiers like the Leagues menus: steps from left to right, items stacked in one column are on the same level. Select an item to mark it done or make it your current roadmap goal. Escape closes the window.
+Load the ironman gear progression on the website (Tools > Gear progression), then open it in game with the **Gear progression** button in the side panel. It shows the tiers like the Leagues menus: steps from left to right, items stacked in one column are on the same level. Select an item to mark it done or make it your current roadmap goal. Escape closes the window.
 
 ## License
 

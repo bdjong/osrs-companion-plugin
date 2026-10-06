@@ -4,7 +4,6 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
-import net.runelite.client.config.Keybind;
 
 @ConfigGroup(OSRSCompanionConfig.CONFIG_GROUP)
 public interface OSRSCompanionConfig extends Config {
@@ -236,25 +235,7 @@ public interface OSRSCompanionConfig extends Config {
 		return true;
 	}
 
-	@ConfigItem(
-			keyName = "gearProgressionHotkey",
-			name = "Gear progression hotkey",
-			description = "Opens or closes the gear progression window. It also opens from the button in the OSRS Companion side panel.",
-			section = FEATURES_SECTION,
-			position = 5)
-	default Keybind gearProgressionHotkey() {
-		return Keybind.NOT_SET;
-	}
 
-	@ConfigItem(
-			keyName = "farmRunHotkey",
-			name = "Farm run hotkey",
-			description = "Opens or closes the farm run window. It also opens from the Farm run button in the OSRS Companion side panel.",
-			section = FEATURES_SECTION,
-			position = 7)
-	default Keybind farmRunHotkey() {
-		return Keybind.NOT_SET;
-	}
 
 	@ConfigItem(
 			keyName = "showFarmRun",
@@ -316,15 +297,6 @@ public interface OSRSCompanionConfig extends Config {
 		return true;
 	}
 
-	@ConfigItem(
-			keyName = "bossGearHotkey",
-			name = "Boss gear hotkey",
-			description = "Opens or closes the boss gear window. It also opens from the Boss gear button in the OSRS Companion side panel.",
-			section = FEATURES_SECTION,
-			position = 11)
-	default Keybind bossGearHotkey() {
-		return Keybind.NOT_SET;
-	}
 
 	@ConfigItem(
 			keyName = "bossGearBankLayout",

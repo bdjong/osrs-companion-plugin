@@ -21,7 +21,6 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.input.MouseManager;
-import net.runelite.client.util.HotkeyListener;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -210,12 +209,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private KeyManager keyManager;
 
-	private HotkeyListener gearHotkeyListener;
 
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
-	private HotkeyListener farmRunHotkeyListener;
-	private HotkeyListener bossGearHotkeyListener;
 
 	@Override
 	protected void startUp() throws Exception {
@@ -337,36 +333,22 @@ public class OSRSCompanionPlugin extends Plugin {
 		// Roadmap progress drawn under the goal completion popup while it shows.
 		overlayManager.add(goalCompletionOverlay);
 
-		// Gear progression window: side-panel button or hotkey opens it, Escape closes it.
+		// Gear progression window: the side-panel button opens it, Escape closes it.
 		overlayManager.add(gearProgressionOverlay);
 		mouseManager.registerMouseListener(gearProgressionOverlay);
 		mouseManager.registerMouseWheelListener(gearProgressionOverlay);
 		keyManager.registerKeyListener(gearProgressionOverlay);
-		gearHotkeyListener = new HotkeyListener(config::gearProgressionHotkey) {
-			@Override
-			public void hotkeyPressed() {
-				gearProgressionManager.toggle();
-			}
-		};
-		keyManager.registerKeyListener(gearHotkeyListener);
 
-		// Farm run: the window (side-panel button or hotkey), the step box, scene pointers and item highlights.
+		// Farm run: the window (side-panel button), the step box, scene pointers and item highlights.
 		overlayManager.add(farmRunWindow);
 		mouseManager.registerMouseListener(farmRunWindow);
 		mouseManager.registerMouseWheelListener(farmRunWindow);
 		keyManager.registerKeyListener(farmRunWindow);
-		farmRunHotkeyListener = new HotkeyListener(config::farmRunHotkey) {
-			@Override
-			public void hotkeyPressed() {
-				toggleFarmRun();
-			}
-		};
-		keyManager.registerKeyListener(farmRunHotkeyListener);
 		overlayManager.add(farmRunOverlay);
 		overlayManager.add(farmRunSceneOverlay);
 		overlayManager.add(farmRunItemOverlay);
 
-		// Boss gear: the window (side-panel button or hotkey); the bank lays the set out while it is open.
+		// Boss gear: the window (side-panel button); the bank lays the set out while it is open.
 		overlayManager.add(bossGearWindow);
 		// Roadmap: the goal tree in its own window (side-panel tile).
 		overlayManager.add(roadmapWindow);
@@ -376,13 +358,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		mouseManager.registerMouseListener(bossGearWindow);
 		mouseManager.registerMouseWheelListener(bossGearWindow);
 		keyManager.registerKeyListener(bossGearWindow);
-		bossGearHotkeyListener = new HotkeyListener(config::bossGearHotkey) {
-			@Override
-			public void hotkeyPressed() {
-				toggleBossGear();
-			}
-		};
-		keyManager.registerKeyListener(bossGearHotkeyListener);
 	}
 
 	/** The roadmap, farm run and boss gear windows share the middle of the screen (and the bank): one at a time. */
@@ -518,19 +493,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		mouseManager.unregisterMouseListener(gearProgressionOverlay);
 		mouseManager.unregisterMouseWheelListener(gearProgressionOverlay);
 		keyManager.unregisterKeyListener(gearProgressionOverlay);
-		if (gearHotkeyListener != null) {
-			keyManager.unregisterKeyListener(gearHotkeyListener);
-			gearHotkeyListener = null;
-		}
 		gearProgressionManager.clear();
 		overlayManager.remove(farmRunWindow);
 		mouseManager.unregisterMouseListener(farmRunWindow);
 		mouseManager.unregisterMouseWheelListener(farmRunWindow);
 		keyManager.unregisterKeyListener(farmRunWindow);
-		if (farmRunHotkeyListener != null) {
-			keyManager.unregisterKeyListener(farmRunHotkeyListener);
-			farmRunHotkeyListener = null;
-		}
 		overlayManager.remove(farmRunOverlay);
 		overlayManager.remove(farmRunSceneOverlay);
 		overlayManager.remove(farmRunItemOverlay);
@@ -545,10 +512,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		mouseManager.unregisterMouseListener(bossGearWindow);
 		mouseManager.unregisterMouseWheelListener(bossGearWindow);
 		keyManager.unregisterKeyListener(bossGearWindow);
-		if (bossGearHotkeyListener != null) {
-			keyManager.unregisterKeyListener(bossGearHotkeyListener);
-			bossGearHotkeyListener = null;
-		}
 		bossGearManager.clear();
 		roadmapManager.clear();
 		log.debug("OSRS Companion stopped");

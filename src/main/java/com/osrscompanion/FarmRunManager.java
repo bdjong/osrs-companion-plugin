@@ -817,8 +817,18 @@ public class FarmRunManager {
 		return Collections.emptyList();
 	}
 
-	/** The last cape menu written to the debug log, so a hovered cape is logged once, not every frame. */
+	/** The last cape menu written to the log, so a hovered cape is logged once, not every frame. */
 	private String lastCapeMenuLog;
+
+	/** Teleport capes by name (the menu's target), as worn and inventory entries don't always carry the item id. */
+	private static boolean isTeleportCape(MenuEntry m) {
+		if (TELEPORT_CAPES.contains(m.getItemId())) {
+			return true;
+		}
+		String target = Text.removeTags(m.getTarget() == null ? "" : m.getTarget()).toLowerCase();
+		return target.contains("max cape") || target.contains("construct. cape") || target.contains("construction cape")
+			|| target.contains("farming cape") || target.contains("ardougne cloak");
+	}
 
 	/**
 	 * "Auto set cape teleport": the cape's teleport to the current stop becomes its left click (worn or in the
@@ -830,48 +840,40 @@ public class FarmRunManager {
 		if (!config.autoCapeTeleport() || !running || stop == null || client.isMenuOpen()) {
 			return;
 		}
-		FarmRoute.Travel travel = travelOf(stop);
-		List<String> wanted = capeOptions(travel);
 		MenuEntry[] entries = client.getMenuEntries();
-		if (wanted.isEmpty()) {
-			if (log.isDebugEnabled() && java.util.Arrays.stream(entries).anyMatch(m -> TELEPORT_CAPES.contains(m.getItemId()))) {
-				String line = "step " + (stopIndex + 1) + " travel '" + (travel == null ? null : travel.getName()) + "' is not a cape teleport";
-				if (!line.equals(lastCapeMenuLog)) {
-					lastCapeMenuLog = line;
-					log.debug("Farm run: cape teleport left click: {}", line);
-				}
+		StringBuilder capes = new StringBuilder();
+		for (MenuEntry m : entries) {
+			if (isTeleportCape(m)) {
+				capes.append('\'').append(Text.removeTags(m.getOption())).append("' ");
 			}
+		}
+		if (capes.length() == 0) {
 			return;
 		}
+		FarmRoute.Travel travel = travelOf(stop);
+		List<String> wanted = capeOptions(travel);
 		int best = -1;
 		int bestRank = Integer.MAX_VALUE;
 		for (int i = 0; i < entries.length; i++) {
-			if (!TELEPORT_CAPES.contains(entries[i].getItemId())) {
+			if (!isTeleportCape(entries[i])) {
 				continue;
 			}
 			String option = Text.removeTags(entries[i].getOption()).toLowerCase();
 			for (int rank = 0; rank < wanted.size() && rank < bestRank; rank++) {
-				if (option.equals(wanted.get(rank)) || option.contains(wanted.get(rank))) {
+				if (option.contains(wanted.get(rank))) {
 					best = i;
 					bestRank = rank;
 				}
 			}
 		}
-		int last = entries.length - 1;
-		if (log.isDebugEnabled()) {
-			StringBuilder capes = new StringBuilder();
-			for (MenuEntry m : entries) {
-				if (TELEPORT_CAPES.contains(m.getItemId())) {
-					capes.append(m.getItemId()).append(':').append(Text.removeTags(m.getOption())).append(", ");
-				}
-			}
-			String line = capes.length() == 0 ? null : "travel '" + travel.getName() + "' / '" + travel.getHow() + "', wants " + wanted
-				+ ", cape options [" + capes + "], picked " + (best < 0 ? "none" : Text.removeTags(entries[best].getOption()));
-			if (line != null && !line.equals(lastCapeMenuLog)) {
-				lastCapeMenuLog = line;
-				log.debug("Farm run: cape teleport left click: {}", line);
-			}
+		String line = "CAPE TELEPORT step " + (stopIndex + 1) + ", travel '" + (travel == null ? null : travel.getName()) + "' ("
+			+ (travel == null ? null : travel.getHow()) + "), looking for " + wanted + ", cape options " + capes
+			+ "-> left click " + (best < 0 ? "unchanged" : "'" + Text.removeTags(entries[best].getOption()) + "'");
+		if (!line.equals(lastCapeMenuLog)) {
+			lastCapeMenuLog = line;
+			log.info(line);
 		}
+		int last = entries.length - 1;
 		if (best < 0 || best == last) {
 			return;
 		}
