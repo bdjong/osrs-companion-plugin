@@ -268,8 +268,8 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigItem(
 			keyName = "farmRunBankFilter",
-			name = "Farm run bank layout",
-			description = "When you open the bank with the farm run window open (or a run going), the bank shows only what the route needs, laid out like the worn gear and the inventory (see Exact bank layout). Click another bank tab to see everything.",
+			name = "Farm run active in the bank",
+			description = "When you open the bank, it shows only what your farm route needs, laid out like the worn gear and the inventory (see Exact bank layout). An open window or a run going wins over the boss setup. Click another bank tab to see everything.",
 			section = FEATURES_SECTION,
 			position = 8)
 	default boolean farmRunBankFilter() {
@@ -308,8 +308,8 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigItem(
 			keyName = "bossGearBankLayout",
-			name = "Boss gear bank layout",
-			description = "When you open the bank with the boss gear window open, the bank shows only the setup's items, laid out like the worn gear and the inventory (see Exact bank layout). Click another bank tab to see everything.",
+			name = "Boss gear active in the bank",
+			description = "When you open the bank, it shows only your active boss setup's items, laid out like the worn gear and the inventory (see Exact bank layout), with or without the window open. Click another bank tab to see everything.",
 			section = FEATURES_SECTION,
 			position = 12)
 	default boolean bossGearBankLayout() {
@@ -323,16 +323,6 @@ public interface OSRSCompanionConfig extends Config {
 			section = FEATURES_SECTION,
 			position = 13)
 	default boolean bankLayoutPositions() {
-		return true;
-	}
-
-	@ConfigItem(
-			keyName = "bossGearBankAuto",
-			name = "Always lay out active boss setup",
-			description = "Opening the bank lays out your active boss setup (picked on the website or in the Boss gear window) even with the window closed. A farm run window or run going comes first. Click another bank tab to see everything.",
-			section = FEATURES_SECTION,
-			position = 14)
-	default boolean bossGearBankAuto() {
 		return true;
 	}
 }

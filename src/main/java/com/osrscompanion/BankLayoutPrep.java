@@ -119,21 +119,24 @@ public class BankLayoutPrep {
 
 	// ---- When ---------------------------------------------------------------------
 
-	/** Re-reads the active boss setup when the bank opens, at most this often (a setup just picked on the website). */
+	/** Re-reads the active boss setup / farm route when the bank opens, at most this often (one just picked on the website). */
 	private static final long AUTO_REFRESH_MS = 60_000;
-	private long lastAutoRefresh;
+	private long lastBossRefresh;
 
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
 		if (event.getGroupId() == InterfaceID.BANKMAIN) {
 			applied = null;
 			searched = null;
-			// The active setup lays the bank out even with the window closed: make sure it is loaded and current.
+			// An active setup / route lays the bank out even with its window closed: make sure it is loaded and current.
 			long now = System.currentTimeMillis();
-			if (config.bossGearBankAuto() && config.bossGearBankLayout() && !bossGear.isOpen() && !bossGear.isLoading()
-					&& (bossGear.getSet() == null || now - lastAutoRefresh > AUTO_REFRESH_MS)) {
-				lastAutoRefresh = now;
+			if (config.bossGearBankLayout() && !bossGear.isOpen() && !bossGear.isLoading()
+					&& (bossGear.getSet() == null || now - lastBossRefresh > AUTO_REFRESH_MS)) {
+				lastBossRefresh = now;
 				bossGear.refresh();
+			}
+			if (config.farmRunBankFilter() && !farmRun.isOpen()) {
+				farmRun.refreshIfStale();
 			}
 			clientThread.invokeLater(this::update);
 		}
@@ -156,22 +159,22 @@ public class BankLayoutPrep {
 	}
 
 	/**
-	 * Which feature drives the bank now: the Boss gear window, else the farm run (window open or a
-	 * run going), else the active boss setup by itself (setting "Always lay out active boss setup").
+	 * Which feature drives the bank now. Each is "active in the bank" by its own setting; when both
+	 * are, an open window wins, then a farm run in progress, then the boss setup, then the route.
 	 */
 	Driver driver() {
 		boolean boss = bossGear.getSet() != null && config.bossGearBankLayout();
+		boolean farm = farmRun.getRoute() != null && config.farmRunBankFilter();
 		if (boss && bossGear.isOpen()) {
 			return Driver.BOSS;
 		}
-		boolean farm = farmRun.isOpen() || (farmRun.isRunning() && !farmRun.isComplete());
-		if (farm && farmRun.getRoute() != null && config.farmRunBankFilter()) {
+		if (farm && (farmRun.isOpen() || (farmRun.isRunning() && !farmRun.isComplete()))) {
 			return Driver.FARM;
 		}
-		if (boss && config.bossGearBankAuto()) {
+		if (boss) {
 			return Driver.BOSS;
 		}
-		return null;
+		return farm ? Driver.FARM : null;
 	}
 
 	/** Changes with the driver and whenever its data is reloaded (a new object), so a switched set is laid out again. */
