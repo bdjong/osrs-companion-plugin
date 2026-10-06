@@ -23,6 +23,7 @@ import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.api.SpriteID;
 import net.runelite.client.game.ItemManager;
@@ -51,6 +52,7 @@ public class RoadmapPanel extends PluginPanel {
 	private final FarmRunManager farmRun;
 	private final BossGearManager bossGear;
 	private final GearProgressionManager gearProgression;
+	private final ClientThread clientThread;
 
 	private final CardLayout cards = new CardLayout();
 	/** The pages; only as tall as the page on show (a card layout is as tall as its tallest page). */
@@ -75,7 +77,8 @@ public class RoadmapPanel extends PluginPanel {
 
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
-			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression) {
+			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression,
+			ClientThread clientThread) {
 		super(false);
 		this.itemManager = itemManager;
 		this.spriteManager = spriteManager;
@@ -86,6 +89,7 @@ public class RoadmapPanel extends PluginPanel {
 		this.farmRun = farmRun;
 		this.bossGear = bossGear;
 		this.gearProgression = gearProgression;
+		this.clientThread = clientThread;
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -201,18 +205,32 @@ public class RoadmapPanel extends PluginPanel {
 	private JPanel farmPage(Runnable openWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
-		add(p, new PanelTiles.Info("ACTIVE ROUTE", () -> {
+		// The route, with a switch that starts (Active) or stops (Inactive) the run.
+		add(p, new PanelTiles.SetupCard("ACTIVE ROUTE", "SELECTED ROUTE",
+			"Active: the run is going (guide, bank layout). Click to stop it.",
+			"Inactive: no run going. Click to start the run at its first stop.", FARM, () -> {
 			FarmRoute r = farmRun.getRoute();
 			if (r == null) {
 				return new String[]{"No route loaded yet", "Make one on the website, then open the window"};
 			}
 			int[] done = farmRun.progress();
-			String state = farmRun.isRunning() ? (farmRun.isComplete() ? "Run complete" : "Running: " + done[0] + " / " + done[1] + " patches") : r.isReady() ? "READY - every crop ready" : "Not running";
+			String state = farmRun.isRunning() ? (farmRun.isComplete() ? "Run complete" : "Running: " + done[0] + " / " + done[1] + " patches")
+				: r.isReady() ? "READY - every crop ready" : "Not running";
 			return new String[]{r.getName(), state};
 		}, () -> {
 			FarmRoute r = farmRun.getRoute();
 			Integer item = r == null ? null : r.pictureItem();
 			return item == null ? null : itemManager.getImage(item);
+		}, () -> farmRun.getRoute() != null, farmRun::isRunning, () -> {
+			// Starting reads the patches' state from the game: on the client thread.
+			clientThread.invoke(() -> {
+				if (farmRun.isRunning()) {
+					farmRun.stop();
+				} else {
+					farmRun.start();
+				}
+			});
+			deck.repaint();
 		}), null);
 		add(p, toggle("Active in the bank", "Bank shows items during a run", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter), null);
 		add(p, toggle("Run guide", "Arrow + patch outlines", "Guide hidden", FARM, "showFarmRun", config::showFarmRun), null);
@@ -224,7 +242,9 @@ public class RoadmapPanel extends PluginPanel {
 	private JPanel bossPage(Runnable openWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
-		add(p, new PanelTiles.SetupCard(BOSS, () -> {
+		add(p, new PanelTiles.SetupCard("ACTIVE SETUP", "SELECTED SETUP",
+			"Active: the bank lays out this setup and the gear display shows it. Click to set Inactive (the setup stays selected).",
+			"Inactive: the setup stays selected, but the bank is left alone and no gear is shown. Click to set Active.", BOSS, () -> {
 			BossGear s = bossGear.getSet();
 			if (s == null) {
 				return new String[]{bossGear.isLoading() ? "Loading..." : "No setup picked yet", "Load one in Gear overview"};

@@ -16,15 +16,14 @@ import net.runelite.api.GameState;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ScriptCallbackEvent;
-import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarClientID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
@@ -123,12 +122,14 @@ public class BankLayoutPrep {
 	// ---- When ---------------------------------------------------------------------
 
 	/**
-	 * Opening our tag right as the bank opens does not always stick (the bank is still being built):
-	 * for a few ticks after applying, a layout that is not showing is applied again, a few times at most.
-	 * After that, another bank tab the player clicks is left alone.
+	 * Opening our tag right as the bank opens does not always stick: Bank Tags and the server's tab
+	 * sync can still put the whole bank back while our tag counts as open. So for a few ticks after the
+	 * bank opens (and after each apply) we check what the bank actually shows, and when it shows items
+	 * the set / route does not need, close and open our layout again, a few times at most. After that,
+	 * another bank tab the player clicks is left alone.
 	 */
-	private static final int VERIFY_TICKS = 3;
-	private static final int MAX_RETRIES = 3;
+	private static final int VERIFY_TICKS = 5;
+	private static final int MAX_RETRIES = 4;
 	private int verifyUntilTick = -1;
 	private int retries;
 
@@ -136,13 +137,6 @@ public class BankLayoutPrep {
 	private static final long AUTO_REFRESH_MS = 60_000;
 	private long lastBossRefresh;
 
-	/**
-	 * Opening our tag as soon as the bank widget loads can come before Bank Tags has set the bank up,
-	 * which then shows the normal bank while our tag still counts as open. So the layout waits for the
-	 * bank's first build (or two ticks, whichever comes first).
-	 */
-	private boolean waitingForBuild;
-	private int bankOpenedTick;
 	/** Loads the active boss setup in the background after login, at most this often, so the first bank open has it. */
 	private static final int PRELOAD_EVERY_TICKS = 50;
 	private int lastPreloadTick = -PRELOAD_EVERY_TICKS;
@@ -163,15 +157,7 @@ public class BankLayoutPrep {
 			if (config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isOpen()) {
 				farmRun.refreshIfStale();
 			}
-			waitingForBuild = true;
-			bankOpenedTick = client.getTickCount();
-		}
-	}
-
-	@Subscribe
-	public void onScriptPostFired(ScriptPostFired event) {
-		if (event.getScriptId() == ScriptID.BANKMAIN_BUILD && waitingForBuild) {
-			waitingForBuild = false;
+			verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
 			clientThread.invokeLater(this::update);
 		}
 	}
@@ -191,18 +177,46 @@ public class BankLayoutPrep {
 		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
 			return;
 		}
-		if (waitingForBuild) {
-			if (client.getTickCount() - bankOpenedTick < 2) {
-				return;
-			}
-			waitingForBuild = false;
-		}
-		if (applied != null && client.getTickCount() <= verifyUntilTick && retries < MAX_RETRIES && bankTagsOn() && !isOurTagOpen()) {
-			log.debug("Bank layout did not stick; applying it again");
+		if (applied != null && client.getTickCount() <= verifyUntilTick && retries < MAX_RETRIES && bankTagsOn() && !showingOurs()) {
+			log.debug("Bank layout did not stick (tag open: {}); applying it again", isOurTagOpen());
 			retries++;
+			if (isOurTagOpen()) {
+				bankTags.closeBankTag();
+			}
 			applied = null;
 		}
 		update();
+	}
+
+	/** Bank filler and the empty-slot object: shown in a whole bank, never items of a set. */
+	private static final int BANK_FILLER = 20594;
+	private static final int EMPTY_SLOT = 6512;
+
+	/** Whether the open bank shows our tag: no item the set / route does not need is on show. Client thread. */
+	private boolean showingOurs() {
+		if (!isOurTagOpen()) {
+			return false;
+		}
+		Driver d = driver();
+		Widget items = client.getWidget(InterfaceID.Bankmain.ITEMS);
+		if (d == null || items == null) {
+			return true;
+		}
+		Widget[] children = items.getDynamicChildren();
+		if (children == null) {
+			return true;
+		}
+		for (Widget w : children) {
+			int id = w.getItemId();
+			if (w.isHidden() || id <= 0 || id == BANK_FILLER || id == EMPTY_SLOT) {
+				continue;
+			}
+			int item = itemManager.canonicalize(id);
+			if (d == Driver.BOSS ? !bossGear.needs(item) : !farmRun.needs(item)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** With the boss setup Active in the bank, have it loaded before the bank opens. */
