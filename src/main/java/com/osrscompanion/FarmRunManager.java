@@ -8,6 +8,9 @@ import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.runelite.farming.CompostState;
 import com.osrscompanion.runelite.farming.CompostTracker;
 import com.osrscompanion.runelite.farming.CropState;
+import net.runelite.api.MenuEntry;
+import net.runelite.api.events.PostMenuSort;
+import net.runelite.client.util.Text;
 import com.osrscompanion.runelite.farming.FarmingPatch;
 import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
@@ -291,6 +294,9 @@ public class FarmRunManager {
 		capeRemindedStop = -1;
 		recountPending = true;
 		updateStatuses();
+		// Picking up a run done in part (logged out, client restarted): stops whose patches were already
+		// replanted have nothing to do, so the run goes on from the first stop that still has work.
+		advance();
 		if (log.isDebugEnabled()) {
 			Map<Status, Integer> counts = new java.util.EnumMap<>(Status.class);
 			for (FarmRoute.Stop stop : r.getStops()) {
@@ -298,7 +304,7 @@ public class FarmRunManager {
 					counts.merge(statusOf(p), 1, Integer::sum);
 				}
 			}
-			log.debug("Farm run: started '{}' at step 1: {} (complete: {})", r.getName(), counts, isComplete());
+			log.debug("Farm run: started '{}', now at step {}: {} (complete: {})", r.getName(), stopIndex + 1, counts, isComplete());
 		}
 	}
 
@@ -729,7 +735,42 @@ public class FarmRunManager {
 			return false;
 		}
 		FarmRoute.Stop stop = getCurrentStop();
-		return stop != null && stop.getPatches().stream().anyMatch(p -> isHerb(p) && statusOf(p) == Status.TODO);
+		return stop != null && stop.getPatches().stream().anyMatch(p -> isHerb(p) && statusOf(p) == Status.TODO && harvestable(p));
+	}
+
+	/** A crop to pick now: grown (not dead or diseased; the cape only adds to a harvest). */
+	boolean harvestable(FarmRoute.Patch p) {
+		Snapshot now = snapshot(p);
+		return now != null && !now.weeds && (now.state == CropState.HARVESTABLE || now.state == CropState.GROWING && now.grown);
+	}
+
+	/**
+	 * What to do at a patch still to do, as its label says: harvest, rake, compost, then plant the route's
+	 * seed (dead and diseased crops say so first).
+	 */
+	public String nextStep(FarmRoute.Patch p) {
+		String type = p.getType();
+		String seed = p.getSeedName() != null ? p.getSeedName() : p.getCrop();
+		Snapshot now = snapshot(p);
+		if (now == null) {
+			return type + (p.getCrop() != null ? ": " + p.getCrop() : "") + (needsCompost(p) ? " + compost" : "");
+		}
+		if (now.state == CropState.DEAD) {
+			return type + ": Clear the dead crop";
+		}
+		if (now.state == CropState.DISEASED) {
+			return type + ": Cure it (plant cure)";
+		}
+		if (harvestable(p)) {
+			return type + ": Harvest";
+		}
+		if (now.weeds) {
+			return type + ": Rake";
+		}
+		if (needsCompost(p)) {
+			return type + ": Use compost";
+		}
+		return seed != null ? type + ": " + seed : type;
 	}
 
 	/**
@@ -737,7 +778,7 @@ public class FarmRunManager {
 	 * have 99 Farming). Its label then says to wear the cape and picking it is not the left click.
 	 */
 	public boolean capeBlocks(FarmRoute.Patch p) {
-		return config.forceFarmingCape() && running && !capeWorn && isHerb(p) && statusOf(p) == Status.TODO
+		return config.forceFarmingCape() && running && !capeWorn && isHerb(p) && statusOf(p) == Status.TODO && harvestable(p)
 			&& client.getRealSkillLevel(Skill.FARMING) >= 99;
 	}
 
@@ -747,7 +788,71 @@ public class FarmRunManager {
 		if (!config.forceFarmingCape() || !running || capeWorn || r == null || client.getRealSkillLevel(Skill.FARMING) < 99) {
 			return false;
 		}
-		return r.getStops().stream().anyMatch(s -> s.getPatches().stream().anyMatch(p -> isHerb(p) && statusOf(p) == Status.TODO));
+		return r.getStops().stream().anyMatch(s -> s.getPatches().stream().anyMatch(p -> isHerb(p) && statusOf(p) == Status.TODO && harvestable(p)));
+	}
+
+	/** Capes with teleports a route uses: Max capes, Construction capes, Farming capes, Ardougne cloaks. */
+	private static final Set<Integer> TELEPORT_CAPES = new HashSet<>(java.util.Arrays.asList(
+		13280, 13342, 9789, 9790, FARMING_CAPE, FARMING_CAPE_T, 13121, 13122, 13123, 13124));
+
+	/**
+	 * The cape options for the current stop's way there, best first: Tele to POH, the Farming Guild,
+	 * the Ardougne cloak's farm or Monastery teleport. Empty when it isn't a cape teleport.
+	 */
+	static List<String> capeOptions(FarmRoute.Travel travel) {
+		if (travel == null) {
+			return Collections.emptyList();
+		}
+		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
+		if (text.contains("tele to poh")) {
+			return Collections.singletonList("tele to poh");
+		}
+		if (text.contains("farming guild") || text.contains("farming cape")) {
+			return java.util.Arrays.asList("farming guild", "teleport", "other teleports");
+		}
+		if (text.contains("ardougne cloak")) {
+			return text.contains("monastery") ? java.util.Arrays.asList("kandarin monastery", "monastery")
+				: java.util.Arrays.asList("ardougne farm", "farm");
+		}
+		return Collections.emptyList();
+	}
+
+	/** "Auto set cape teleport": the cape's teleport to the current stop becomes its left click (worn or in the inventory). */
+	@Subscribe
+	public void onPostMenuSort(PostMenuSort e) {
+		FarmRoute.Stop stop = getCurrentStop();
+		if (!config.autoCapeTeleport() || !running || stop == null || client.isMenuOpen()) {
+			return;
+		}
+		FarmRoute.Travel travel = travelOf(stop);
+		List<String> wanted = capeOptions(travel);
+		if (wanted.isEmpty()) {
+			return;
+		}
+		MenuEntry[] entries = client.getMenuEntries();
+		int best = -1;
+		int bestRank = Integer.MAX_VALUE;
+		for (int i = 0; i < entries.length; i++) {
+			if (!TELEPORT_CAPES.contains(entries[i].getItemId())) {
+				continue;
+			}
+			String option = Text.removeTags(entries[i].getOption()).toLowerCase();
+			for (int rank = 0; rank < wanted.size() && rank < bestRank; rank++) {
+				if (option.equals(wanted.get(rank)) || option.contains(wanted.get(rank))) {
+					best = i;
+					bestRank = rank;
+				}
+			}
+		}
+		int last = entries.length - 1;
+		if (best < 0 || best == last) {
+			return;
+		}
+		// The last entry is the left click.
+		MenuEntry pick = entries[best];
+		System.arraycopy(entries, best + 1, entries, best, last - best);
+		entries[last] = pick;
+		client.setMenuEntries(entries);
 	}
 
 	/** "Pick" on a herb patch the cape blocks moves below "Walk here", so a left click walks instead. */
