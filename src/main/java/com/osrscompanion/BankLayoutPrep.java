@@ -31,6 +31,7 @@ import net.runelite.client.game.ItemVariationMapping;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.plugins.bank.BankSearch;
+import net.runelite.client.plugins.banktags.BankTagsPlugin;
 import net.runelite.client.plugins.banktags.BankTagsService;
 import net.runelite.client.plugins.banktags.TagManager;
 import net.runelite.client.plugins.banktags.tabs.Layout;
@@ -326,8 +327,13 @@ public class BankLayoutPrep {
 		int options = BankTagsService.OPTION_HIDE_TAG_NAME | BankTagsService.OPTION_ITEMS_NOT_IN_LAYOUT_AT_BOTTOM
 			| (config.bankLayoutPositions() ? 0 : BankTagsService.OPTION_NO_LAYOUT);
 		bankTags.openBankTag(tag, options);
-		log.debug("Bank layout: opened tag '{}' ({} positions, exact layout {}, {} bank items); Bank Tags now shows '{}'",
-			tag, positions.length, config.bankLayoutPositions(), bank.ids.size(), bankTags.getActiveTag());
+		if (log.isDebugEnabled()) {
+			Layout saved = layoutManager.loadLayout(tag);
+			Object active = bankTags instanceof BankTagsPlugin ? ((BankTagsPlugin) bankTags).getActiveLayout() != null : "unknown";
+			log.debug("Bank layout: opened tag '{}' ({} positions, exact layout {}, {} bank items); Bank Tags now shows '{}', "
+				+ "layout saved {}, layout in use {}, positions {}", tag, positions.length, config.bankLayoutPositions(), bank.ids.size(),
+				bankTags.getActiveTag(), saved != null, active, java.util.Arrays.toString(positions));
+		}
 		verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
 	}
 
