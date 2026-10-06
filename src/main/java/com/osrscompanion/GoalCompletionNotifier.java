@@ -1,10 +1,8 @@
 package com.osrscompanion;
 
 import com.osrscompanion.model.RoadmapGoal;
-import java.io.File;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +13,6 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetModalMode;
 import net.runelite.api.WidgetNode;
-import net.runelite.client.RuneLite;
-import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.util.Text;
 
@@ -38,14 +34,11 @@ public class GoalCompletionNotifier {
 	static final int NOTIFICATION_DISPLAY_INIT = 3343;
 	/** In-game sound effect for the default option. */
 	static final int DEFAULT_SOUND_ID = SoundEffectID.GE_ADD_OFFER_DINGALING;
-	static final String CUSTOM_SOUND_PATH = "osrscompanion/goal-complete.wav";
 	static final String TITLE = "<col=f28c28>Roadmap Goal Complete!</col>";
 
 	private final Client client;
 	private final ClientThread clientThread;
 	private final OSRSCompanionConfig config;
-	private final AudioPlayer audioPlayer;
-	private final ScheduledExecutorService executorService;
 
 	/** A popup that is queued or on screen, with the roadmap progress to draw under it. */
 	public static final class Popup {
@@ -85,14 +78,10 @@ public class GoalCompletionNotifier {
 	public GoalCompletionNotifier(
 			Client client,
 			ClientThread clientThread,
-			OSRSCompanionConfig config,
-			AudioPlayer audioPlayer,
-			ScheduledExecutorService executorService) {
+			OSRSCompanionConfig config) {
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
-		this.audioPlayer = audioPlayer;
-		this.executorService = executorService;
 	}
 
 	/**
@@ -243,23 +232,6 @@ public class GoalCompletionNotifier {
 		if (volume <= 0) {
 			return;
 		}
-		if (sound == GoalCompleteSound.IN_GAME) {
-			client.playSoundEffect(DEFAULT_SOUND_ID, volume);
-			return;
-		}
-		File file = new File(RuneLite.RUNELITE_DIR, CUSTOM_SOUND_PATH);
-		if (!file.isFile()) {
-			log.debug("Custom goal sound not found at {}", file);
-			return;
-		}
-		// Game sound effect volume is 0-127; map to a gain in dB like RuneLite's Notifier.
-		float gainDb = (float) (20d * Math.log10(volume / 127d));
-		executorService.execute(() -> {
-			try {
-				audioPlayer.play(file, gainDb);
-			} catch (Exception e) {
-				log.debug("Custom goal sound could not be played", e);
-			}
-		});
+		client.playSoundEffect(DEFAULT_SOUND_ID, volume);
 	}
 }

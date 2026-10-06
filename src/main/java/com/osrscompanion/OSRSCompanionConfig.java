@@ -218,7 +218,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "goalCompleteSound",
 			name = "Goal completion sound",
-			description = "Sound to play when you complete a roadmap goal. Custom file: ~/.runelite/osrscompanion/goal-complete.wav",
+			description = "Sound to play when you complete a roadmap goal.",
 			section = FEATURES_SECTION,
 			position = 4)
 	default GoalCompleteSound goalCompleteSound() {
@@ -311,7 +311,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "bankLayoutPositions",
 			name = "Exact bank layout",
-			description = "For the boss gear and farm run bank layouts: put each item where it goes (gear in the equipment doll's shape, the inventory as 4 x 7, the rune pouch under the doll), like Inventory Setups. Needs the Bank Tags plugin; off (or Bank Tags off) only filters the bank.",
+			description = "For the boss gear and farm run bank layouts: put each item where it goes (gear in the equipment doll's shape, the inventory as 4 x 7, the rune pouch under the doll), like Inventory Setups. Needs the Bank Tags plugin; off only filters the bank (no positions).",
 			section = FEATURES_SECTION,
 			position = 13)
 	default boolean bankLayoutPositions() {
