@@ -804,9 +804,8 @@ public class FarmRunManager {
 			return Collections.emptyList();
 		}
 		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
-		// Worn, the Max cape has "Tele to POH" (and "Other Teleports"); in the inventory only "Teleports", its teleport menu.
 		if (text.contains("tele to poh")) {
-			return java.util.Arrays.asList("tele to poh", "teleports");
+			return Collections.singletonList("tele to poh");
 		}
 		if (text.contains("farming guild") || text.contains("farming cape")) {
 			return java.util.Arrays.asList("farming guild", "other teleports", "teleport");
@@ -814,6 +813,24 @@ public class FarmRunManager {
 		if (text.contains("ardougne cloak")) {
 			return text.contains("monastery") ? java.util.Arrays.asList("kandarin monastery", "monastery")
 				: java.util.Arrays.asList("ardougne farm", "farm");
+		}
+		return Collections.emptyList();
+	}
+
+	/**
+	 * In the inventory the Max cape keeps its teleports in the "Teleports" sub menu: the entry there for the
+	 * current stop's way (Home for Tele to POH, Farming Guild). Empty when there is none.
+	 */
+	static List<String> capeSubOptions(FarmRoute.Travel travel) {
+		if (travel == null) {
+			return Collections.emptyList();
+		}
+		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
+		if (text.contains("tele to poh")) {
+			return Collections.singletonList("home");
+		}
+		if (text.contains("farming guild")) {
+			return Collections.singletonList("farming guild");
 		}
 		return Collections.emptyList();
 	}
@@ -867,12 +884,42 @@ public class FarmRunManager {
 				}
 			}
 		}
+		MenuEntry fromSub = null;
+		if (best < 0) {
+			// Not on the cape's own menu (the Max cape in the inventory): its "Teleports" sub menu has it.
+			List<String> subWanted = capeSubOptions(travel);
+			for (MenuEntry m : entries) {
+				if (fromSub != null || subWanted.isEmpty() || !isTeleportCape(m) || m.getSubMenu() == null) {
+					continue;
+				}
+				for (MenuEntry sub : m.getSubMenu().getMenuEntries()) {
+					String option = Text.removeTags(sub.getOption()).toLowerCase();
+					if (subWanted.stream().anyMatch(option::equals)) {
+						fromSub = sub;
+						break;
+					}
+				}
+			}
+		}
 		String line = "CAPE TELEPORT step " + (stopIndex + 1) + ", travel '" + (travel == null ? null : travel.getName()) + "' ("
 			+ (travel == null ? null : travel.getHow()) + "), looking for " + wanted + ", cape options " + capes
-			+ "-> left click " + (best < 0 ? "unchanged" : "'" + Text.removeTags(entries[best].getOption()) + "'");
+			+ "-> left click " + (best >= 0 ? "'" + Text.removeTags(entries[best].getOption()) + "'"
+			: fromSub != null ? "'" + Text.removeTags(fromSub.getOption()) + "' (from the Teleports menu)" : "unchanged");
 		if (!line.equals(lastCapeMenuLog)) {
 			lastCapeMenuLog = line;
 			log.info(line);
+		}
+		if (best < 0 && fromSub != null) {
+			// A copy of the sub menu entry on top: the left click (added last).
+			client.getMenu().createMenuEntry(-1)
+				.setOption(fromSub.getOption())
+				.setTarget(fromSub.getTarget())
+				.setType(fromSub.getType())
+				.setIdentifier(fromSub.getIdentifier())
+				.setParam0(fromSub.getParam0())
+				.setParam1(fromSub.getParam1())
+				.setItemId(fromSub.getItemId());
+			return;
 		}
 		int last = entries.length - 1;
 		if (best < 0 || best == last) {
