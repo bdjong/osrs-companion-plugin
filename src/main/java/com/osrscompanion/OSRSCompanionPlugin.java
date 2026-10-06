@@ -87,6 +87,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private HouseLocationMonitor houseLocationMonitor;
 
 	@Inject
+	private FarmingUnlocksMonitor farmingUnlocksMonitor;
+
+	@Inject
 	private KingdomMonitor kingdomMonitor;
 
 	@Inject
@@ -229,6 +232,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(questMonitor);
 		eventBus.register(achievementDiaryMonitor);
 		eventBus.register(houseLocationMonitor);
+		eventBus.register(farmingUnlocksMonitor);
 		eventBus.register(kingdomMonitor);
 		eventBus.register(combatAchievementMonitor);
 		eventBus.register(killCountMonitor);
@@ -352,6 +356,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(questMonitor);
 		eventBus.unregister(achievementDiaryMonitor);
 		eventBus.unregister(houseLocationMonitor);
+		eventBus.unregister(farmingUnlocksMonitor);
 		eventBus.unregister(kingdomMonitor);
 		eventBus.unregister(combatAchievementMonitor);
 		eventBus.unregister(killCountMonitor);
@@ -417,6 +422,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		questMonitor.stop();
 		achievementDiaryMonitor.stop();
 		houseLocationMonitor.stop();
+		farmingUnlocksMonitor.stop();
 		kingdomMonitor.stop();
 		combatAchievementMonitor.stop();
 		killCountMonitor.stop();
@@ -479,6 +485,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		questMonitor.forceSync();
 		achievementDiaryMonitor.forceSync();
 		houseLocationMonitor.forceSync();
+		farmingUnlocksMonitor.forceSync();
 		kingdomMonitor.forceSync();
 		combatAchievementMonitor.forceSync();
 		killCountMonitor.forceSync();
