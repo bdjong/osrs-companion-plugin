@@ -863,6 +863,7 @@ public class FarmRunManager {
 			}
 		}
 		if (capes.length() == 0) {
+			travelItemLeftClick(entries, travelOf(stop));
 			return;
 		}
 		FarmRoute.Travel travel = travelOf(stop);
@@ -929,6 +930,96 @@ public class FarmRunManager {
 		System.arraycopy(entries, best + 1, entries, best, last - best);
 		entries[last] = pick;
 		client.setMenuEntries(entries);
+	}
+
+	/** Item options that never teleport: not made the left click. */
+	private static final Set<String> NOT_TELEPORTS = new HashSet<>(java.util.Arrays.asList(
+		"wear", "wield", "remove", "drop", "use", "examine", "check", "cancel", "walk here", "destroy", "read", "inspect", "features",
+		"spellbook", "check charges", "uncharge", "empty"));
+
+	/** The item name without its charges or dose, to match "Ring of dueling(5)" with "Ring of dueling(8)". */
+	private static String baseName(String name) {
+		return Text.removeTags(name == null ? "" : name).toLowerCase().replaceAll("\\s*\\(\\d+\\)$", "").trim();
+	}
+
+	/**
+	 * Any other teleport item the step uses (Kharedst's memoirs, Book of the dead, Xeric's talisman, a
+	 * necklace...): its option (or sub menu option) named in the step's travel text becomes the left click,
+	 * else its teleport option (Rub, Reminisce, Teleport...). Client thread.
+	 */
+	private void travelItemLeftClick(MenuEntry[] entries, FarmRoute.Travel travel) {
+		if (travel == null || travel.getItems().isEmpty()) {
+			return;
+		}
+		Set<String> names = new HashSet<>();
+		Set<Integer> ids = new HashSet<>();
+		for (int id : travel.getItems()) {
+			ids.add(ItemVariationMapping.map(id));
+			String n = nameOf(id);
+			if (n != null) {
+				names.add(baseName(n));
+			}
+		}
+		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
+		MenuEntry best = null;
+		boolean bestFromSub = false;
+		int bestScore = 0;
+		StringBuilder seen = new StringBuilder();
+		for (MenuEntry m : entries) {
+			boolean ours = (m.getItemId() > 0 && ids.contains(ItemVariationMapping.map(m.getItemId()))) || names.contains(baseName(m.getTarget()));
+			if (!ours) {
+				continue;
+			}
+			List<MenuEntry> options = new ArrayList<>();
+			options.add(m);
+			if (m.getSubMenu() != null) {
+				options.addAll(java.util.Arrays.asList(m.getSubMenu().getMenuEntries()));
+			}
+			for (MenuEntry o : options) {
+				String option = Text.removeTags(o.getOption()).toLowerCase().trim();
+				seen.append('\'').append(option).append("' ");
+				int score = NOT_TELEPORTS.contains(option) || option.isEmpty() ? 0
+					: text.contains(option) ? 100 + option.length()
+					: option.contains("teleport") || option.equals("rub") || option.equals("reminisce") || option.equals("commune")
+						|| option.equals("break") || option.equals("operate") ? 10 : 0;
+				if (score > bestScore) {
+					best = o;
+					bestFromSub = o != m;
+					bestScore = score;
+				}
+			}
+		}
+		if (seen.length() == 0) {
+			return;
+		}
+		String line = "TELEPORT LEFT CLICK step " + (stopIndex + 1) + ", travel '" + travel.getName() + "', item options " + seen
+			+ "-> " + (best == null ? "unchanged" : "'" + Text.removeTags(best.getOption()) + "'" + (bestFromSub ? " (from its sub menu)" : ""));
+		if (!line.equals(lastCapeMenuLog)) {
+			lastCapeMenuLog = line;
+			log.info(line);
+		}
+		if (best == null) {
+			return;
+		}
+		if (bestFromSub) {
+			client.createMenuEntry(-1)
+				.setOption(best.getOption())
+				.setTarget(best.getTarget())
+				.setIdentifier(best.getIdentifier())
+				.setType(best.getType() == MenuAction.CC_OP_LOW_PRIORITY ? MenuAction.CC_OP : best.getType())
+				.setItemId(best.getItemId())
+				.setParam0(best.getParam0())
+				.setParam1(best.getParam1())
+				.onClick(best.onClick());
+			return;
+		}
+		int idx = java.util.Arrays.asList(entries).indexOf(best);
+		int last = entries.length - 1;
+		if (idx >= 0 && idx != last) {
+			System.arraycopy(entries, idx + 1, entries, idx, last - idx);
+			entries[last] = best;
+			client.setMenuEntries(entries);
+		}
 	}
 
 	/** "Pick" on a herb patch the cape blocks moves below "Walk here", so a left click walks instead. */

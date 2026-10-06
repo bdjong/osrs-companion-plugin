@@ -279,8 +279,8 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigItem(
 			keyName = "autoCapeTeleport",
-			name = "Auto set cape teleport",
-			description = "During a farm run, when the way to the current stop is a cape teleport (Max or Construction cape Tele to POH, the Farming Guild, the Ardougne cloak), that teleport is the cape's left click, worn or in the inventory.",
+			name = "Auto set teleport left click",
+			description = "During a farm run, the teleport item the current stop uses gets that teleport as its left click, worn or in the inventory: capes (Tele to POH, a town's house portal, the Farming Guild), the Ardougne cloak, Kharedst's memoirs / Book of the dead, jewellery and others.",
 			section = FEATURES_SECTION,
 			position = 9)
 	default boolean autoCapeTeleport() {
