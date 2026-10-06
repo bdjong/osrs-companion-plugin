@@ -22,6 +22,8 @@ public class FarmRunItemOverlay extends WidgetItemOverlay {
 	private static final Color PAYMENT = new Color(0xFA, 0xCC, 0x15);
 	private static final Color COMPOST = new Color(0xF9, 0x73, 0x16);
 	private static final Color BRING = new Color(255, 255, 255, 200);
+	/** The Farming cape to put on (Force Farming cape). */
+	private static final Color CAPE = new Color(0xFF, 0x40, 0x40);
 
 	private final OSRSCompanionConfig config;
 	private final FarmRunManager manager;
@@ -38,6 +40,18 @@ public class FarmRunItemOverlay extends WidgetItemOverlay {
 	@Override
 	public void renderItemOverlay(Graphics2D graphics, int itemId, WidgetItem widgetItem) {
 		if (!config.showFarmRun() || !manager.isRunning()) {
+			return;
+		}
+		if ((itemId == FarmRunManager.FARMING_CAPE || itemId == FarmRunManager.FARMING_CAPE_T) && !isBankItem(widgetItem) && manager.capeMissing()) {
+			// Force Farming cape: the cape in the inventory blinks until it is worn.
+			if (System.currentTimeMillis() / 500 % 2 == 0) {
+				Rectangle r = widgetItem.getCanvasBounds();
+				graphics.setColor(new Color(CAPE.getRed(), CAPE.getGreen(), CAPE.getBlue(), 90));
+				graphics.fill(r);
+				graphics.setColor(CAPE);
+				graphics.setStroke(new BasicStroke(2f));
+				graphics.draw(new Rectangle(r.x, r.y, r.width - 1, r.height - 1));
+			}
 			return;
 		}
 		Map<Integer, FarmRunManager.Highlight> now = manager.currentItems();

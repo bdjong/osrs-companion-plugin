@@ -741,6 +741,15 @@ public class FarmRunManager {
 			&& client.getRealSkillLevel(Skill.FARMING) >= 99;
 	}
 
+	/** With "Force Farming cape" on: the cape is not worn while herbs of the run are still to pick (the inventory highlights it). */
+	public boolean capeMissing() {
+		FarmRoute r = route;
+		if (!config.forceFarmingCape() || !running || capeWorn || r == null || client.getRealSkillLevel(Skill.FARMING) < 99) {
+			return false;
+		}
+		return r.getStops().stream().anyMatch(s -> s.getPatches().stream().anyMatch(p -> isHerb(p) && statusOf(p) == Status.TODO));
+	}
+
 	/** "Pick" on a herb patch the cape blocks moves below "Walk here", so a left click walks instead. */
 	@Subscribe
 	public void onMenuEntryAdded(MenuEntryAdded e) {
