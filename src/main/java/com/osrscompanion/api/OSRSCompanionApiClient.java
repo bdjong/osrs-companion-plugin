@@ -10,6 +10,7 @@ import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
 import com.osrscompanion.model.CombatAchievementsSyncPayload;
 import com.osrscompanion.model.DeathSyncPayload;
+import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.KillCountsSyncPayload;
 import com.osrscompanion.model.KingdomSyncPayload;
@@ -81,6 +82,7 @@ public class OSRSCompanionApiClient
 	private static final String LOOT_DROP_ENDPOINT = "/api/runelite/loot/drop/";
 	private static final String ROADMAPS_ENDPOINT = "/api/runelite/roadmaps/";
 	private static final String GEAR_ENDPOINT = "/api/runelite/gear/";
+	private static final String FARM_ROUTE_ENDPOINT = "/api/runelite/farm-route/";
 	private static final String SLAYER_ENDPOINT = "/api/runelite/slayer/";
 	private static final String SLAYER_CATALOG_ENDPOINT = "/api/runelite/slayer/catalog/";
 	private static final String SLAYER_CATALOG_STATUS_ENDPOINT = "/api/runelite/slayer/catalog/status/";
@@ -416,6 +418,21 @@ public class OSRSCompanionApiClient
 		body.put("player", playerUsername);
 		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/goal/", gson.toJson(body), "gear-goal",
 			GearPlan.GoalResult.class, callback);
+	}
+
+	/** Fetches the player's active farm route ({ route: null } until one is saved on the website). */
+	public void getFarmRoute(String playerUsername, RoadmapCallback<FarmRoute.Response> callback)
+	{
+		getAsync(FARM_ROUTE_ENDPOINT + "?player=" + urlEncode(playerUsername), "farm-route", FarmRoute.Response.class, callback);
+	}
+
+	/** Makes another farm route the active one and returns it. */
+	public void activateFarmRoute(int routeId, String playerUsername, RoadmapCallback<FarmRoute.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(FARM_ROUTE_ENDPOINT + "routes/" + routeId + "/activate/", gson.toJson(body), "farm-route-activate",
+			FarmRoute.Response.class, callback);
 	}
 
 	private <T> void getAsync(String endpoint, String label, Class<T> type, RoadmapCallback<T> callback)

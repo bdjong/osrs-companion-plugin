@@ -235,4 +235,14 @@ public interface OSRSCompanionConfig extends Config {
 	default Keybind gearProgressionHotkey() {
 		return Keybind.NOT_SET;
 	}
+
+	@ConfigItem(
+			keyName = "showFarmRun",
+			name = "Show farm run guide",
+			description = "While a farm run is started from the Farm run side panel: the step box, the arrow and outlines on the patches, and highlighted items.",
+			section = FEATURES_SECTION,
+			position = 6)
+	default boolean showFarmRun() {
+		return true;
+	}
 }

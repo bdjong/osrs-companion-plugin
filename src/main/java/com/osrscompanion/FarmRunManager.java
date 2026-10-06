@@ -1,0 +1,499 @@
+package com.osrscompanion;
+
+import com.osrscompanion.FarmPatchProgress.Snapshot;
+import com.osrscompanion.FarmPatchProgress.Status;
+import com.osrscompanion.api.OSRSCompanionApiClient;
+import com.osrscompanion.model.FarmRoute;
+import com.osrscompanion.runelite.farming.FarmingPatch;
+import com.osrscompanion.runelite.farming.FarmingTracker;
+import com.osrscompanion.runelite.farming.FarmingWorld;
+import com.osrscompanion.runelite.farming.PatchPrediction;
+import com.osrscompanion.runelite.farming.Produce;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.client.eventbus.Subscribe;
+
+/**
+ * The guided farm run: the active route from the website, which stop you are on and,
+ * per patch, whether it still needs a visit. Patch progress comes from RuneLite's
+ * farming tracker (the Time Tracking plugin keeps it current while you farm), so
+ * planting a patch ticks it off and the run moves to the next stop by itself.
+ *
+ * <p>Network work runs on OkHttp threads, game reads on the client thread; fields the
+ * panel and overlays read are volatile or concurrent.
+ */
+@Slf4j
+@Singleton
+public class FarmRunManager {
+	/** Re-read the route at most this often while the panel or a run uses it. */
+	static final long REFRESH_INTERVAL_MS = 5 * 60_000;
+
+	private final Client client;
+	private final OSRSCompanionApiClient apiClient;
+	private final RoadmapManager roadmapManager;
+
+	private volatile FarmingWorld farmingWorld;
+	private volatile FarmingTracker farmingTracker;
+
+	private volatile FarmRoute route;
+	private volatile List<FarmRoute.RouteSummary> routes = Collections.emptyList();
+	private volatile String error;
+	private volatile boolean loading;
+	private volatile boolean loaded;
+	private volatile long fetchedAtMs;
+
+	private volatile boolean running;
+	private volatile int stopIndex;
+	private final Map<String, Snapshot> startState = new ConcurrentHashMap<>();
+	private final Map<String, Status> status = new ConcurrentHashMap<>();
+	private final Set<String> skipped = ConcurrentHashMap.newKeySet();
+	private final Map<String, FarmingPatch> patchCache = new ConcurrentHashMap<>();
+
+	private volatile Map<Integer, Integer> carried = Collections.emptyMap();
+	private volatile Runnable changeListener;
+
+	@Inject
+	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager) {
+		this.client = client;
+		this.apiClient = apiClient;
+		this.roadmapManager = roadmapManager;
+	}
+
+	/** The farming data the plugin builds at start-up. */
+	public void setFarming(FarmingWorld world, FarmingTracker tracker) {
+		this.farmingWorld = world;
+		this.farmingTracker = tracker;
+		patchCache.clear();
+	}
+
+	/** Called (on any thread) after anything the panel shows changed. */
+	public void setChangeListener(Runnable listener) {
+		this.changeListener = listener;
+	}
+
+	private void changed() {
+		Runnable l = changeListener;
+		if (l != null) {
+			l.run();
+		}
+	}
+
+	// ---- Loading -----------------------------------------------------------------
+
+	public void refreshIfStale() {
+		if (!loading && System.currentTimeMillis() - fetchedAtMs > REFRESH_INTERVAL_MS) {
+			refresh();
+		}
+	}
+
+	public void refresh() {
+		String player = roadmapManager.getPlayerUsername();
+		if (player == null) {
+			error = "Log in to the game to load your farm route.";
+			changed();
+			return;
+		}
+		if (!roadmapManager.hasAppKey()) {
+			error = "Add your App Key in the OSRS Companion settings first.";
+			changed();
+			return;
+		}
+		loading = true;
+		fetchedAtMs = System.currentTimeMillis();
+		changed();
+		apiClient.getFarmRoute(player, callback(null));
+	}
+
+	/** Switches the active route (on the website too) and loads it. A running guide stops. */
+	public void activate(FarmRoute.RouteSummary summary) {
+		String player = roadmapManager.getPlayerUsername();
+		if (summary == null || player == null || (route != null && route.getId() == summary.getId())) {
+			return;
+		}
+		stop();
+		loading = true;
+		changed();
+		apiClient.activateFarmRoute(summary.getId(), player, callback(summary.getName()));
+	}
+
+	private OSRSCompanionApiClient.RoadmapCallback<FarmRoute.Response> callback(String switchedTo) {
+		return new OSRSCompanionApiClient.RoadmapCallback<FarmRoute.Response>() {
+			@Override
+			public void onSuccess(FarmRoute.Response result) {
+				FarmRoute old = route;
+				route = result.getRoute();
+				routes = result.getRoutes();
+				error = null;
+				loaded = true;
+				loading = false;
+				// A different route (or one edited on the website) restarts the progress.
+				if (old == null || route == null || old.getId() != route.getId()) {
+					running = false;
+					stopIndex = 0;
+					status.clear();
+					startState.clear();
+					skipped.clear();
+				} else if (stopIndex >= route.getStops().size()) {
+					stopIndex = Math.max(0, route.getStops().size() - 1);
+				}
+				changed();
+			}
+
+			@Override
+			public void onError(String message) {
+				error = (switchedTo == null ? "Could not load your farm route" : "Could not switch to " + switchedTo) + " (" + message + ").";
+				loading = false;
+				changed();
+			}
+		};
+	}
+
+	// ---- The run -------------------------------------------------------------------
+
+	/** Starts the guide: notes every patch's state now, then goes to the first stop with work. */
+	public void start() {
+		FarmRoute r = route;
+		if (r == null || r.getStops().isEmpty()) {
+			return;
+		}
+		startState.clear();
+		status.clear();
+		skipped.clear();
+		for (FarmRoute.Stop stop : r.getStops()) {
+			for (FarmRoute.Patch p : stop.getPatches()) {
+				Snapshot s = snapshot(p);
+				if (s != null) {
+					startState.put(p.getKey(), s);
+				}
+			}
+		}
+		running = true;
+		stopIndex = 0;
+		updateStatuses();
+		stopIndex = firstOpenFrom(0);
+		changed();
+	}
+
+	public void stop() {
+		running = false;
+		changed();
+	}
+
+	public void next() {
+		FarmRoute r = route;
+		if (r != null && stopIndex < r.getStops().size() - 1) {
+			stopIndex++;
+			changed();
+		}
+	}
+
+	public void previous() {
+		if (stopIndex > 0) {
+			stopIndex--;
+			changed();
+		}
+	}
+
+	public void goTo(int index) {
+		FarmRoute r = route;
+		if (r != null && index >= 0 && index < r.getStops().size()) {
+			stopIndex = index;
+			changed();
+		}
+	}
+
+	/** Skips the current stop's open patches and moves on. */
+	public void skipStop() {
+		FarmRoute.Stop stop = getCurrentStop();
+		if (stop == null) {
+			return;
+		}
+		for (FarmRoute.Patch p : stop.getPatches()) {
+			if (statusOf(p).isOpen()) {
+				skipped.add(p.getKey());
+				status.put(p.getKey(), Status.SKIPPED);
+			}
+		}
+		advance();
+		changed();
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick tick) {
+		if (!running || route == null) {
+			return;
+		}
+		if (updateStatuses()) {
+			advance();
+			changed();
+		}
+	}
+
+	@Subscribe
+	public void onItemContainerChanged(ItemContainerChanged event) {
+		int id = event.getContainerId();
+		if (id != InventoryID.INV && id != InventoryID.WORN) {
+			return;
+		}
+		Map<Integer, Integer> counts = new HashMap<>();
+		for (int container : new int[]{InventoryID.INV, InventoryID.WORN}) {
+			ItemContainer c = client.getItemContainer(container);
+			if (c == null) {
+				continue;
+			}
+			for (Item item : c.getItems()) {
+				if (item.getId() > 0) {
+					counts.merge(item.getId(), item.getQuantity(), Integer::sum);
+				}
+			}
+		}
+		carried = counts;
+		changed();
+	}
+
+	/** Moves past a stop once none of its patches needs a visit. */
+	private void advance() {
+		FarmRoute.Stop stop = getCurrentStop();
+		if (stop != null && !hasOpenPatch(stop)) {
+			stopIndex = firstOpenFrom(stopIndex);
+		}
+	}
+
+	private int firstOpenFrom(int from) {
+		FarmRoute r = route;
+		if (r == null) {
+			return 0;
+		}
+		List<FarmRoute.Stop> stops = r.getStops();
+		for (int i = from; i < stops.size(); i++) {
+			if (hasOpenPatch(stops.get(i))) {
+				return i;
+			}
+		}
+		// Nothing left: stay on the last stop, which shows the run as complete.
+		return Math.max(0, stops.size() - 1);
+	}
+
+	private boolean hasOpenPatch(FarmRoute.Stop stop) {
+		for (FarmRoute.Patch p : stop.getPatches()) {
+			if (statusOf(p).isOpen()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Re-reads every patch of the route; true when any status changed. Client thread. */
+	private boolean updateStatuses() {
+		FarmRoute r = route;
+		if (r == null || client.getGameState() != GameState.LOGGED_IN) {
+			return false;
+		}
+		boolean any = false;
+		for (FarmRoute.Stop stop : r.getStops()) {
+			for (FarmRoute.Patch p : stop.getPatches()) {
+				Status next = skipped.contains(p.getKey()) ? Status.SKIPPED
+					: FarmPatchProgress.classify(startState.get(p.getKey()), snapshot(p));
+				if (status.put(p.getKey(), next) != next) {
+					any = true;
+				}
+			}
+		}
+		return any;
+	}
+
+	private Snapshot snapshot(FarmRoute.Patch p) {
+		FarmingTracker tracker = farmingTracker;
+		FarmingPatch patch = findPatch(p);
+		if (tracker == null || patch == null) {
+			return null;
+		}
+		try {
+			PatchPrediction prediction = tracker.predictPatch(patch);
+			if (prediction == null || prediction.getCropState() == null) {
+				return null;
+			}
+			boolean weeds = prediction.getProduce() == Produce.WEEDS || prediction.getProduce() == Produce.SCARECROW;
+			return new Snapshot(prediction.getCropState(), weeds, prediction.getDoneEstimate());
+		} catch (RuntimeException e) {
+			log.debug("Could not read patch {}", p.getKey(), e);
+			return null;
+		}
+	}
+
+	/** The RuneLite patch for a route patch: same region name, varbit and patch type. */
+	FarmingPatch findPatch(FarmRoute.Patch p) {
+		FarmingWorld world = farmingWorld;
+		if (world == null || p.getKey() == null) {
+			return null;
+		}
+		FarmingPatch cached = patchCache.get(p.getKey());
+		if (cached != null) {
+			return cached;
+		}
+		for (Set<FarmingPatch> tab : world.getTabs().values()) {
+			for (FarmingPatch fp : tab) {
+				if (fp.getVarbit() == p.getVarbit() && fp.getRegion() != null && fp.getRegion().getName().equals(p.getRegion())
+					&& fp.getImplementation().name().equals(p.getImpl())) {
+					patchCache.put(p.getKey(), fp);
+					return fp;
+				}
+			}
+		}
+		return null;
+	}
+
+	// ---- Read by the panel and overlays -------------------------------------------
+
+	public FarmRoute getRoute() {
+		return route;
+	}
+
+	public List<FarmRoute.RouteSummary> getRoutes() {
+		return routes;
+	}
+
+	public String getError() {
+		return error;
+	}
+
+	public boolean isLoading() {
+		return loading;
+	}
+
+	public boolean isLoaded() {
+		return loaded;
+	}
+
+	public boolean isRunning() {
+		return running;
+	}
+
+	public int getStopIndex() {
+		return stopIndex;
+	}
+
+	public FarmRoute.Stop getCurrentStop() {
+		FarmRoute r = route;
+		if (r == null || r.getStops().isEmpty()) {
+			return null;
+		}
+		return r.getStops().get(Math.min(stopIndex, r.getStops().size() - 1));
+	}
+
+	/** Every patch handled: harvested and planted, not ready, or skipped. */
+	public boolean isComplete() {
+		FarmRoute r = route;
+		if (!running || r == null) {
+			return false;
+		}
+		for (FarmRoute.Stop s : r.getStops()) {
+			if (hasOpenPatch(s)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public Status statusOf(FarmRoute.Patch p) {
+		Status s = status.get(p.getKey());
+		return s == null ? Status.TODO : s;
+	}
+
+	/** How many patches are handled out of all patches. */
+	public int[] progress() {
+		FarmRoute r = route;
+		int done = 0;
+		int total = 0;
+		if (r != null) {
+			for (FarmRoute.Stop s : r.getStops()) {
+				for (FarmRoute.Patch p : s.getPatches()) {
+					total++;
+					if (!statusOf(p).isOpen()) {
+						done++;
+					}
+				}
+			}
+		}
+		return new int[]{done, total};
+	}
+
+	/** Item counts in the inventory plus worn equipment. */
+	public int carried(int itemId) {
+		Integer n = carried.get(itemId);
+		return n == null ? 0 : n;
+	}
+
+	/** Where the guide points: the current stop's tile. */
+	public WorldPoint getCurrentTarget() {
+		FarmRoute.Stop s = getCurrentStop();
+		return s == null ? null : new WorldPoint(s.getX(), s.getY(), s.getPlane());
+	}
+
+	/** Items worth highlighting right now: the teleport there, and seeds/payments for open patches. */
+	public Map<Integer, Highlight> currentItems() {
+		Map<Integer, Highlight> out = new HashMap<>();
+		FarmRoute.Stop s = getCurrentStop();
+		if (!running || s == null) {
+			return out;
+		}
+		for (Integer id : s.getTravel().getItems()) {
+			out.put(id, Highlight.TELEPORT);
+		}
+		for (FarmRoute.Patch p : s.getPatches()) {
+			if (!statusOf(p).isOpen()) {
+				continue;
+			}
+			if (p.getSeed() != null && p.getSeed() > 0) {
+				out.putIfAbsent(p.getSeed(), Highlight.SEED);
+			}
+			for (FarmRoute.Stack pay : p.getProtect()) {
+				out.putIfAbsent(pay.getItem(), Highlight.PAYMENT);
+			}
+		}
+		return out;
+	}
+
+	/** The whole loadout (inventory and equipment) with how many of each the run needs. */
+	public List<FarmRoute.Stack> loadout() {
+		FarmRoute r = route;
+		if (r == null) {
+			return Collections.emptyList();
+		}
+		List<FarmRoute.Stack> all = new ArrayList<>(r.getEquipment());
+		all.addAll(r.getInventory());
+		return all;
+	}
+
+	enum Highlight {
+		TELEPORT, SEED, PAYMENT
+	}
+
+	public void clear() {
+		running = false;
+		route = null;
+		routes = Collections.emptyList();
+		loaded = false;
+		error = null;
+		status.clear();
+		startState.clear();
+		skipped.clear();
+		carried = Collections.emptyMap();
+	}
+}
