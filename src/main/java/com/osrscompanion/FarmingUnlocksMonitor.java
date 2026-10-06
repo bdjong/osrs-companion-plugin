@@ -39,9 +39,11 @@ import net.runelite.client.util.Text;
  * Farming (planting seeds without a seed dibber) and your house: its fairy ring (then a
  * Construction/Max cape beats the Ardougne cloak for reaching one), portal chamber and Portal
  * Nexus destinations (teleports for the route) and the furniture you can use (the website's
- * House page). Read timing reuses {@link DiarySyncTrigger} like the house location: after the
- * post-login replay settles, a few ticks after either varbit changes, and on logout. The house
- * is looked around a couple of ticks after its scene loads; the Nexus when its menu opens.
+ * House page), and the Tithe Farm minigame teleport to Hosidius: whether the farm was entered
+ * (which unlocks it) and when a minigame teleport was last used (they share a cooldown). Read
+ * timing reuses {@link DiarySyncTrigger} like the house location: after the post-login replay
+ * settles, a few ticks after one of the vars changes, and on logout. The house is looked around a
+ * couple of ticks after its scene loads; the Nexus when its menu opens.
  */
 @Slf4j
 @Singleton
@@ -57,6 +59,12 @@ public class FarmingUnlocksMonitor {
 	private static final Pattern NEXUS_NOISE = Pattern.compile("(?i).*(nexus|teleport|scry|config|select|close|menu|search).*");
 	/** The key shown before a Nexus destination ("1 : Varrock"). */
 	private static final Pattern NEXUS_KEY = Pattern.compile("^\\s*[0-9A-Za-z]\\s*:\\s*");
+	/**
+	 * Tithe Farm progress: unlocked flag, reward points and the current game's score. Any of them set
+	 * means the farm was entered, which unlocks its minigame teleport (OSRS Wiki).
+	 */
+	private static final int[] TITHE_FARM_VARBITS = {
+		VarbitID.ZEAH_TITHE_MINIGAME_UNLOCKED, VarbitID.HOSIDIUS_TITHE_REWARDPOINTS, VarbitID.HOSIDIUS_TITHE_SCORE};
 
 	private final Client client;
 	private final ClientThread clientThread;
@@ -148,9 +156,28 @@ public class FarmingUnlocksMonitor {
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (event.getVarbitId() == VarbitID.FARMING_BLOCKWEEDS || event.getVarbitId() == VarbitID.BRUT_FARMING_PLANTING) {
+		int varbit = event.getVarbitId();
+		if (varbit == VarbitID.FARMING_BLOCKWEEDS || varbit == VarbitID.BRUT_FARMING_PLANTING
+				|| event.getVarpId() == FarmRunManager.LAST_MINIGAME_TELEPORT_VARP) {
 			trigger.varbitChanged();
+			return;
 		}
+		for (int tithe : TITHE_FARM_VARBITS) {
+			if (varbit == tithe) {
+				trigger.varbitChanged();
+				return;
+			}
+		}
+	}
+
+	/** True once the Tithe Farm was entered (the website keeps it true after that). */
+	private boolean titheFarmUnlocked() {
+		for (int varbit : TITHE_FARM_VARBITS) {
+			if (client.getVarbitValue(varbit) > 0) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Subscribe
@@ -307,7 +334,7 @@ public class FarmingUnlocksMonitor {
 		}
 	}
 
-	/** Reads both varbits (and the house once seen) and syncs them (deduped). Client thread only. */
+	/** Reads the varbits (and the house once seen) and syncs them (deduped). Client thread only. */
 	private void sync() {
 		if (!config.syncTimeTracking() || !SyncGuard.hasAppKey(config) || GameModeUtil.isSpecialGameMode(client)) {
 			return;
@@ -321,6 +348,9 @@ public class FarmingUnlocksMonitor {
 		// 0 = auto-weed not unlocked, 1 = unlocked but off, 2 = on.
 		payload.put("autoweed", client.getVarbitValue(VarbitID.FARMING_BLOCKWEEDS));
 		payload.put("barbarian_planting", client.getVarbitValue(VarbitID.BRUT_FARMING_PLANTING));
+		payload.put("tithe_farm", titheFarmUnlocked());
+		// Minutes since the epoch (0: never); the website leaves the minigame teleport out of routes for 20 minutes after it.
+		payload.put("minigame_teleport_at", client.getVarpValue(FarmRunManager.LAST_MINIGAME_TELEPORT_VARP));
 		if (pohFairyRing != null) {
 			payload.put("poh_fairy_ring", pohFairyRing);
 		}

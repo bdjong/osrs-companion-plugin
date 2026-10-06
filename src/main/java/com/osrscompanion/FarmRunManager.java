@@ -4,6 +4,8 @@ import com.osrscompanion.FarmPatchProgress.Snapshot;
 import com.osrscompanion.FarmPatchProgress.Status;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.FarmRoute;
+import com.osrscompanion.runelite.farming.CompostState;
+import com.osrscompanion.runelite.farming.CompostTracker;
 import com.osrscompanion.runelite.farming.FarmingPatch;
 import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
@@ -12,31 +14,48 @@ import com.osrscompanion.runelite.farming.Produce;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.MenuAction;
+import net.runelite.api.ObjectComposition;
+import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.Notifier;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemVariationMapping;
+import net.runelite.client.util.QuantityFormatter;
+import net.runelite.client.util.Text;
 
 /**
  * The guided farm run: the active route from the website, which stop you are on and,
  * per patch, whether it still needs a visit. Patch progress comes from RuneLite's
  * farming tracker (the Time Tracking plugin keeps it current while you farm), so
  * planting a patch ticks it off and the run moves to the next stop by itself.
+ *
+ * <p>Once every patch is handled the run pops up a summary (like a finished roadmap goal)
+ * and stops by itself when you leave the last stop. While a patch at the stop has no
+ * compost yet, the compost is highlighted.
  *
  * <p>Network work runs on OkHttp threads, game reads on the client thread; fields the
  * panel and overlays read are volatile or concurrent.
@@ -49,8 +68,25 @@ public class FarmRunManager {
 	/** Farming cape and Farming cape (t): extra herbs when worn. */
 	static final int FARMING_CAPE = 9810;
 	static final int FARMING_CAPE_T = 9811;
-	/** How close to the stop the "wear your Farming cape" reminder fires. */
+	/** How close to the stop the "wear your Farming cape" reminder fires (also "still at the stop" for compost and finishing). */
 	private static final int CAPE_REMINDER_DISTANCE = 20;
+	/** A finished run stops once you leave the last stop, or after this many ticks (a minute). */
+	private static final int FINISH_DELAY_TICKS = 100;
+	/**
+	 * The last minigame (Grouping) teleport, in minutes since the epoch: RuneLite's deprecated
+	 * {@code VarPlayer.LAST_MINIGAME_TELEPORT} (the gameval {@code VarPlayerID} lists it under a cache name).
+	 */
+	static final int LAST_MINIGAME_TELEPORT_VARP = 888;
+	/** Every minigame teleport waits this long after the last one (OSRS Wiki: 2,000 ticks). */
+	static final int MINIGAME_COOLDOWN_MINUTES = 20;
+	/** Compost items, best first: what to point at when the route's own one is not carried. */
+	private static final int[] COMPOST_ITEMS = {
+		ItemID.BOTTOMLESS_COMPOST_BUCKET_FILLED, ItemID.BUCKET_ULTRACOMPOST, ItemID.BUCKET_SUPERCOMPOST, ItemID.BUCKET_COMPOST};
+	/** The game's messages when compost goes on a patch (or it already has some); RuneLite's CompostTracker reads the same. */
+	private static final Pattern COMPOST_MESSAGE = Pattern.compile(
+		"You treat the .+ with (ultra|super|)compost\\.|^The .+ has been treated with (ultra|super|)compost"
+			+ "|This .+ has already been (treated|fertilised) with (ultra|super|)compost");
+	static final String FINISHED_TITLE = "<col=f28c28>Farm Run Complete!</col>";
 
 	private final Client client;
 	private final OSRSCompanionApiClient apiClient;
@@ -58,6 +94,7 @@ public class FarmRunManager {
 
 	private volatile FarmingWorld farmingWorld;
 	private volatile FarmingTracker farmingTracker;
+	private volatile CompostTracker compostTracker;
 
 	private volatile FarmRoute route;
 	private volatile List<FarmRoute.RouteSummary> routes = Collections.emptyList();
@@ -81,26 +118,44 @@ public class FarmRunManager {
 	private int capeRemindedStop = -1;
 	private volatile Map<Integer, Integer> leprechaun = Collections.emptyMap();
 
+	/** Route patches (keys) at the current stop, or the one just left while you are still there, without compost. */
+	private volatile Set<String> needCompost = Collections.emptySet();
+	/** Composted this run, seen from the game's message (covers the Time Tracking plugin being off). */
+	private final Set<String> composted = ConcurrentHashMap.newKeySet();
+	/** The route patch compost was last used on, until the game's message confirms it. */
+	private String compostTarget;
+	/** The stop the run just moved on from: its patches can still take compost while you are there. */
+	private volatile int previousStop = -1;
+	/** Minutes left on the minigame teleport cooldown when the current stop uses one (0: ready). */
+	private volatile int minigameCooldown;
+	/** Farming XP when the run started, and the tick it was first complete (-1: not yet). */
+	private int startXp;
+	private int completedTick = -1;
+
 	/** The in-game farm run window, and the stop shown in its details (-1: the current one). */
 	private volatile boolean open;
 	private volatile int selectedStop = -1;
 
 	private final OSRSCompanionConfig config;
 	private final Notifier notifier;
+	private final GoalCompletionNotifier popups;
 
 	@Inject
-	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, OSRSCompanionConfig config, Notifier notifier) {
+	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, OSRSCompanionConfig config, Notifier notifier,
+		GoalCompletionNotifier popups) {
 		this.client = client;
 		this.apiClient = apiClient;
 		this.roadmapManager = roadmapManager;
 		this.config = config;
 		this.notifier = notifier;
+		this.popups = popups;
 	}
 
 	/** The farming data the plugin builds at start-up. */
-	public void setFarming(FarmingWorld world, FarmingTracker tracker) {
+	public void setFarming(FarmingWorld world, FarmingTracker tracker, CompostTracker compost) {
 		this.farmingWorld = world;
 		this.farmingTracker = tracker;
+		this.compostTracker = compost;
 		patchCache.clear();
 	}
 
@@ -179,6 +234,11 @@ public class FarmRunManager {
 		startState.clear();
 		status.clear();
 		skipped.clear();
+		composted.clear();
+		compostTarget = null;
+		previousStop = -1;
+		completedTick = -1;
+		startXp = client.getSkillExperience(Skill.FARMING);
 		for (FarmRoute.Stop stop : r.getStops()) {
 			for (FarmRoute.Patch p : stop.getPatches()) {
 				Snapshot s = snapshot(p);
@@ -196,6 +256,8 @@ public class FarmRunManager {
 
 	public void stop() {
 		running = false;
+		needCompost = Collections.emptySet();
+		completedTick = -1;
 	}
 
 	public void next() {
@@ -245,6 +307,259 @@ public class FarmRunManager {
 			advance();
 		}
 		remindCape();
+		updateCompost();
+		updateMinigameCooldown();
+		checkFinished();
+	}
+
+	// ---- Finishing -----------------------------------------------------------------------
+
+	/**
+	 * A finished run: the summary popup straight away, then it stops by itself once you leave the
+	 * last stop (time to pay the gardener or compost), or after a minute. Client thread.
+	 */
+	private void checkFinished() {
+		if (!isComplete()) {
+			completedTick = -1;
+			return;
+		}
+		if (completedTick < 0) {
+			completedTick = client.getTickCount();
+			int[] done = finishedCounts();
+			if (done[0] == 0) {
+				// Nothing was planted: every patch is still growing or skipped.
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Farm run: nothing to do yet - every patch is still growing or skipped.", null);
+				stop();
+				return;
+			}
+			showFinished(done);
+			return;
+		}
+		WorldPoint at = client.getLocalPlayer() == null ? null : client.getLocalPlayer().getWorldLocation();
+		WorldPoint last = getCurrentTarget();
+		boolean left = at != null && last != null && (at.getPlane() != last.getPlane() || at.distanceTo2D(last) > CAPE_REMINDER_DISTANCE);
+		if (left || client.getTickCount() - completedTick >= FINISH_DELAY_TICKS) {
+			stop();
+		}
+	}
+
+	/** Patches planted this run, and their estimated profit. */
+	private int[] finishedCounts() {
+		int planted = 0;
+		long gp = 0;
+		FarmRoute r = route;
+		if (r != null) {
+			for (FarmRoute.Stop s : r.getStops()) {
+				for (FarmRoute.Patch p : s.getPatches()) {
+					if (statusOf(p) == Status.DONE) {
+						planted++;
+						gp += p.getGp();
+					}
+				}
+			}
+		}
+		return new int[]{planted, (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, gp))};
+	}
+
+	/** The summary popup (when that setting is on) and a notification: patches planted, Farming XP gained, estimated profit. */
+	private void showFinished(int[] done) {
+		FarmRoute r = route;
+		int xp = Math.max(0, client.getSkillExperience(Skill.FARMING) - startXp);
+		if (config.farmRunPopup()) {
+			popups.showMessage(FINISHED_TITLE, finishedBody(r == null ? null : r.getName(), done[0], xp, done[1]));
+		}
+		notifier.notify("Farm run complete: " + done[0] + (done[0] == 1 ? " patch" : " patches")
+			+ (xp > 0 ? ", " + QuantityFormatter.formatNumber(xp) + " Farming XP" : "") + ".");
+	}
+
+	/** The popup body: the patches in white, then the XP gained and estimated profit when known, then the route name. */
+	static String finishedBody(String routeName, int patches, int xp, int gp) {
+		StringBuilder sb = new StringBuilder("<col=ffffff>").append(patches).append(patches == 1 ? " patch" : " patches").append(" planted</col>");
+		StringBuilder numbers = new StringBuilder();
+		if (xp > 0) {
+			numbers.append(QuantityFormatter.formatNumber(xp)).append(" Farming XP");
+		}
+		if (gp != 0) {
+			numbers.append(numbers.length() > 0 ? " - " : "").append("~").append(QuantityFormatter.quantityToStackSize(gp)).append(" gp");
+		}
+		if (numbers.length() > 0) {
+			sb.append("<br><col=ffffff>").append(numbers).append("</col>");
+		}
+		if (routeName != null && !routeName.trim().isEmpty()) {
+			sb.append("<br><col=c6c6c6>").append(Text.removeTags(routeName)).append("</col>");
+		}
+		return sb.toString();
+	}
+
+	// ---- Compost and the minigame teleport ---------------------------------------------
+
+	/**
+	 * Which patches of the current stop (and of the stop just finished, while you are still there)
+	 * have no compost: still to plant, or planted this run without any. Compost state comes from
+	 * RuneLite's Time Tracking (CompostTracker) and from the game's messages this run. Client thread.
+	 */
+	private void updateCompost() {
+		Set<String> out = new HashSet<>();
+		FarmRoute r = route;
+		if (r != null) {
+			addNeedingCompost(getCurrentStop(), out);
+			int prev = previousStop;
+			if (prev >= 0 && prev < r.getStops().size() && prev != stopIndex && client.getLocalPlayer() != null) {
+				FarmRoute.Stop stop = r.getStops().get(prev);
+				WorldPoint at = client.getLocalPlayer().getWorldLocation();
+				if (at.distanceTo2D(new WorldPoint(stop.getX(), stop.getY(), stop.getPlane())) <= CAPE_REMINDER_DISTANCE) {
+					addNeedingCompost(stop, out);
+				} else {
+					previousStop = -1;
+				}
+			}
+		}
+		needCompost = out;
+	}
+
+	private void addNeedingCompost(FarmRoute.Stop stop, Set<String> out) {
+		if (stop == null) {
+			return;
+		}
+		for (FarmRoute.Patch p : stop.getPatches()) {
+			Status s = statusOf(p);
+			if ((s == Status.TODO || s == Status.DONE) && p.getSeed() != null && p.getSeed() > 0 && p.takesCompost() && !hasCompost(p)) {
+				out.add(p.getKey());
+			}
+		}
+	}
+
+	private boolean hasCompost(FarmRoute.Patch p) {
+		if (composted.contains(p.getKey())) {
+			return true;
+		}
+		CompostTracker tracker = compostTracker;
+		FarmingPatch patch = findPatch(p);
+		if (tracker == null || patch == null) {
+			return false;
+		}
+		try {
+			CompostState state = tracker.getCompostState(patch);
+			return state != null;
+		} catch (RuntimeException e) {
+			log.debug("Could not read the compost on {}", p.getKey(), e);
+			return false;
+		}
+	}
+
+	/** Minutes left before the next minigame teleport, from the game's last-use time. Client thread. */
+	private void updateMinigameCooldown() {
+		FarmRoute.Stop stop = getCurrentStop();
+		if (stop == null || !stop.getTravel().isMinigame()) {
+			minigameCooldown = 0;
+			return;
+		}
+		long last = client.getVarpValue(LAST_MINIGAME_TELEPORT_VARP);
+		long now = System.currentTimeMillis() / 60_000L;
+		minigameCooldown = last <= 0 ? 0 : (int) Math.max(0, last + MINIGAME_COOLDOWN_MINUTES - now);
+	}
+
+	/** Compost (or Fertile Soil) used on a route patch: remember which, until the game's message says it worked. */
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked e) {
+		if (!running || e.getMenuAction() != MenuAction.WIDGET_TARGET_ON_GAME_OBJECT) {
+			return;
+		}
+		Widget selected = client.getSelectedWidget();
+		if (selected == null || (selected.getId() != InterfaceID.MagicSpellbook.FERTILE_SOIL && !isCompostItem(selected.getItemId()))) {
+			return;
+		}
+		ObjectComposition def = client.getObjectDefinition(e.getId());
+		int varbit = def == null ? -1 : def.getVarbitId();
+		compostTarget = null;
+		FarmRoute r = route;
+		int prev = previousStop;
+		FarmRoute.Stop[] near = {getCurrentStop(), r != null && prev >= 0 && prev < r.getStops().size() ? r.getStops().get(prev) : null};
+		for (FarmRoute.Stop s : near) {
+			if (s == null) {
+				continue;
+			}
+			for (FarmRoute.Patch p : s.getPatches()) {
+				if (p.getVarbit() == varbit && compostTarget == null) {
+					compostTarget = p.getKey();
+				}
+			}
+		}
+	}
+
+	@Subscribe
+	public void onChatMessage(ChatMessage e) {
+		if (compostTarget == null || (e.getType() != ChatMessageType.GAMEMESSAGE && e.getType() != ChatMessageType.SPAM)) {
+			return;
+		}
+		if (COMPOST_MESSAGE.matcher(e.getMessage()).find()) {
+			composted.add(compostTarget);
+			compostTarget = null;
+		}
+	}
+
+	private static boolean isCompostItem(int itemId) {
+		for (int id : COMPOST_ITEMS) {
+			if (id == itemId) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** True while this route patch still needs compost (see {@link #updateCompost()}). */
+	public boolean needsCompost(FarmRoute.Patch p) {
+		return running && needCompost.contains(p.getKey());
+	}
+
+	/** Patches of the stop just left (you are still there) that have no compost yet. */
+	public int compostBehind() {
+		Set<String> keys = needCompost;
+		FarmRoute.Stop stop = getCurrentStop();
+		if (!running || keys.isEmpty() || stop == null) {
+			return 0;
+		}
+		int here = 0;
+		for (FarmRoute.Patch p : stop.getPatches()) {
+			if (keys.contains(p.getKey())) {
+				here++;
+			}
+		}
+		return keys.size() - here;
+	}
+
+	/** Minutes before the minigame teleport to the current stop can be used again (0: ready). */
+	public int minigameCooldownMinutes() {
+		return running ? minigameCooldown : 0;
+	}
+
+	/** The route's compost (bottomless bucket, ultracompost, supercompost), or null when it brings none. */
+	public FarmRoute.Stack compostStack() {
+		FarmRoute r = route;
+		if (r == null) {
+			return null;
+		}
+		for (FarmRoute.Stack s : r.getInventory()) {
+			if ("Compost".equals(s.getWhy())) {
+				return s;
+			}
+		}
+		return null;
+	}
+
+	/** The compost to point at: the route's when carried (not an empty bucket), else the best compost carried, else the route's. */
+	int compostItem() {
+		FarmRoute.Stack s = compostStack();
+		Map<Integer, Integer> have = carried;
+		if (s != null && s.getItem() != ItemID.BOTTOMLESS_COMPOST_BUCKET && have.getOrDefault(s.getItem(), 0) > 0) {
+			return s.getItem();
+		}
+		for (int id : COMPOST_ITEMS) {
+			if (have.getOrDefault(id, 0) > 0) {
+				return id;
+			}
+		}
+		return s == null ? ItemID.BUCKET_ULTRACOMPOST : s.getItem();
 	}
 
 	/** True while the current stop still has herbs to pick and the Farming cape setting is on but the cape is not worn. */
@@ -310,7 +625,11 @@ public class FarmRunManager {
 	private void advance() {
 		FarmRoute.Stop stop = getCurrentStop();
 		if (stop != null && !hasOpenPatch(stop)) {
+			int from = stopIndex;
 			stopIndex = firstOpenFrom(stopIndex);
+			if (stopIndex != from) {
+				previousStop = from;
+			}
 		}
 	}
 
@@ -577,12 +896,15 @@ public class FarmRunManager {
 		return s == null ? null : new WorldPoint(s.getX(), s.getY(), s.getPlane());
 	}
 
-	/** Items worth highlighting right now: the teleport there, and seeds/payments for open patches. */
+	/** Items worth highlighting right now: the teleport there, seeds/payments for open patches, compost while a patch has none. */
 	public Map<Integer, Highlight> currentItems() {
 		Map<Integer, Highlight> out = new HashMap<>();
 		FarmRoute.Stop s = getCurrentStop();
 		if (!running || s == null) {
 			return out;
+		}
+		if (!needCompost.isEmpty()) {
+			out.put(compostItem(), Highlight.COMPOST);
 		}
 		for (Integer id : s.getTravel().getItems()) {
 			out.put(id, Highlight.TELEPORT);
@@ -628,7 +950,7 @@ public class FarmRunManager {
 	}
 
 	enum Highlight {
-		TELEPORT, SEED, PAYMENT
+		TELEPORT, SEED, PAYMENT, COMPOST
 	}
 
 	public void clear() {
@@ -643,6 +965,10 @@ public class FarmRunManager {
 		status.clear();
 		startState.clear();
 		skipped.clear();
+		composted.clear();
+		needCompost = Collections.emptySet();
+		previousStop = -1;
+		completedTick = -1;
 		carried = Collections.emptyMap();
 	}
 }

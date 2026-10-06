@@ -27,7 +27,8 @@ import net.runelite.client.util.Text;
  * <p>The popup is the {@code NOTIFICATION_DISPLAY} interface opened under the
  * current top-level layout's notifications component and initialised by its
  * script; it animates in on its own and is closed once its container collapses.
- * Popups queue so two quick completions show one after the other.
+ * Popups queue so two quick completions show one after the other. Other features
+ * (a finished farm run) show their own title and body the same way.
  */
 @Slf4j
 @Singleton
@@ -48,12 +49,14 @@ public class GoalCompletionNotifier {
 
 	/** A popup that is queued or on screen, with the roadmap progress to draw under it. */
 	public static final class Popup {
+		private final String title;
 		private final String body;
 		private final String roadmapTitle;
 		private final int goalsDone;
 		private final int goalsTotal;
 
-		Popup(String body, String roadmapTitle, int goalsDone, int goalsTotal) {
+		Popup(String title, String body, String roadmapTitle, int goalsDone, int goalsTotal) {
+			this.title = title;
 			this.body = body;
 			this.roadmapTitle = roadmapTitle;
 			this.goalsDone = goalsDone;
@@ -102,10 +105,25 @@ public class GoalCompletionNotifier {
 		if (goal == null || goal.getName() == null) {
 			return;
 		}
-		Popup popup = new Popup(body(goal.getName(), roadmapTitle, goalsDone, goalsTotal),
+		Popup popup = new Popup(TITLE, body(goal.getName(), roadmapTitle, goalsDone, goalsTotal),
 				roadmapTitle, goalsDone, goalsTotal);
+		enqueue(popup, true);
+	}
+
+	/**
+	 * Queues a popup with its own title and body (no progress bar); safe to call from any thread.
+	 * The caller decides whether it is wanted (its own setting); the sound follows the goal sound.
+	 */
+	public void showMessage(String title, String body) {
+		if (title == null || body == null) {
+			return;
+		}
+		enqueue(new Popup(title, body, null, 0, 0), false);
+	}
+
+	private void enqueue(Popup popup, boolean goal) {
 		clientThread.invokeLater(() -> {
-			if (!config.showGoalPopup() || client.getGameState() != GameState.LOGGED_IN) {
+			if ((goal && !config.showGoalPopup()) || client.getGameState() != GameState.LOGGED_IN) {
 				return;
 			}
 			queue.add(popup);
@@ -178,7 +196,7 @@ public class GoalCompletionNotifier {
 		}
 		try {
 			openNode = client.openInterface(parent, InterfaceID.NOTIFICATION_DISPLAY, WidgetModalMode.MODAL_CLICKTHROUGH);
-			client.runScript(NOTIFICATION_DISPLAY_INIT, TITLE, popup.body, -1);
+			client.runScript(NOTIFICATION_DISPLAY_INIT, popup.title, popup.body, -1);
 		} catch (RuntimeException e) {
 			log.debug("Goal popup could not be opened", e);
 			openNode = null;

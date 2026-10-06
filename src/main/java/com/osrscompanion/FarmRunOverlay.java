@@ -22,13 +22,15 @@ import net.runelite.client.ui.overlay.components.SplitComponent;
 
 /**
  * The farm run step box (like Quest Helper's): which stop you are on, how to get there,
- * and what to do at each patch, ticking off as you plant.
+ * and what to do at each patch, ticking off as you plant; it points out a patch that has
+ * no compost yet and a minigame teleport that is still on its cooldown.
  */
 public class FarmRunOverlay extends OverlayPanel {
 	static final Color TITLE_COLOR = new Color(0xF2, 0x8C, 0x28);
 	static final Color MUTED_COLOR = new Color(0xA5, 0xA5, 0xA5);
 	static final Color DONE_COLOR = new Color(0x0D, 0xC1, 0x0D);
 	static final Color TODO_COLOR = new Color(0xFF, 0xE0, 0x4A);
+	static final Color COMPOST_COLOR = new Color(0xF9, 0x73, 0x16);
 	private static final int WIDTH = 220;
 	private static final int ICON_GAP = 6;
 	private static final BufferedImage SPACER = new BufferedImage(1, 4, BufferedImage.TYPE_INT_ARGB);
@@ -67,8 +69,15 @@ public class FarmRunOverlay extends OverlayPanel {
 			.right(progress[0] + "/" + progress[1] + " done").rightColor(MUTED_COLOR).build());
 
 		if (manager.isComplete()) {
-			for (String line : wrap("Every patch is planted, skipped or still growing. Open the farm run window to start again.", fm, textWidth)) {
+			for (String line : wrap("Every patch is planted, skipped or still growing. The run stops when you leave this stop.", fm, textWidth)) {
 				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(MUTED_COLOR).build());
+			}
+			for (FarmRoute.Patch p : stop.getPatches()) {
+				if (manager.needsCompost(p)) {
+					for (String line : wrap(p.getType() + ": no compost yet: use your " + compostName() + " on the patch.", fm, textWidth)) {
+						panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(COMPOST_COLOR).build());
+					}
+				}
 			}
 			panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
 			return super.render(graphics);
@@ -84,11 +93,26 @@ public class FarmRunOverlay extends OverlayPanel {
 		for (String line : wrap(travel.getHow(), fm, textWidth)) {
 			panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(MUTED_COLOR).build());
 		}
+		int cooldown = manager.minigameCooldownMinutes();
+		if (cooldown > 0) {
+			String wait = "Minigame teleports are on cooldown for " + cooldown + " more min" + (cooldown == 1 ? "" : "s") + ": use another way there.";
+			for (String line : wrap(wait, fm, textWidth)) {
+				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(Color.YELLOW).build());
+			}
+		}
 		panelComponent.getChildren().add(new ImageComponent(SPACER));
 
 		if (manager.needsFarmingCape()) {
 			for (String line : wrap("Put on your Farming cape before picking the herbs.", fm, textWidth)) {
 				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(Color.YELLOW).build());
+			}
+		}
+		String compost = compostName();
+		int behind = manager.compostBehind();
+		if (behind > 0) {
+			String step = behind + (behind == 1 ? " patch" : " patches") + " at the last stop still " + (behind == 1 ? "has" : "have") + " no compost: use your " + compost + " on " + (behind == 1 ? "it." : "them.");
+			for (String line : wrap(step, fm, textWidth)) {
+				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(COMPOST_COLOR).build());
 			}
 		}
 		for (FarmRoute.Patch p : stop.getPatches()) {
@@ -102,6 +126,12 @@ public class FarmRunOverlay extends OverlayPanel {
 					for (String line : wrap(step, fm, textWidth - 8)) {
 						panelComponent.getChildren().add(LineComponent.builder().left("  " + line).leftColor(MUTED_COLOR).build());
 					}
+				}
+			}
+			if (manager.needsCompost(p)) {
+				String step = (s == Status.DONE ? "No compost yet: use your " : "Compost it: use your ") + compost + " on the patch.";
+				for (String line : wrap(step, fm, textWidth - 8)) {
+					panelComponent.getChildren().add(LineComponent.builder().left("  " + line).leftColor(COMPOST_COLOR).build());
 				}
 			}
 		}
@@ -136,6 +166,12 @@ public class FarmRunOverlay extends OverlayPanel {
 			steps.add(sb.append(" to protect it.").toString());
 		}
 		return steps;
+	}
+
+	/** The compost the route brings ("Ultracompost", "Bottomless compost bucket"), or plain "compost". */
+	private String compostName() {
+		FarmRoute.Stack s = manager.compostStack();
+		return s == null || s.getName() == null || "Item".equals(s.getName()) ? "compost" : s.getName();
 	}
 
 	private void addIconLine(Integer itemId, String text, Color color, FontMetrics fm, int width) {
