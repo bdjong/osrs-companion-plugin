@@ -817,8 +817,14 @@ public class FarmRunManager {
 		return Collections.emptyList();
 	}
 
-	/** "Auto set cape teleport": the cape's teleport to the current stop becomes its left click (worn or in the inventory). */
-	@Subscribe
+	/** The last cape menu written to the debug log, so a hovered cape is logged once, not every frame. */
+	private String lastCapeMenuLog;
+
+	/**
+	 * "Auto set cape teleport": the cape's teleport to the current stop becomes its left click (worn or in the
+	 * inventory). Runs after every other plugin (Menu Entry Swapper included), so its swap wins.
+	 */
+	@Subscribe(priority = -100)
 	public void onPostMenuSort(PostMenuSort e) {
 		FarmRoute.Stop stop = getCurrentStop();
 		if (!config.autoCapeTeleport() || !running || stop == null || client.isMenuOpen()) {
@@ -826,10 +832,17 @@ public class FarmRunManager {
 		}
 		FarmRoute.Travel travel = travelOf(stop);
 		List<String> wanted = capeOptions(travel);
+		MenuEntry[] entries = client.getMenuEntries();
 		if (wanted.isEmpty()) {
+			if (log.isDebugEnabled() && java.util.Arrays.stream(entries).anyMatch(m -> TELEPORT_CAPES.contains(m.getItemId()))) {
+				String line = "step " + (stopIndex + 1) + " travel '" + (travel == null ? null : travel.getName()) + "' is not a cape teleport";
+				if (!line.equals(lastCapeMenuLog)) {
+					lastCapeMenuLog = line;
+					log.debug("Farm run: cape teleport left click: {}", line);
+				}
+			}
 			return;
 		}
-		MenuEntry[] entries = client.getMenuEntries();
 		int best = -1;
 		int bestRank = Integer.MAX_VALUE;
 		for (int i = 0; i < entries.length; i++) {
@@ -845,6 +858,20 @@ public class FarmRunManager {
 			}
 		}
 		int last = entries.length - 1;
+		if (log.isDebugEnabled()) {
+			StringBuilder capes = new StringBuilder();
+			for (MenuEntry m : entries) {
+				if (TELEPORT_CAPES.contains(m.getItemId())) {
+					capes.append(m.getItemId()).append(':').append(Text.removeTags(m.getOption())).append(", ");
+				}
+			}
+			String line = capes.length() == 0 ? null : "travel '" + travel.getName() + "' / '" + travel.getHow() + "', wants " + wanted
+				+ ", cape options [" + capes + "], picked " + (best < 0 ? "none" : Text.removeTags(entries[best].getOption()));
+			if (line != null && !line.equals(lastCapeMenuLog)) {
+				lastCapeMenuLog = line;
+				log.debug("Farm run: cape teleport left click: {}", line);
+			}
+		}
 		if (best < 0 || best == last) {
 			return;
 		}
