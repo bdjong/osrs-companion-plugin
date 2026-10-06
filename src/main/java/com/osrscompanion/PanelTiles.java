@@ -34,6 +34,8 @@ final class PanelTiles {
 		private final Color accent;
 		private final BooleanSupplier state;
 		private final Runnable flip;
+		/** Replaces the on/off line while it says something (e.g. "Paused while Inactive"); null: none. */
+		private Supplier<String> override = () -> null;
 		private boolean hover;
 
 		Toggle(String title, String onText, String offText, Color accent, BooleanSupplier state, Runnable flip) {
@@ -100,7 +102,122 @@ final class PanelTiles {
 				FontMetrics fm = g.getFontMetrics();
 				shadow(g, fit(title, fm, sx - 20), 12, 19, Color.WHITE);
 				g.setFont(FontManager.getRunescapeSmallFont());
-				shadow(g, fit(on ? onText : offText, g.getFontMetrics(), sx - 20), 12, 35, on ? brighten(accent) : new Color(0xAEB6C4));
+				String why = override.get();
+				shadow(g, fit(why != null ? why : on ? onText : offText, g.getFontMetrics(), sx - 20), 12, 35,
+					on && why == null ? brighten(accent) : new Color(0xAEB6C4));
+			} finally {
+				g.dispose();
+			}
+		}
+
+		/** Shows this line instead of the on/off text while it returns something. */
+		Toggle withNote(Supplier<String> note) {
+			override = note;
+			return this;
+		}
+	}
+
+	/**
+	 * The boss page's setup card: like {@link Info} with the boss picture on the right (same size and
+	 * place, never dimmed), plus an Active / Inactive switch on its bottom row.
+	 */
+	static final class SetupCard extends JComponent {
+		private static final java.awt.Rectangle SWITCH_AREA = new java.awt.Rectangle(6, 46, 100, 24);
+		private final Color accent;
+		private final Supplier<String[]> lines;
+		private final Supplier<java.awt.image.BufferedImage> picture;
+		private final BooleanSupplier hasSet;
+		private final BooleanSupplier active;
+		private final Runnable flip;
+
+		SetupCard(Color accent, Supplier<String[]> lines, Supplier<java.awt.image.BufferedImage> picture, BooleanSupplier hasSet,
+				BooleanSupplier active, Runnable flip) {
+			this.accent = accent;
+			this.lines = lines;
+			this.picture = picture;
+			this.hasSet = hasSet;
+			this.active = active;
+			this.flip = flip;
+			setPreferredSize(new Dimension(200, 72));
+			setMinimumSize(new Dimension(120, 72));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, 72));
+			// Registers the card with the tooltip manager; the text comes from getToolTipText(MouseEvent).
+			setToolTipText("");
+			addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseReleased(MouseEvent e) {
+					if (hasSet.getAsBoolean() && SWITCH_AREA.contains(e.getPoint())) {
+						flip.run();
+						repaint();
+					}
+				}
+			});
+			addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+				@Override
+				public void mouseMoved(MouseEvent e) {
+					boolean over = hasSet.getAsBoolean() && SWITCH_AREA.contains(e.getPoint());
+					setCursor(Cursor.getPredefinedCursor(over ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+				}
+			});
+		}
+
+		@Override
+		public String getToolTipText(MouseEvent e) {
+			if (!hasSet.getAsBoolean() || !SWITCH_AREA.contains(e.getPoint())) {
+				return null;
+			}
+			return active.getAsBoolean()
+				? "Active: the bank lays out this setup and the gear display shows it. Click to set Inactive (the setup stays selected)."
+				: "Inactive: the setup stays selected, but the bank is left alone and no gear is shown. Click to set Active.";
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			try {
+				smooth(g);
+				int w = getWidth();
+				int h = getHeight();
+				RoundRectangle2D card = new RoundRectangle2D.Float(0.5f, 0.5f, w - 1.5f, h - 1.5f, ARC, ARC);
+				g.setColor(new Color(0x1A1F2B));
+				g.fill(card);
+				g.setColor(new Color(0x313A4E));
+				g.draw(card);
+				boolean set = hasSet.getAsBoolean();
+				boolean on = set && active.getAsBoolean();
+				java.awt.image.BufferedImage img = picture.get();
+				int textW = w - 24;
+				if (img != null && img.getWidth() > 0) {
+					// Same box and place as the other cards' pictures, at full quality whether Active or not.
+					int box = 40;
+					float scale = Math.min(box / (float) img.getWidth(), box / (float) img.getHeight());
+					int iw = Math.round(img.getWidth() * scale);
+					int ih = Math.round(img.getHeight() * scale);
+					g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+					g.drawImage(img, w - 10 - box + (box - iw) / 2, (h - ih) / 2, iw, ih, null);
+					textW = w - 24 - box - 6;
+				}
+				g.setFont(FontManager.getRunescapeSmallFont());
+				shadow(g, set && !on ? "SELECTED SETUP" : "ACTIVE SETUP", 12, 16, new Color(0x8C96A8));
+				String[] text = lines.get();
+				if (text.length > 0) {
+					g.setFont(FontManager.getRunescapeFont());
+					shadow(g, fit(text[0], g.getFontMetrics(), textW), 12, 32, set && !on ? new Color(0x8C96A8) : Color.WHITE);
+				}
+				if (text.length > 1) {
+					g.setFont(FontManager.getRunescapeSmallFont());
+					shadow(g, fit(text[1], g.getFontMetrics(), textW), 12, 45, set && !on ? new Color(0x6B7385) : new Color(0xC9D1DE));
+				}
+				if (set) {
+					int sx = 12;
+					int sy = 50;
+					g.setColor(on ? accent : new Color(0x3A4355));
+					g.fillRoundRect(sx, sy, 30, 16, 16, 16);
+					g.setColor(Color.WHITE);
+					g.fillOval(on ? sx + 16 : sx + 2, sy + 2, 12, 12);
+					g.setFont(FontManager.getRunescapeSmallFont());
+					shadow(g, on ? "Active" : "Inactive", 48, 62, on ? brighten(accent) : new Color(0xAEB6C4));
+				}
 			} finally {
 				g.dispose();
 			}

@@ -10,6 +10,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.ItemComposition;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemVariationMapping;
 
 /**
@@ -25,6 +26,8 @@ public class BossGearManager {
 	private final OSRSCompanionApiClient apiClient;
 	private final RoadmapManager roadmapManager;
 	private final FarmRunManager farmRunManager;
+	private final OSRSCompanionConfig config;
+	private final ConfigManager configManager;
 
 	private volatile BossGear set;
 	private volatile List<BossGear.SetSummary> sets = Collections.emptyList();
@@ -35,11 +38,14 @@ public class BossGearManager {
 	private volatile boolean open;
 
 	@Inject
-	public BossGearManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, FarmRunManager farmRunManager) {
+	public BossGearManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, FarmRunManager farmRunManager,
+			OSRSCompanionConfig config, ConfigManager configManager) {
 		this.client = client;
 		this.apiClient = apiClient;
 		this.roadmapManager = roadmapManager;
 		this.farmRunManager = farmRunManager;
+		this.config = config;
+		this.configManager = configManager;
 	}
 
 	// ---- Loading ---------------------------------------------------------------------
@@ -82,7 +88,12 @@ public class BossGearManager {
 		return new OSRSCompanionApiClient.RoadmapCallback<BossGear.Response>() {
 			@Override
 			public void onSuccess(BossGear.Response result) {
+				BossGear before = set;
 				set = result.getSet();
+				// Another build was picked (here or with Use in RuneLite on the website): it is in use again.
+				if (before != null && set != null && before.getId() != set.getId()) {
+					setSetActive(true);
+				}
 				sets = result.getSets();
 				catalog = result.getCatalog();
 				error = null;
@@ -148,6 +159,62 @@ public class BossGearManager {
 
 	public boolean isLoaded() {
 		return loaded;
+	}
+
+	/**
+	 * Whether the selected setup is in use: Active lays out the bank and shows the gear, Inactive keeps it
+	 * selected but leaves both alone (the side panel switch, stored in this plugin's settings).
+	 */
+	public boolean isSetActive() {
+		return set != null && config.bossGearActive();
+	}
+
+	public void setSetActive(boolean active) {
+		if (config.bossGearActive() != active) {
+			configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, "bossGearActive", active);
+		}
+	}
+
+	/** A slot's tooltip (the window and the side panel): the item, what the setup picked and how many you carry. */
+	public String slotTooltip(BossGear.Item it, int need, boolean synced) {
+		int carried = carried(it);
+		int want = Math.max(1, need);
+		StringBuilder tip = new StringBuilder(it.getName());
+		if (it.getQty() > 1) {
+			tip.append(" x").append(it.getQty());
+		}
+		if (it.isNoted()) {
+			tip.append(" (noted)");
+		}
+		if (it instanceof BossGear.Slot) {
+			BossGear.Slot s = (BossGear.Slot) it;
+			tip.append("bis".equals(s.getStatus()) ? " - best in slot" : "partial".equals(s.getStatus()) ? " - best you own (rank " + s.getRank() + ")"
+				: "missing".equals(s.getStatus()) ? " - best in slot, not owned" : "");
+		}
+		tip.append(" - carrying ").append(carried);
+		if (carried < want) {
+			tip.append(it.isOwned() ? ", in your bank or storage" : synced ? ", not in your bank" : "");
+		}
+		return tip.toString();
+	}
+
+	/** Items carried in full / all different items of the set. */
+	public int[] carriedCount(BossGear set) {
+		int carried = 0;
+		int total = 0;
+		java.util.Set<Integer> seen = new java.util.HashSet<>();
+		Map<Integer, Integer> needs = inventoryNeeds();
+		for (BossGear.Item it : items(set)) {
+			if (!seen.add(it.getItem())) {
+				continue;
+			}
+			total++;
+			int need = it instanceof BossGear.Slot ? 1 : needs.getOrDefault(it.getItem(), it.getQty());
+			if (carried(it) >= need) {
+				carried++;
+			}
+		}
+		return new int[]{carried, total};
 	}
 
 	/** How many of the item you carry (inventory, worn, rune pouch), counting any of its versions. */

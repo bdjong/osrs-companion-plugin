@@ -9,12 +9,16 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Insets;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import net.runelite.api.gameval.ItemID;
@@ -48,9 +52,25 @@ public class RoadmapPanel extends PluginPanel {
 	private final GearProgressionManager gearProgression;
 
 	private final CardLayout cards = new CardLayout();
-	private final JPanel deck = new JPanel(cards);
+	/** The pages; only as tall as the page on show (a card layout is as tall as its tallest page). */
+	private final JPanel deck = new JPanel(cards) {
+		@Override
+		public Dimension getPreferredSize() {
+			for (Component c : getComponents()) {
+				if (c.isVisible()) {
+					Dimension d = c.getPreferredSize();
+					Insets in = getInsets();
+					return new Dimension(d.width + in.left + in.right, d.height + in.top + in.bottom);
+				}
+			}
+			return super.getPreferredSize();
+		}
+	};
+	/** The boss page's gear display and the gap under the tile above it, shown while its setting is on. */
+	private BossGearPanelView gearView;
+	private Component gearViewGap;
 	/** Keeps the live cards (current roadmap, route, setup) and switches up to date while the panel is open. */
-	private final Timer refresh = new Timer(1000, e -> deck.repaint());
+	private final Timer refresh = new Timer(1000, e -> tick());
 
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
@@ -73,7 +93,14 @@ public class RoadmapPanel extends PluginPanel {
 		deck.add(gearPage(openGearProgression), "gear");
 		deck.add(farmPage(openFarmRun), "farm");
 		deck.add(bossPage(openBossGear), "boss");
-		add(deck, BorderLayout.NORTH);
+		// The boss page's gear display is tall: the pages scroll.
+		JPanel top = new JPanel(new BorderLayout());
+		top.add(deck, BorderLayout.NORTH);
+		JScrollPane scroll = new JScrollPane(top, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		scroll.setBorder(BorderFactory.createEmptyBorder());
+		scroll.getVerticalScrollBar().setUnitIncrement(16);
+		add(scroll, BorderLayout.CENTER);
+		tick();
 
 		JLabel note = new JLabel("<html><body style='width:170px'><i>Progress updates as you play and "
 			+ "syncs with the website in the background.</i></body></html>");
@@ -81,6 +108,17 @@ public class RoadmapPanel extends PluginPanel {
 		note.setFont(FontManager.getRunescapeSmallFont());
 		note.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 		add(note, BorderLayout.SOUTH);
+	}
+
+	/** Repaints the live cards and shows or hides the boss gear display with its setting. */
+	private void tick() {
+		boolean showGear = config.bossGearPanelDisplay();
+		if (gearView != null && gearView.isVisible() != showGear) {
+			gearView.setVisible(showGear);
+			gearViewGap.setVisible(showGear);
+			deck.revalidate();
+		}
+		deck.repaint();
 	}
 
 	@Override
@@ -106,7 +144,7 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, roadmapTile(() -> show("roadmap")), "Roadmap: your goals, settings and the roadmap window.");
 		add(p, gearTile(() -> show("gear")), "Gear progression: settings and the gear progression window.");
 		add(p, farmTile(() -> show("farm")), "Farm run: your route, bank layout and the farm run window.");
-		add(p, bossTile(() -> show("boss")), "Boss gear: your setup, bank layout and the boss gear window.");
+		add(p, bossTile(() -> show("boss")), "Boss gear: your build, bank layout, gear display and the boss gear window.");
 		return p;
 	}
 
@@ -170,20 +208,42 @@ public class RoadmapPanel extends PluginPanel {
 	private JPanel bossPage(Runnable openWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
-		add(p, new PanelTiles.Info("ACTIVE SETUP", () -> {
+		add(p, new PanelTiles.SetupCard(BOSS, () -> {
 			BossGear s = bossGear.getSet();
 			if (s == null) {
-				return new String[]{bossGear.isLoading() ? "Loading..." : "No setup picked yet", "Pick one in Gear overview or on the website"};
+				return new String[]{bossGear.isLoading() ? "Loading..." : "No setup picked yet", "Load one in Gear overview"};
 			}
-			return new String[]{s.getBossName(), s.getStyle()};
+			return new String[]{s.getBossName(), buildLabel(s)};
 		}, () -> {
 			BossGear s = bossGear.getSet();
 			return s == null ? null : images.get(s.getImage());
+		}, () -> bossGear.getSet() != null, bossGear::isSetActive, () -> {
+			bossGear.setSetActive(!bossGear.isSetActive());
+			deck.repaint();
 		}), null);
-		add(p, toggle("Active in the bank", "Bank shows this setup", "Bank left alone", BOSS, "bossGearBankLayout", config::bossGearBankLayout), null);
-		add(p, overview("GEAR", "OVERVIEW", "Switch boss or setup", BOSS, new Color(0x120A24), new Color(0x5B21B6), SpriteID.TAB_EQUIPMENT, openWindow),
-			"Open or close the boss gear window: the setup's gear and inventory; switch boss or setup there (Escape closes it).");
+		add(p, toggle("Bank layout", "Bank shows this setup", "Bank left alone", BOSS, "bossGearBankLayout", config::bossGearBankLayout)
+			.withNote(() -> bossGear.getSet() != null && !bossGear.isSetActive() && config.bossGearBankLayout() ? "Paused while Inactive" : null), null);
+		add(p, toggle("Gear display", "Shown below", "Hidden", BOSS, "bossGearPanelDisplay", config::bossGearPanelDisplay)
+			.withNote(() -> bossGear.getSet() != null && !bossGear.isSetActive() && config.bossGearPanelDisplay() ? "Hidden while Inactive" : null),
+			"Show the active setup's worn gear, inventory and rune pouch in this panel.");
+		add(p, overview("GEAR", "OVERVIEW", "Load a preset or build", BOSS, new Color(0x120A24), new Color(0x5B21B6), SpriteID.TAB_EQUIPMENT, openWindow),
+			"Open or close the boss gear window: the setup's gear and inventory; load a wiki preset or one of your custom builds there (Escape closes it).");
+		gearView = new BossGearPanelView(bossGear, itemManager);
+		gearView.setAlignmentX(Component.LEFT_ALIGNMENT);
+		p.add(gearView);
+		gearViewGap = Box.createVerticalStrut(8);
+		p.add(gearViewGap);
 		return p;
+	}
+
+	/** The build's name under the boss: your own name for a custom build, else the wiki setup's style. */
+	private String buildLabel(BossGear s) {
+		for (BossGear.SetSummary sum : bossGear.getSets()) {
+			if (sum.getId() == s.getId() && sum.isCustom()) {
+				return sum.getLabel() + " (custom build)";
+			}
+		}
+		return s.getStyle() + " (wiki preset)";
 	}
 
 	/** The gear page's progress card: the tier with the next open step, its share done and the whole plan's. */
@@ -221,6 +281,7 @@ public class RoadmapPanel extends PluginPanel {
 			gearProgression.refresh();
 		}
 		cards.show(deck, page);
+		deck.revalidate();
 		deck.repaint();
 	}
 
@@ -251,7 +312,7 @@ public class RoadmapPanel extends PluginPanel {
 	}
 
 	private FeatureTile bossTile(Runnable action) {
-		return FeatureTile.banner("BOSS", "GEAR", "Setups + bank layout",
+		return FeatureTile.banner("BOSS", "GEAR", "Builds + bank layout",
 			BOSS, new Color(0x120A24), new Color(0x5B21B6), itemManager.getImage(ItemID.VORKATH_HEAD), action);
 	}
 
