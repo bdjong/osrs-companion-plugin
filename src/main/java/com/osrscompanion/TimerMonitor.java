@@ -30,8 +30,8 @@ import com.osrscompanion.runelite.farming.FarmingWorld;
 import com.osrscompanion.runelite.farming.PatchImplementation;
 import com.osrscompanion.runelite.farming.PatchPrediction;
 import com.osrscompanion.runelite.farming.Produce;
-import com.osrscompanion.runelite.hunter.BirdHouse;
 import com.osrscompanion.runelite.Tab;
+import com.osrscompanion.runelite.hunter.BirdHouse;
 import com.osrscompanion.runelite.hunter.BirdHouseSpace;
 
 @Slf4j
