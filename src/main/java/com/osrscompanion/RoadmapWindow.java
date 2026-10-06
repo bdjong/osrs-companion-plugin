@@ -30,6 +30,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.input.KeyListener;
 import net.runelite.client.input.MouseListener;
 import net.runelite.client.input.MouseWheelListener;
@@ -234,7 +235,8 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 
 	@Override
 	public Dimension render(Graphics2D g) {
-		if (!open) {
+		// Out of the way while the bank is open.
+		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null || !open) {
 			window = null;
 			hits = Collections.emptyList();
 			return null;

@@ -119,11 +119,22 @@ public class BankLayoutPrep {
 
 	// ---- When ---------------------------------------------------------------------
 
+	/** Re-reads the active boss setup when the bank opens, at most this often (a setup just picked on the website). */
+	private static final long AUTO_REFRESH_MS = 60_000;
+	private long lastAutoRefresh;
+
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
 		if (event.getGroupId() == InterfaceID.BANKMAIN) {
 			applied = null;
 			searched = null;
+			// The active setup lays the bank out even with the window closed: make sure it is loaded and current.
+			long now = System.currentTimeMillis();
+			if (config.bossGearBankAuto() && config.bossGearBankLayout() && !bossGear.isOpen() && !bossGear.isLoading()
+					&& (bossGear.getSet() == null || now - lastAutoRefresh > AUTO_REFRESH_MS)) {
+				lastAutoRefresh = now;
+				bossGear.refresh();
+			}
 			clientThread.invokeLater(this::update);
 		}
 	}
@@ -144,14 +155,21 @@ public class BankLayoutPrep {
 		}
 	}
 
-	/** Which feature drives the bank now: the Boss gear window, else the farm run (window open or a run going). */
+	/**
+	 * Which feature drives the bank now: the Boss gear window, else the farm run (window open or a
+	 * run going), else the active boss setup by itself (setting "Always lay out active boss setup").
+	 */
 	Driver driver() {
-		if (bossGear.isOpen() && bossGear.getSet() != null && config.bossGearBankLayout()) {
+		boolean boss = bossGear.getSet() != null && config.bossGearBankLayout();
+		if (boss && bossGear.isOpen()) {
 			return Driver.BOSS;
 		}
 		boolean farm = farmRun.isOpen() || (farmRun.isRunning() && !farmRun.isComplete());
 		if (farm && farmRun.getRoute() != null && config.farmRunBankFilter()) {
 			return Driver.FARM;
+		}
+		if (boss && config.bossGearBankAuto()) {
+			return Driver.BOSS;
 		}
 		return null;
 	}
