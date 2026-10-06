@@ -7,6 +7,7 @@ import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.runelite.farming.CompostState;
 import com.osrscompanion.runelite.farming.CompostTracker;
+import com.osrscompanion.runelite.farming.CropState;
 import com.osrscompanion.runelite.farming.FarmingPatch;
 import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
@@ -120,13 +121,25 @@ public class FarmRunManager {
 	private volatile Map<Integer, Integer> carriedBase = Collections.emptyMap();
 	private volatile Map<String, Integer> carriedNames = Collections.emptyMap();
 	private volatile boolean capeWorn;
-	/** The rune pouch changed (runes added, taken or cast): count again on the next tick. */
-	private boolean pouchChanged;
+	/**
+	 * Count the carried items again on the next tick: the rune pouch changed (runes added, taken or
+	 * cast), or the window opened or a run started before any inventory change was seen (the plugin
+	 * started while logged in), so the pouch's runes show as carried straight away.
+	 */
+	private volatile boolean recountPending;
 	private int capeRemindedStop = -1;
 	private volatile Map<Integer, Integer> leprechaun = Collections.emptyMap();
 
 	/** Route patches (keys) at the current stop, or the one just left while you are still there, without compost. */
 	private volatile Set<String> needCompost = Collections.emptySet();
+	/**
+	 * How many buckets of compost the run still needs, counted live from the patches you will actually
+	 * plant (not still growing, not diseased, taking compost, without compost yet); -1: not known, use
+	 * the website's count. The route's inventory with that count, for the route it was made for.
+	 */
+	private volatile int compostToBring = -1;
+	private volatile List<FarmRoute.Stack> compostAdjusted;
+	private volatile FarmRoute compostAdjustedFor;
 	/** Composted this run, seen from the game's message (covers the Time Tracking plugin being off). */
 	private final Set<String> composted = ConcurrentHashMap.newKeySet();
 	/** The route patch compost was last used on, until the game's message confirms it. */
@@ -259,6 +272,7 @@ public class FarmRunManager {
 		running = true;
 		stopIndex = 0;
 		capeRemindedStop = -1;
+		recountPending = true;
 		updateStatuses();
 		stopIndex = firstOpenFrom(0);
 	}
@@ -306,12 +320,13 @@ public class FarmRunManager {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		if (pouchChanged) {
-			pouchChanged = false;
+		if (recountPending) {
+			recountPending = false;
 			recount();
 		}
 		if (open || running) {
 			leprechaun = ToolLeprechaun.read(client);
+			updateCompostToBring();
 		}
 		if (!running || route == null) {
 			return;
@@ -351,7 +366,9 @@ public class FarmRunManager {
 		WorldPoint at = client.getLocalPlayer() == null ? null : client.getLocalPlayer().getWorldLocation();
 		WorldPoint last = getCurrentTarget();
 		boolean left = at != null && last != null && (at.getPlane() != last.getPlane() || at.distanceTo2D(last) > CAPE_REMINDER_DISTANCE);
-		if (left || client.getTickCount() - completedTick >= FINISH_DELAY_TICKS) {
+		// The minute's grace waits while a patch here still has no compost (you are still at it).
+		boolean timeUp = client.getTickCount() - completedTick >= FINISH_DELAY_TICKS && needCompost.isEmpty();
+		if (left || timeUp) {
 			stop();
 		}
 	}
@@ -460,6 +477,74 @@ public class FarmRunManager {
 		}
 	}
 
+	/**
+	 * Counts the compost the run needs from the patches you will actually plant, so the bring list asks
+	 * for one bucket per such patch rather than trusting the website's count from the last sync. Before
+	 * a run: every route patch that takes compost and is not still growing (or diseased: that is cured,
+	 * not replanted). During a run: the patches still to do, plus those planted without compost yet.
+	 * Compost bins and patches that take no compost never count. Client thread.
+	 */
+	private void updateCompostToBring() {
+		FarmRoute r = route;
+		if (r == null || farmingTracker == null || client.getGameState() != GameState.LOGGED_IN) {
+			compostToBring = -1;
+			compostAdjustedFor = null;
+			return;
+		}
+		int n = 0;
+		for (FarmRoute.Stop stop : r.getStops()) {
+			for (FarmRoute.Patch p : stop.getPatches()) {
+				if (p.getSeed() == null || p.getSeed() <= 0 || !p.takesCompost()) {
+					continue;
+				}
+				if (running) {
+					Snapshot start = startState.get(p.getKey());
+					Status s = statusOf(p);
+					if (start != null && start.state == CropState.DISEASED) {
+						continue;
+					}
+					if (s == Status.TODO) {
+						// Composted before planting (seen this run) needs no more; RuneLite's stored compost is
+						// not trusted here, as it is only cleared once the patch is seen harvested.
+						Snapshot now = snapshot(p);
+						if (!composted.contains(p.getKey()) && (now == null || now.state != CropState.DISEASED)) {
+							n++;
+						}
+					} else if (s == Status.DONE && !hasCompost(p)) {
+						n++;
+					}
+				} else {
+					Snapshot now = snapshot(p);
+					if (now == null || (!now.growingCrop() && now.state != CropState.DISEASED)) {
+						n++;
+					}
+				}
+			}
+		}
+		if (n != compostToBring || compostAdjustedFor != r) {
+			compostAdjusted = withCompost(r.getInventory(), n);
+			compostToBring = n;
+			compostAdjustedFor = r;
+		}
+	}
+
+	/** The inventory with the compost buckets set to this many (left out at 0). A bottomless bucket stays as it is. */
+	static List<FarmRoute.Stack> withCompost(List<FarmRoute.Stack> inventory, int buckets) {
+		List<FarmRoute.Stack> out = new ArrayList<>(inventory.size());
+		for (FarmRoute.Stack s : inventory) {
+			if (!"Compost".equals(s.getWhy()) || !isCompostBucket(s.getItem())) {
+				out.add(s);
+			} else if (buckets > 0) {
+				out.add(s.withQty(buckets));
+			}
+		}
+		return Collections.unmodifiableList(out);
+	}
+
+	private static boolean isCompostBucket(int itemId) {
+		return itemId == ItemID.BUCKET_ULTRACOMPOST || itemId == ItemID.BUCKET_SUPERCOMPOST || itemId == ItemID.BUCKET_COMPOST;
+	}
+
 	/** Minutes left before the next minigame teleport, from the game's last-use time. Client thread. */
 	private void updateMinigameCooldown() {
 		lastMinigameTeleport = client.getVarpValue(LAST_MINIGAME_TELEPORT_VARP);
@@ -534,6 +619,28 @@ public class FarmRunManager {
 	/** True while this route patch still needs compost (see {@link #updateCompost()}). */
 	public boolean needsCompost(FarmRoute.Patch p) {
 		return running && needCompost.contains(p.getKey());
+	}
+
+	/** True while a patch at (or just behind) the current stop still needs compost. */
+	public boolean hasCompostToDo() {
+		return running && !needCompost.isEmpty();
+	}
+
+	/** The stop just left while one of its patches (you are still there) has no compost yet, else null. */
+	public FarmRoute.Stop compostStopBehind() {
+		FarmRoute r = route;
+		int prev = previousStop;
+		if (!running || r == null || prev < 0 || prev >= r.getStops().size() || prev == stopIndex) {
+			return null;
+		}
+		Set<String> keys = needCompost;
+		FarmRoute.Stop stop = r.getStops().get(prev);
+		for (FarmRoute.Patch p : stop.getPatches()) {
+			if (keys.contains(p.getKey())) {
+				return stop;
+			}
+		}
+		return null;
 	}
 
 	/** Patches of the stop just left (you are still there) that have no compost yet. */
@@ -623,7 +730,7 @@ public class FarmRunManager {
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
 		if (RunePouchMonitor.isPouchVarbit(event.getVarbitId())) {
-			pouchChanged = true;
+			recountPending = true;
 		}
 	}
 
@@ -659,13 +766,18 @@ public class FarmRunManager {
 		capeWorn = cape;
 	}
 
-	/** Moves past a stop once none of its patches needs a visit. */
+	/**
+	 * Moves past a stop once none of its patches needs a visit. When no later stop has work the run
+	 * is finished and stays on this stop (where you are), so it can still point out the compost here
+	 * and stops by itself once you walk away.
+	 */
 	private void advance() {
 		FarmRoute.Stop stop = getCurrentStop();
 		if (stop != null && !hasOpenPatch(stop)) {
 			int from = stopIndex;
-			stopIndex = firstOpenFrom(stopIndex);
-			if (stopIndex != from) {
+			int next = nextOpenFrom(stopIndex);
+			if (next >= 0 && next != from) {
+				stopIndex = next;
 				previousStop = from;
 			}
 		}
@@ -676,14 +788,24 @@ public class FarmRunManager {
 		if (r == null) {
 			return 0;
 		}
+		int next = nextOpenFrom(from);
+		// Nothing left: stay on the last stop, which shows the run as complete.
+		return next >= 0 ? next : Math.max(0, r.getStops().size() - 1);
+	}
+
+	/** The first stop from this one on with a patch still to do, or -1 when there is none. */
+	private int nextOpenFrom(int from) {
+		FarmRoute r = route;
+		if (r == null) {
+			return -1;
+		}
 		List<FarmRoute.Stop> stops = r.getStops();
-		for (int i = from; i < stops.size(); i++) {
+		for (int i = Math.max(0, from); i < stops.size(); i++) {
 			if (hasOpenPatch(stops.get(i))) {
 				return i;
 			}
 		}
-		// Nothing left: stay on the last stop, which shows the run as complete.
-		return Math.max(0, stops.size() - 1);
+		return -1;
 	}
 
 	private boolean hasOpenPatch(FarmRoute.Stop stop) {
@@ -772,6 +894,7 @@ public class FarmRunManager {
 	public void openWindow() {
 		open = true;
 		selectedStop = -1;
+		recountPending = true;
 		// Always fetch on open, so a route just made or edited on the website shows up straight
 		// away (the same route keeps its progress; see callback()).
 		if (!loading) {
@@ -839,18 +962,17 @@ public class FarmRunManager {
 		return r.getStops().get(Math.min(stopIndex, r.getStops().size() - 1));
 	}
 
-	/** Every patch handled: harvested and planted, not ready, or skipped. */
+	/**
+	 * The run is finished: every patch from the current stop to the end of the route is handled
+	 * (harvested and planted, not ready, or skipped). Patches at earlier stops you moved on from
+	 * with "next" count as passed over, so they no longer keep the run from finishing.
+	 */
 	public boolean isComplete() {
 		FarmRoute r = route;
-		if (!running || r == null) {
+		if (!running || r == null || r.getStops().isEmpty()) {
 			return false;
 		}
-		for (FarmRoute.Stop s : r.getStops()) {
-			if (hasOpenPatch(s)) {
-				return false;
-			}
-		}
-		return true;
+		return nextOpenFrom(Math.min(stopIndex, r.getStops().size() - 1)) < 0;
 	}
 
 	public Status statusOf(FarmRoute.Patch p) {
@@ -1003,17 +1125,21 @@ public class FarmRunManager {
 		return all;
 	}
 
-	/** The route's inventory, plus the Farming cape when that setting is on and the route picks herbs. */
+	/**
+	 * The route's inventory (its compost counted from the patches you will actually plant), plus the
+	 * Farming cape when that setting is on and the route picks herbs.
+	 */
 	public List<FarmRoute.Stack> inventory() {
 		FarmRoute r = route;
 		if (r == null) {
 			return Collections.emptyList();
 		}
+		List<FarmRoute.Stack> inv = compostAdjustedFor == r && compostAdjusted != null ? compostAdjusted : r.getInventory();
 		boolean herbs = r.getStops().stream().anyMatch(s -> s.getPatches().stream().anyMatch(FarmRunManager::isHerb));
-		if (!config.farmingCapeForHerbs() || !herbs || r.getInventory().stream().anyMatch(s -> s.getItem() == FARMING_CAPE || s.getItem() == FARMING_CAPE_T)) {
-			return r.getInventory();
+		if (!config.farmingCapeForHerbs() || !herbs || inv.stream().anyMatch(s -> s.getItem() == FARMING_CAPE || s.getItem() == FARMING_CAPE_T)) {
+			return inv;
 		}
-		List<FarmRoute.Stack> all = new ArrayList<>(r.getInventory());
+		List<FarmRoute.Stack> all = new ArrayList<>(inv);
 		all.add(FarmRoute.Stack.extra(FARMING_CAPE, "Farming cape", "Wear before picking herbs"));
 		return all;
 	}
@@ -1039,5 +1165,8 @@ public class FarmRunManager {
 		previousStop = -1;
 		completedTick = -1;
 		carried = Collections.emptyMap();
+		compostToBring = -1;
+		compostAdjusted = null;
+		compostAdjustedFor = null;
 	}
 }

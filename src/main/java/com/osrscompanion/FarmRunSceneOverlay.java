@@ -37,7 +37,8 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 /**
  * Points the way during a farm run, like Quest Helper: the yellow hint arrow and a
  * world map marker on the current stop, and the stop's patches outlined in the scene
- * (yellow to do, green planted, grey nothing to do).
+ * (yellow to do, green planted, grey nothing to do, orange still without compost: the
+ * stop just left counts too while you are still there).
  */
 public class FarmRunSceneOverlay extends Overlay {
 	/** Patch objects further than this from the stop belong to another stop (varbits repeat between regions). */
@@ -76,14 +77,21 @@ public class FarmRunSceneOverlay extends Overlay {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		FarmRoute.Stop stop = manager.isRunning() && !manager.isComplete() ? manager.getCurrentStop() : null;
+		// A finished run keeps pointing at the last patches while one of them still has no compost.
+		boolean active = manager.isRunning() && (!manager.isComplete() || manager.hasCompostToDo());
+		FarmRoute.Stop stop = active ? manager.getCurrentStop() : null;
 		if (stop == null || client.getGameState() != GameState.LOGGED_IN) {
 			found = Collections.emptyList();
 			clearPointers();
 			return;
 		}
 		if (++ticks % SCAN_EVERY_TICKS == 0 || found.isEmpty()) {
-			found = scan(stop);
+			List<Found> all = new ArrayList<>(scan(stop));
+			FarmRoute.Stop behind = manager.compostStopBehind();
+			if (behind != null && behind != stop) {
+				all.addAll(scan(behind));
+			}
+			found = all;
 		}
 		updatePointers(stop);
 	}
@@ -126,13 +134,24 @@ public class FarmRunSceneOverlay extends Overlay {
 		return out;
 	}
 
-	/** The arrow goes to the first patch still to do (the stop's tile until it is in view); the map marker to the stop. */
+	/**
+	 * The arrow goes to the first patch still to do, else to one still without compost (the stop's
+	 * tile until it is in view); the map marker to the stop.
+	 */
 	private void updatePointers(FarmRoute.Stop stop) {
 		WorldPoint target = null;
 		for (Found f : found) {
 			if (manager.statusOf(f.patch).isOpen()) {
 				target = f.object.getWorldLocation();
 				break;
+			}
+		}
+		if (target == null) {
+			for (Found f : found) {
+				if (manager.needsCompost(f.patch)) {
+					target = f.object.getWorldLocation();
+					break;
+				}
 			}
 		}
 		if (target == null) {
@@ -181,14 +200,25 @@ public class FarmRunSceneOverlay extends Overlay {
 		}
 		for (Found f : list) {
 			Status s = manager.statusOf(f.patch);
-			Color color = s == Status.DONE ? FarmRunOverlay.DONE_COLOR : s == Status.TODO ? FarmRunOverlay.TODO_COLOR : FarmRunOverlay.MUTED_COLOR;
+			// Still without compost (the compost is highlighted in the inventory too): a patch to do says so
+			// in its label, a planted one turns orange.
+			boolean compost = manager.needsCompost(f.patch);
+			Color color = compost && s != Status.TODO ? FarmRunOverlay.COMPOST_COLOR : s == Status.DONE ? FarmRunOverlay.DONE_COLOR
+				: s == Status.TODO ? FarmRunOverlay.TODO_COLOR : FarmRunOverlay.MUTED_COLOR;
 			outlines.drawOutline(f.object, 2, color, 4);
 			Polygon tile = f.object.getCanvasTilePoly();
-			if (tile != null && s == Status.TODO) {
+			if (tile != null && (s == Status.TODO || compost)) {
 				graphics.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 40));
 				graphics.fill(tile);
 			}
-			String label = f.patch.getType() + (f.patch.getCrop() != null && s == Status.TODO ? ": " + f.patch.getCrop() : s == Status.DONE ? " - done" : s == Status.TODO ? "" : " - not ready");
+			String label = f.patch.getType();
+			if (s == Status.TODO) {
+				label += (f.patch.getCrop() != null ? ": " + f.patch.getCrop() : "") + (compost ? " + compost" : "");
+			} else if (compost) {
+				label += " - compost it";
+			} else {
+				label += s == Status.DONE ? " - done" : " - not ready";
+			}
 			Point at = f.object.getCanvasTextLocation(graphics, label, 160);
 			if (at != null) {
 				OverlayUtil.renderTextLocation(graphics, at, label, color);

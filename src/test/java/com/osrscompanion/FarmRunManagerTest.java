@@ -2,6 +2,8 @@ package com.osrscompanion;
 
 import com.google.gson.Gson;
 import com.osrscompanion.model.FarmRoute;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -43,5 +45,23 @@ public class FarmRunManagerTest {
 			+ "{\"impl\":\"HERB\",\"seed\":5295,\"produce\":207},{\"impl\":\"HERB\",\"seed\":5295,\"produce\":207}]}]}";
 		assertEquals(Integer.valueOf(207), gson.fromJson(herbs, FarmRoute.class).pictureItem());
 		assertNull(gson.fromJson("{\"stops\":[]}", FarmRoute.class).pictureItem());
+	}
+
+	@Test
+	public void compostCountFollowsThePatchesNotTheRoute() {
+		Gson gson = new Gson();
+		List<FarmRoute.Stack> inv = Arrays.asList(
+			gson.fromJson("{\"item\":5295,\"qty\":9,\"why\":\"Seed\"}", FarmRoute.Stack.class),
+			gson.fromJson("{\"item\":21483,\"qty\":9,\"why\":\"Compost\",\"name\":\"Ultracompost\"}", FarmRoute.Stack.class));
+		List<FarmRoute.Stack> four = FarmRunManager.withCompost(inv, 4);
+		assertEquals(2, four.size());
+		assertEquals(9, four.get(0).getQty());
+		assertEquals(4, four.get(1).getQty());
+		assertEquals("Ultracompost", four.get(1).getName());
+		// No patch to compost: the compost is left out.
+		assertEquals(1, FarmRunManager.withCompost(inv, 0).size());
+		// A bottomless bucket is one item whatever the count.
+		List<FarmRoute.Stack> bucket = Arrays.asList(gson.fromJson("{\"item\":22997,\"qty\":1,\"why\":\"Compost\"}", FarmRoute.Stack.class));
+		assertEquals(1, FarmRunManager.withCompost(bucket, 5).get(0).getQty());
 	}
 }
