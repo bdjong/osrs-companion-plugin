@@ -67,7 +67,7 @@ public class FarmRunOverlay extends OverlayPanel {
 			.right(progress[0] + "/" + progress[1] + " done").rightColor(MUTED_COLOR).build());
 
 		if (manager.isComplete()) {
-			for (String line : wrap("Every patch is planted, skipped or still growing. Open the side panel to start again.", fm, textWidth)) {
+			for (String line : wrap("Every patch is planted, skipped or still growing. Open the farm run window to start again.", fm, textWidth)) {
 				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(MUTED_COLOR).build());
 			}
 			panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
@@ -149,6 +149,6 @@ public class FarmRunOverlay extends OverlayPanel {
 	}
 
 	static java.util.List<String> wrap(String text, FontMetrics fm, int width) {
-		return text == null || text.isEmpty() ? java.util.Collections.emptyList() : GearProgressionOverlay.wrap(text, fm, width);
+		return text == null || text.isEmpty() ? java.util.Collections.emptyList() : GameUi.wrap(text, fm, width);
 	}
 }

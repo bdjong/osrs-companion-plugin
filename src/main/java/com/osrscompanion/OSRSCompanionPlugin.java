@@ -174,6 +174,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private FarmRunItemOverlay farmRunItemOverlay;
 
 	@Inject
+	private FarmRunWindow farmRunWindow;
+
+	@Inject
 	private ClientThread clientThread;
 
 	@Inject
@@ -186,7 +189,7 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
-	private NavigationButton farmNavButton;
+	private HotkeyListener farmRunHotkeyListener;
 
 	@Override
 	protected void startUp() throws Exception {
@@ -285,7 +288,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle);
+		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle, farmRunManager::toggle);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -315,14 +318,18 @@ public class OSRSCompanionPlugin extends Plugin {
 		};
 		keyManager.registerKeyListener(gearHotkeyListener);
 
-		// Guided farm run: its own side panel, the step box, scene pointers and item highlights.
-		farmNavButton = NavigationButton.builder()
-				.tooltip("OSRS Companion Farm run")
-				.icon(FarmRunIcon.create())
-				.priority(8)
-				.panel(new FarmRunPanel(farmRunManager))
-				.build();
-		clientToolbar.addNavigation(farmNavButton);
+		// Farm run: the window (side-panel button or hotkey), the step box, scene pointers and item highlights.
+		overlayManager.add(farmRunWindow);
+		mouseManager.registerMouseListener(farmRunWindow);
+		mouseManager.registerMouseWheelListener(farmRunWindow);
+		keyManager.registerKeyListener(farmRunWindow);
+		farmRunHotkeyListener = new HotkeyListener(config::farmRunHotkey) {
+			@Override
+			public void hotkeyPressed() {
+				farmRunManager.toggle();
+			}
+		};
+		keyManager.registerKeyListener(farmRunHotkeyListener);
 		overlayManager.add(farmRunOverlay);
 		overlayManager.add(farmRunSceneOverlay);
 		overlayManager.add(farmRunItemOverlay);
@@ -435,15 +442,18 @@ public class OSRSCompanionPlugin extends Plugin {
 			gearHotkeyListener = null;
 		}
 		gearProgressionManager.clear();
-		if (farmNavButton != null) {
-			clientToolbar.removeNavigation(farmNavButton);
-			farmNavButton = null;
+		overlayManager.remove(farmRunWindow);
+		mouseManager.unregisterMouseListener(farmRunWindow);
+		mouseManager.unregisterMouseWheelListener(farmRunWindow);
+		keyManager.unregisterKeyListener(farmRunWindow);
+		if (farmRunHotkeyListener != null) {
+			keyManager.unregisterKeyListener(farmRunHotkeyListener);
+			farmRunHotkeyListener = null;
 		}
 		overlayManager.remove(farmRunOverlay);
 		overlayManager.remove(farmRunSceneOverlay);
 		overlayManager.remove(farmRunItemOverlay);
 		clientThread.invoke(farmRunSceneOverlay::clearPointers);
-		farmRunManager.setChangeListener(null);
 		farmRunManager.clear();
 		roadmapManager.clear();
 		log.debug("OSRS Companion stopped");

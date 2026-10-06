@@ -77,7 +77,7 @@ public class GearNextOverlay extends OverlayPanel {
 		if (metrics.stringWidth(oneLine) <= MAX_TEXT_WIDTH) {
 			titleLines.add(oneLine);
 		} else {
-			titleLines.addAll(GearProgressionOverlay.wrap(plan.getTitle(), metrics, MAX_TEXT_WIDTH));
+			titleLines.addAll(GameUi.wrap(plan.getTitle(), metrics, MAX_TEXT_WIDTH));
 			titleLines.add("Next gear");
 		}
 		for (String line : titleLines) {

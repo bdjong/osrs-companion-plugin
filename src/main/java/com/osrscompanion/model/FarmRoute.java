@@ -3,6 +3,7 @@ package com.osrscompanion.model;
 import com.google.gson.annotations.SerializedName;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The active farm route as returned by GET /api/runelite/farm-route/: the stops in run
@@ -286,6 +287,10 @@ public class FarmRoute {
 		@SerializedName("slot")
 		private String slot;
 
+		/** Quantity per storage it was in at the last sync: bank, seed_vault, seed_box, ... */
+		@SerializedName("where")
+		private Map<String, Integer> where;
+
 		public int getItem() {
 			return item;
 		}
@@ -304,6 +309,10 @@ public class FarmRoute {
 
 		public String getSlot() {
 			return slot;
+		}
+
+		public Map<String, Integer> getWhere() {
+			return where == null ? Collections.emptyMap() : where;
 		}
 	}
 
