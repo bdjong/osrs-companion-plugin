@@ -119,6 +119,16 @@ public class BankLayoutPrep {
 
 	// ---- When ---------------------------------------------------------------------
 
+	/**
+	 * Opening our tag right as the bank opens does not always stick (the bank is still being built):
+	 * for a few ticks after applying, a layout that is not showing is applied again, a few times at most.
+	 * After that, another bank tab the player clicks is left alone.
+	 */
+	private static final int VERIFY_TICKS = 3;
+	private static final int MAX_RETRIES = 3;
+	private int verifyUntilTick = -1;
+	private int retries;
+
 	/** Re-reads the active boss setup / farm route when the bank opens, at most this often (one just picked on the website). */
 	private static final long AUTO_REFRESH_MS = 60_000;
 	private long lastBossRefresh;
@@ -128,6 +138,7 @@ public class BankLayoutPrep {
 		if (event.getGroupId() == InterfaceID.BANKMAIN) {
 			applied = null;
 			searched = null;
+			retries = 0;
 			// An active setup / route lays the bank out even with its window closed: make sure it is loaded and current.
 			long now = System.currentTimeMillis();
 			if (config.bossGearBankLayout() && !bossGear.isOpen() && !bossGear.isLoading()
@@ -153,9 +164,15 @@ public class BankLayoutPrep {
 	/** A window opened or closed, or a set / route (re)loaded, while the bank is open. */
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null) {
-			update();
+		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
+			return;
 		}
+		if (applied != null && client.getTickCount() <= verifyUntilTick && retries < MAX_RETRIES && bankTagsOn() && !isOurTagOpen()) {
+			log.debug("Bank layout did not stick; applying it again");
+			retries++;
+			applied = null;
+		}
+		update();
 	}
 
 	/**
@@ -238,6 +255,7 @@ public class BankLayoutPrep {
 		int options = BankTagsService.OPTION_HIDE_TAG_NAME | BankTagsService.OPTION_ITEMS_NOT_IN_LAYOUT_AT_BOTTOM
 			| (config.bankLayoutPositions() ? 0 : BankTagsService.OPTION_NO_LAYOUT);
 		bankTags.openBankTag(tag, options);
+		verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
 	}
 
 	/** Back to the normal bank: our tag closes, or our fallback search clears. */
