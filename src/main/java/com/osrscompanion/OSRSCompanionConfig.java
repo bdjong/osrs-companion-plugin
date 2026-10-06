@@ -297,6 +297,16 @@ public interface OSRSCompanionConfig extends Config {
 	}
 
 	@ConfigItem(
+			keyName = "autoCapeTeleport",
+			name = "Auto set cape teleport",
+			description = "During a farm run, when the way to the current stop is a cape teleport (Max or Construction cape Tele to POH, the Farming Guild, the Ardougne cloak), that teleport is the cape's left click, worn or in the inventory.",
+			section = FEATURES_SECTION,
+			position = 9)
+	default boolean autoCapeTeleport() {
+		return true;
+	}
+
+	@ConfigItem(
 			keyName = "farmRunPopup",
 			name = "Farm run complete popup",
 			description = "Show an in-game popup (like the goal completion one) when every patch of a started farm run is done; the run then stops by itself.",

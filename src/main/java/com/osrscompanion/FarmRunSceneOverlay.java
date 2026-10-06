@@ -217,7 +217,7 @@ public class FarmRunSceneOverlay extends Overlay {
 				label = "WEAR Farming cape";
 				color = FarmRunOverlay.COMPOST_COLOR;
 			} else if (s == Status.TODO) {
-				label += (f.patch.getCrop() != null ? ": " + f.patch.getCrop() : "") + (compost ? " + compost" : "");
+				label = manager.nextStep(f.patch);
 			} else if (compost) {
 				label += " - compost it";
 			} else {
