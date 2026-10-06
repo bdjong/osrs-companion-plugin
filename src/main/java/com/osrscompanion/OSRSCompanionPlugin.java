@@ -159,6 +159,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private GearNextOverlay gearNextOverlay;
 
 	@Inject
+	private SessionMonitor sessionMonitor;
+
+	@Inject
 	private FarmRunManager farmRunManager;
 
 	@Inject
@@ -233,8 +236,10 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(goalProgressTracker);
 		eventBus.register(farmRunManager);
 		eventBus.register(farmRunSceneOverlay);
+		eventBus.register(sessionMonitor);
 
 		timerMonitor.start();
+		sessionMonitor.start();
 		lootMonitor.start();
 		playerSkillsMonitor.start();
 
@@ -350,6 +355,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(goalProgressTracker);
 		eventBus.unregister(farmRunManager);
 		eventBus.unregister(farmRunSceneOverlay);
+		eventBus.unregister(sessionMonitor);
+		sessionMonitor.stop();
 
 		roadmapManager.stopPeriodicRefresh();
 		roadmapManager.setRoadmapListener(null);
