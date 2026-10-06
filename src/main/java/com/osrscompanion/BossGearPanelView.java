@@ -124,9 +124,6 @@ class BossGearPanelView extends JComponent {
 			int x0 = (w - GRID) / 2;
 			g.setFont(FontManager.getRunescapeSmallFont());
 			shadow(g, "ACTIVE GEAR", 12, 16, HEADING);
-			int[] c = manager.carriedCount(set);
-			String count = c[0] + " / " + c[1] + " carried";
-			shadow(g, count, w - 12 - g.getFontMetrics().stringWidth(count), 16, c[0] == c[1] ? GREEN : new Color(0xC9D1DE));
 
 			// Worn: the game's 3-column doll, the special attack weapon in the 4th column on the weapon row.
 			g.setFont(FontManager.getRunescapeBoldFont());

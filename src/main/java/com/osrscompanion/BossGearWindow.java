@@ -236,23 +236,18 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		g.setFont(FontManager.getRunescapeSmallFont());
 		String label = custom && inUse.getLabel() != null ? inUse.getLabel() : set.getStyle();
 		after = text(g, truncate("  " + label, g.getFontMetrics(), 120), after, subY, BEIGE);
-		after = badge(g, custom ? "Custom build" : "Wiki preset", after + 8, subY, custom ? YELLOW : BEIGE);
-		Rectangle switchButton = new Rectangle(after + 8, subY - 13, 84, 17);
+		badge(g, custom ? "Custom build" : "Wiki preset", after + 8, subY, custom ? YELLOW : BEIGE);
+		// Right side: Change build, with Inactive and Set active before it while the setup is Inactive.
+		int right = win.x + win.width - 12;
+		Rectangle switchButton = new Rectangle(right - 84, subY - 13, 84, 17);
 		button(g, switchButton, switcherOpen ? "Close" : "Change build", false);
 		newHits.add(new Hit(switchButton, this::toggleSwitcher, "Load a wiki preset or one of your custom builds", true));
-		int right = win.x + win.width - 12;
 		if (!manager.isSetActive()) {
-			Rectangle activate = new Rectangle(right - 76, subY - 13, 76, 17);
+			Rectangle activate = new Rectangle(switchButton.x - 8 - 76, subY - 13, 76, 17);
 			button(g, activate, "Set active", false);
 			newHits.add(new Hit(activate, () -> manager.setSetActive(true), "Lay out the bank for this setup again"));
-			g.setFont(FontManager.getRunescapeSmallFont());
 			badge(g, "Inactive", activate.x - 6 - 54, subY, ORANGE);
-			return switchButton;
 		}
-		int[] c = manager.carriedCount(set);
-		String info = c[0] + " / " + c[1] + " carried";
-		g.setFont(FontManager.getRunescapeFont());
-		text(g, info, right - g.getFontMetrics().stringWidth(info), subY, c[0] == c[1] ? GREEN : Color.WHITE);
 		return switchButton;
 	}
 
