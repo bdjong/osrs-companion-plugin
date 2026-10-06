@@ -357,7 +357,11 @@ public class FarmRunManager {
 	public void openWindow() {
 		open = true;
 		selectedStop = -1;
-		refreshIfStale();
+		// Always fetch on open, so a route just made or edited on the website shows up straight
+		// away (the same route keeps its progress; see callback()).
+		if (!loading) {
+			refresh();
+		}
 	}
 
 	public void close() {
