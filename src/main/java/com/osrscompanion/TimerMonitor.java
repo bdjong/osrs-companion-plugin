@@ -193,11 +193,18 @@ public class TimerMonitor {
 		boolean syncEnabled = config.syncTimeTracking();
 		List<TimerSyncItem> timers = new ArrayList<>();
 
-		collectFarmingTimers(timers, playerUsername, syncEnabled);
+		boolean farmingKnown = collectFarmingTimers(timers, playerUsername, syncEnabled);
 		collectFarmingContractTimer(timers, playerUsername, syncEnabled);
 		collectBirdHouseTimers(timers, playerUsername, syncEnabled);
 		collectTearsOfGuthixTimer(timers, playerUsername, syncEnabled);
 		collectClockTimers(timers, playerUsername, syncEnabled);
+
+		// No patch could be read at all (Time Tracking data not loaded for this account yet,
+		// right after login): an empty list now would wipe every timer on the website.
+		if (timers.isEmpty() && !farmingKnown) {
+			log.debug("OSRS Companion timer sync skipped: no Time Tracking data read yet");
+			return;
+		}
 
 		Consumer<List<TimerSyncItem>> listener = timersListener;
 		if (listener != null) {
@@ -220,11 +227,16 @@ public class TimerMonitor {
 	 * Only a growing crop, or produce regrowing on a bush / fruit tree, has a finish time.
 	 * Ready, diseased and dead patches used to be left out (their prediction has no finish
 	 * time), so a patch vanished from the website once it was seen ready in game.
+	 * Returns whether any patch had Time Tracking data at all.
 	 */
-	private void collectFarmingTimers(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {
+	private boolean collectFarmingTimers(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {
+		boolean anyKnown = false;
 		for (var entry : farmingWorld.getTabs().entrySet()) {
 			for (FarmingPatch patch : entry.getValue()) {
 				PatchPrediction prediction = farmingTracker.predictPatch(patch);
+				if (prediction != null) {
+					anyKnown = true;
+				}
 				if (prediction == null || prediction.getProduce() == Produce.SCARECROW) {
 					// Never seen in game (Time Tracking shows "Unknown"), or a scarecrow (no timer).
 					continue;
@@ -254,6 +266,7 @@ public class TimerMonitor {
 						patch.getVarbit()));
 			}
 		}
+		return anyKnown;
 	}
 
 	private String resolveRegionName(FarmingPatch patch, com.osrscompanion.runelite.Tab tab) {
