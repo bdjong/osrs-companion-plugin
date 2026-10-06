@@ -49,13 +49,33 @@ public class LootSyncPayload
 		private final String npc_name;
 		private final int kill_count;
 		private final List<LootItem> items;
+		/** First and last kill as epoch milliseconds, from the loot tracker (null when it has none). */
+		private final Long first_at;
+		private final Long last_at;
 
 		public LootRecord(int npcId, String npcName, int killCount, List<LootItem> items)
+		{
+			this(npcId, npcName, killCount, items, null, null);
+		}
+
+		public LootRecord(int npcId, String npcName, int killCount, List<LootItem> items, Long firstAt, Long lastAt)
 		{
 			this.npc_id = npcId;
 			this.npc_name = npcName;
 			this.kill_count = killCount;
 			this.items = items;
+			this.first_at = firstAt;
+			this.last_at = lastAt;
+		}
+
+		public Long getFirstAt()
+		{
+			return first_at;
+		}
+
+		public Long getLastAt()
+		{
+			return last_at;
 		}
 
 		public int getNpcId()

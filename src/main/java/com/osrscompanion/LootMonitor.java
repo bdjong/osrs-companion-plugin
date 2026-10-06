@@ -47,6 +47,7 @@ public class LootMonitor
 	private static final String LOOT_TRACKER_CONFIG_GROUP = "loottracker";
 	private static final String LOOT_TRACKER_DROPS_PREFIX = "drops_";
 	private static final String LAST_SYNC_HASH_KEY = "lootSyncHash";
+	private static final String LOOT_PAYLOAD_VERSION = "v2-kill-times";
 
 	private final Client client;
 	private final OSRSCompanionConfig config;
@@ -416,6 +417,8 @@ public class LootMonitor
 		try
 		{
 			MessageDigest md = MessageDigest.getInstance("MD5");
+			// Bumped when the payload gains fields, so existing totals upload once more.
+			md.update(LOOT_PAYLOAD_VERSION.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 			List<LootSyncPayload.LootRecord> sorted = new ArrayList<>(records);
 			sorted.sort((a, b) -> a.getNpcName().compareTo(b.getNpcName()));
 			for (LootSyncPayload.LootRecord record : sorted)
@@ -423,6 +426,7 @@ public class LootMonitor
 				md.update(record.getNpcName().getBytes(java.nio.charset.StandardCharsets.UTF_8));
 				md.update(intToBytes(record.getNpcId()));
 				md.update(intToBytes(record.getKillCount()));
+				md.update(Long.toString(record.getLastAt() == null ? 0 : record.getLastAt()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
 				for (LootSyncPayload.LootItem item : record.getItems())
 				{
 					md.update(intToBytes(item.getItemId()));
@@ -550,7 +554,22 @@ public class LootMonitor
 			items.add(new LootSyncPayload.LootItem(entry.getKey(), entry.getValue()));
 		}
 
-		return new LootSyncPayload.LootRecord(npcId, npcName, killCount, items);
+		// The loot tracker keeps when you first and last got loot from it (epoch millis).
+		Long firstAt = epochMillis(obj, "first");
+		Long lastAt = epochMillis(obj, "last");
+		return new LootSyncPayload.LootRecord(npcId, npcName, killCount, items, firstAt, lastAt);
+	}
+
+	private static Long epochMillis(JsonObject obj, String field)
+	{
+		try
+		{
+			return obj.has(field) && obj.get(field).isJsonPrimitive() ? obj.get(field).getAsLong() : null;
+		}
+		catch (RuntimeException e)
+		{
+			return null;
+		}
 	}
 
 	/**
