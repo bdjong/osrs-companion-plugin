@@ -187,10 +187,17 @@ public class TimerMonitor {
 		boolean syncEnabled = config.syncTimeTracking();
 		List<TimerSyncItem> timers = new ArrayList<>();
 
-		collectFarmingTimers(timers, playerUsername, syncEnabled);
+		boolean farmingKnown = collectFarmingTimers(timers, playerUsername, syncEnabled);
 		collectFarmingContractTimer(timers, playerUsername, syncEnabled);
 		collectBirdHouseTimers(timers, playerUsername, syncEnabled);
 		collectTearsOfGuthixTimer(timers, playerUsername, syncEnabled);
+
+		// No patch could be read at all (Time Tracking data not loaded for this account yet,
+		// right after login): an empty list now would wipe every timer on the website.
+		if (timers.isEmpty() && !farmingKnown) {
+			log.debug("OSRS Companion timer sync skipped: no Time Tracking data read yet");
+			return;
+		}
 
 		Consumer<List<TimerSyncItem>> listener = timersListener;
 		if (listener != null) {
@@ -208,18 +215,26 @@ public class TimerMonitor {
 
 	/**
 	 * Iterates all farming patches across all tabs, builds a TimerSyncItem for each
-	 * patch with a valid, in-progress prediction, and appends them to the timers list.
+	 * patch with a crop (growing, ready, diseased or dead), and appends them to the timers list.
+	 * Returns whether any patch had Time Tracking data at all.
 	 */
-	private void collectFarmingTimers(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {
+	private boolean collectFarmingTimers(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {
+		boolean anyKnown = false;
 		for (var entry : farmingWorld.getTabs().entrySet()) {
 			for (FarmingPatch patch : entry.getValue()) {
 				PatchPrediction prediction = farmingTracker.predictPatch(patch);
+				if (prediction != null) {
+					anyKnown = true;
+				}
 				if (!isValidFarmingPrediction(prediction)) {
 					continue;
 				}
 
+				// Grown patches with nothing left to grow (herbs, allotments, trees seen fully grown)
+				// and diseased or dead ones have no completion time, but are sent too: those are
+				// the ones to visit. Only a growing patch without a time is left out.
 				long doneEstimate = prediction.getDoneEstimate();
-				if (doneEstimate <= 0) {
+				if (doneEstimate <= 0 && prediction.getCropState() == CropState.GROWING) {
 					continue;
 				}
 
@@ -227,8 +242,8 @@ public class TimerMonitor {
 				String regionName = resolveRegionName(patch, entry.getKey());
 				String tabName = resolveTabName(entry.getKey());
 
-				Instant completedAt = Instant.ofEpochSecond(doneEstimate);
-				Instant startedAt = computeFarmingStartedAt(prediction, doneEstimate);
+				Instant completedAt = doneEstimate > 0 ? Instant.ofEpochSecond(doneEstimate) : null;
+				Instant startedAt = doneEstimate > 0 ? computeFarmingStartedAt(prediction, doneEstimate) : null;
 				int produceItemId = prediction.getProduce().getItemID();
 
 				timers.add(new TimerSyncItem(
@@ -244,6 +259,7 @@ public class TimerMonitor {
 						patch.getVarbit()));
 			}
 		}
+		return anyKnown;
 	}
 
 	private boolean isValidFarmingPrediction(PatchPrediction prediction) {
