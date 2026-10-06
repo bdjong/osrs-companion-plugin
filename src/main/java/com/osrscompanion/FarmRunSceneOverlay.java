@@ -14,6 +14,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
@@ -54,6 +56,11 @@ public class FarmRunSceneOverlay extends Overlay {
 	private WorldMapPoint mapPoint;
 	private WorldPoint arrowAt;
 	private int ticks;
+	/** In your house on the way to the stop: the portal, nexus, fairy ring... the travel uses, and its name. */
+	private volatile GameObject houseObject;
+	private volatile String houseObjectName;
+	private static final Color HOUSE_COLOR = new Color(0x22, 0xD3, 0xEE);
+	private static final Pattern PORTAL = Pattern.compile("the ([a-z' ()-]+?) portal");
 
 	private static final class Found {
 		final GameObject object;
@@ -82,6 +89,7 @@ public class FarmRunSceneOverlay extends Overlay {
 		FarmRoute.Stop stop = active ? manager.getCurrentStop() : null;
 		if (stop == null || client.getGameState() != GameState.LOGGED_IN) {
 			found = Collections.emptyList();
+			houseObject = null;
 			clearPointers();
 			return;
 		}
@@ -92,8 +100,80 @@ public class FarmRunSceneOverlay extends Overlay {
 				all.addAll(scan(behind));
 			}
 			found = all;
+			findHouseObject(manager.travelOf(stop));
 		}
 		updatePointers(stop);
+	}
+
+	/**
+	 * What to use in your house for this way to the stop, as names to look for: the named portal
+	 * ("then the Troll Stronghold portal"), the Portal Nexus, a fairy ring, spirit tree or jewellery box.
+	 */
+	static List<String> houseObjectNames(FarmRoute.Travel travel) {
+		if (travel == null) {
+			return Collections.emptyList();
+		}
+		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
+		if (!text.contains("poh") && !text.contains("house")) {
+			return Collections.emptyList();
+		}
+		List<String> out = new ArrayList<>();
+		if (text.contains("nexus")) {
+			out.add("portal nexus");
+		}
+		Matcher m = PORTAL.matcher(text);
+		while (m.find()) {
+			String place = m.group(1).replaceAll("\\(.*?\\)", "").trim();
+			if (!place.isEmpty() && !place.equals("house")) {
+				out.add(place);
+			}
+		}
+		for (String other : new String[]{"fairy ring", "spirit tree", "jewellery box"}) {
+			if (text.contains(other)) {
+				out.add(other);
+			}
+		}
+		return out;
+	}
+
+	/** In your house (an instance): finds the object the way there uses, for the outline and the arrow. Client thread. */
+	private void findHouseObject(FarmRoute.Travel travel) {
+		houseObject = null;
+		houseObjectName = null;
+		WorldView view = client.getTopLevelWorldView();
+		List<String> names = houseObjectNames(travel);
+		if (view == null || !view.isInstance() || names.isEmpty()) {
+			return;
+		}
+		Tile[][] tiles = view.getScene().getTiles()[view.getPlane()];
+		for (Tile[] column : tiles) {
+			for (Tile tile : column) {
+				if (tile == null) {
+					continue;
+				}
+				for (GameObject object : tile.getGameObjects()) {
+					if (object == null) {
+						continue;
+					}
+					ObjectComposition comp = client.getObjectDefinition(object.getId());
+					if (comp != null && comp.getImpostorIds() != null && comp.getImpostor() != null) {
+						comp = comp.getImpostor();
+					}
+					String name = comp == null || comp.getName() == null ? "" : comp.getName().toLowerCase();
+					for (String wanted : names) {
+						// A destination portal is named after the place ("Troll Stronghold Portal"); the nexus,
+						// fairy ring and others by what they are (a spiritual fairy tree is a fairy ring too).
+						boolean match = wanted.equals("fairy ring") ? name.contains("fairy ring") || name.contains("spiritual fairy tree")
+							: name.contains(wanted);
+						if (match && !name.equals("portal")) {
+							houseObject = object;
+							houseObjectName = comp.getName();
+							return;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	/** Finds the stop's patch objects in the loaded scene (the patch object's varbit is the patch's). */
@@ -140,15 +220,20 @@ public class FarmRunSceneOverlay extends Overlay {
 	 */
 	private void updatePointers(FarmRoute.Stop stop) {
 		WorldPoint target = null;
+		GameObject house = houseObject;
+		if (house != null) {
+			// In your house: the arrow points at the portal (or nexus...) to take.
+			target = house.getWorldLocation();
+		}
 		for (Found f : found) {
-			if (manager.statusOf(f.patch).isOpen()) {
+			if (target == null && manager.statusOf(f.patch).isOpen()) {
 				target = f.object.getWorldLocation();
 				break;
 			}
 		}
 		if (target == null) {
 			for (Found f : found) {
-				if (manager.needsCompost(f.patch)) {
+				if (target == null && manager.needsCompost(f.patch)) {
 					target = f.object.getWorldLocation();
 					break;
 				}
@@ -194,6 +279,15 @@ public class FarmRunSceneOverlay extends Overlay {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
+		GameObject house = houseObject;
+		if (house != null && manager.isRunning()) {
+			outlines.drawOutline(house, 3, HOUSE_COLOR, 4);
+			String label = "Use: " + houseObjectName;
+			Point at = house.getCanvasTextLocation(graphics, label, 200);
+			if (at != null) {
+				OverlayUtil.renderTextLocation(graphics, at, label, HOUSE_COLOR);
+			}
+		}
 		List<Found> list = found;
 		if (list.isEmpty() || !manager.isRunning()) {
 			return null;
