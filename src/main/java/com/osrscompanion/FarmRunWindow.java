@@ -71,6 +71,8 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		STORAGE.put("seed_vault", new String[]{"V", "seed vault"});
 		STORAGE.put("seed_box", new String[]{"S", "seed box"});
 		STORAGE.put("bank", new String[]{"B", "bank"});
+		// Runes in a rune pouch left in the bank (a carried pouch counts as carried, so the slot is green).
+		STORAGE.put("rune_pouch", new String[]{"P", "rune pouch"});
 	}
 
 	private final Client client;
