@@ -910,15 +910,17 @@ public class FarmRunManager {
 			log.info(line);
 		}
 		if (best < 0 && fromSub != null) {
-			// A copy of the sub menu entry on top: the left click (added last).
-			client.getMenu().createMenuEntry(-1)
+			// A copy of the sub menu entry on top, the left click (added last), as Menu Entry Swapper does for its
+			// sub menu swaps: same action, and a low priority op raised so it isn't sorted below the others.
+			client.createMenuEntry(-1)
 				.setOption(fromSub.getOption())
 				.setTarget(fromSub.getTarget())
-				.setType(fromSub.getType())
 				.setIdentifier(fromSub.getIdentifier())
+				.setType(fromSub.getType() == MenuAction.CC_OP_LOW_PRIORITY ? MenuAction.CC_OP : fromSub.getType())
+				.setItemId(fromSub.getItemId())
 				.setParam0(fromSub.getParam0())
 				.setParam1(fromSub.getParam1())
-				.setItemId(fromSub.getItemId());
+				.onClick(fromSub.onClick());
 			return;
 		}
 		int last = entries.length - 1;
