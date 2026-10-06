@@ -149,6 +149,10 @@ public class FarmRunSceneOverlay extends Overlay {
 			}
 			mapPoint = new WorldMapPoint(stopPoint, pin());
 			mapPoint.setTooltip("Farm run: " + stop.getName());
+			// Click to centre the world map on the stop ("Focus on <name>"). RuneLite
+			// requires a name for clickable points (it asserts on it in developer mode).
+			mapPoint.setName("Farm run: " + stop.getName());
+			mapPoint.setTarget(stopPoint);
 			mapPoint.setSnapToEdge(true);
 			mapPoint.setJumpOnClick(true);
 			worldMap.add(mapPoint);
