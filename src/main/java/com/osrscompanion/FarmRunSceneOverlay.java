@@ -212,7 +212,11 @@ public class FarmRunSceneOverlay extends Overlay {
 				graphics.fill(tile);
 			}
 			String label = f.patch.getType();
-			if (s == Status.TODO) {
+			if (manager.capeBlocks(f.patch)) {
+				// Force Farming cape: no picking (left click walks) until the cape is on.
+				label = "WEAR Farming cape";
+				color = FarmRunOverlay.COMPOST_COLOR;
+			} else if (s == Status.TODO) {
 				label += (f.patch.getCrop() != null ? ": " + f.patch.getCrop() : "") + (compost ? " + compost" : "");
 			} else if (compost) {
 				label += " - compost it";

@@ -38,6 +38,7 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InterfaceID;
@@ -731,6 +732,37 @@ public class FarmRunManager {
 		return stop != null && stop.getPatches().stream().anyMatch(p -> isHerb(p) && statusOf(p) == Status.TODO);
 	}
 
+	/**
+	 * With "Force Farming cape" on: a herb patch of the run still to pick while the cape is not worn (and you
+	 * have 99 Farming). Its label then says to wear the cape and picking it is not the left click.
+	 */
+	public boolean capeBlocks(FarmRoute.Patch p) {
+		return config.forceFarmingCape() && running && !capeWorn && isHerb(p) && statusOf(p) == Status.TODO
+			&& client.getRealSkillLevel(Skill.FARMING) >= 99;
+	}
+
+	/** "Pick" on a herb patch the cape blocks moves below "Walk here", so a left click walks instead. */
+	@Subscribe
+	public void onMenuEntryAdded(MenuEntryAdded e) {
+		if (!running || capeWorn || !config.forceFarmingCape() || !"Pick".equals(e.getOption())) {
+			return;
+		}
+		ObjectComposition def = client.getObjectDefinition(e.getIdentifier());
+		int varbit = def == null ? -1 : def.getVarbitId();
+		FarmRoute r = route;
+		if (varbit < 0 || r == null) {
+			return;
+		}
+		for (FarmRoute.Stop s : r.getStops()) {
+			for (FarmRoute.Patch p : s.getPatches()) {
+				if (p.getVarbit() == varbit && capeBlocks(p)) {
+					e.getMenuEntry().setDeprioritized(true);
+					return;
+				}
+			}
+		}
+	}
+
 	private static boolean isHerb(FarmRoute.Patch p) {
 		return p.getType() != null && p.getType().toLowerCase().contains("herb");
 	}
@@ -744,7 +776,10 @@ public class FarmRunManager {
 		WorldPoint at = client.getLocalPlayer().getWorldLocation();
 		if (at.distanceTo2D(new WorldPoint(stop.getX(), stop.getY(), stop.getPlane())) <= CAPE_REMINDER_DISTANCE) {
 			capeRemindedStop = stopIndex;
-			notifier.notify("Farm run: put on your Farming cape before you pick the herbs.");
+			String text = "Farm run: put on your Farming cape before you pick the herbs (5% more herbs).";
+			// In the chat too: RuneLite only shows notifications while the game is not focused, by default.
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff9040>" + text + "</col>", null);
+			notifier.notify(text);
 		}
 	}
 
