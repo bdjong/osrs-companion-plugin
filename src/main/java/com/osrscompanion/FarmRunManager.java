@@ -135,6 +135,8 @@ public class FarmRunManager {
 	private volatile int previousStop = -1;
 	/** Minutes left on the minigame teleport cooldown when the current stop uses one (0: ready). */
 	private volatile int minigameCooldown;
+	/** The last minigame teleport (minutes since the epoch, 0: never), read on the client thread during a run. */
+	private volatile long lastMinigameTeleport;
 	/** Farming XP when the run started, and the tick it was first complete (-1: not yet). */
 	private int startXp;
 	private int completedTick = -1;
@@ -460,14 +462,25 @@ public class FarmRunManager {
 
 	/** Minutes left before the next minigame teleport, from the game's last-use time. Client thread. */
 	private void updateMinigameCooldown() {
+		lastMinigameTeleport = client.getVarpValue(LAST_MINIGAME_TELEPORT_VARP);
 		FarmRoute.Stop stop = getCurrentStop();
-		if (stop == null || !stop.getTravel().isMinigame()) {
-			minigameCooldown = 0;
-			return;
-		}
-		long last = client.getVarpValue(LAST_MINIGAME_TELEPORT_VARP);
+		minigameCooldown = stop == null || !stop.getTravel().isMinigame() ? 0 : minigameCooldownLeft();
+	}
+
+	/** Minutes before any minigame teleport can be used again (0: ready, or never used). */
+	private int minigameCooldownLeft() {
+		long last = lastMinigameTeleport;
 		long now = System.currentTimeMillis() / 60_000L;
-		minigameCooldown = last <= 0 ? 0 : (int) Math.max(0, last + MINIGAME_COOLDOWN_MINUTES - now);
+		return last <= 0 ? 0 : (int) Math.max(0, last + MINIGAME_COOLDOWN_MINUTES - now);
+	}
+
+	/**
+	 * The way to a stop: during a run, a minigame teleport still on its cooldown gives way to the
+	 * route's fallback (the next fastest way there), when the website sent one.
+	 */
+	public FarmRoute.Travel travelOf(FarmRoute.Stop stop) {
+		FarmRoute.Travel t = stop.getTravel();
+		return running && t.isMinigame() && t.getFallback() != null && minigameCooldownLeft() > 0 ? t.getFallback() : t;
 	}
 
 	/** Compost (or Fertile Soil) used on a route patch: remember which, until the game's message says it worked. */
@@ -962,7 +975,7 @@ public class FarmRunManager {
 		if (!needCompost.isEmpty()) {
 			out.put(compostItem(), Highlight.COMPOST);
 		}
-		for (Integer id : s.getTravel().getItems()) {
+		for (Integer id : travelOf(s).getItems()) {
 			out.put(id, Highlight.TELEPORT);
 		}
 		for (FarmRoute.Patch p : s.getPatches()) {
