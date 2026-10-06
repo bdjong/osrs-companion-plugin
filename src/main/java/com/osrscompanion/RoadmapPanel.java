@@ -191,7 +191,7 @@ public class RoadmapPanel extends PluginPanel {
 				return new String[]{"No route loaded yet", "Make one on the website, then open the window"};
 			}
 			int[] done = farmRun.progress();
-			String state = farmRun.isRunning() ? (farmRun.isComplete() ? "Run complete" : "Running: " + done[0] + " / " + done[1] + " patches") : "Not running";
+			String state = farmRun.isRunning() ? (farmRun.isComplete() ? "Run complete" : "Running: " + done[0] + " / " + done[1] + " patches") : r.isReady() ? "READY - every crop ready" : "Not running";
 			return new String[]{r.getName(), state};
 		}, () -> {
 			FarmRoute r = farmRun.getRoute();

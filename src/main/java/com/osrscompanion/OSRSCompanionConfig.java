@@ -177,7 +177,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncFarmHarvests",
 			name = "Farm Harvests",
-			description = "Send each patch you pick clean (crop, how many, Farming cape, magic secateurs, compost and Farming level) to OSRS Companion for the Harvest stats page.",
+			description = "Send each patch you pick clean (crop, how many, Farming cape, magic secateurs, compost, disease, anima plant, diaries and Farming level) and each dead crop you clear to OSRS Companion for the Harvest stats page.",
 			section = SYNC_SECTION,
 			position = 13)
 	default boolean syncFarmHarvests() {

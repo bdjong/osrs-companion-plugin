@@ -2,6 +2,7 @@ package com.osrscompanion;
 
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
+import com.osrscompanion.model.DiaryTierResult;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.runelite.farming.CompostState;
 import com.osrscompanion.runelite.farming.CompostTracker;
@@ -11,6 +12,7 @@ import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
 import com.osrscompanion.runelite.farming.PatchImplementation;
 import com.osrscompanion.runelite.farming.PatchPrediction;
+import com.osrscompanion.runelite.farming.Produce;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,13 +53,23 @@ import net.runelite.client.eventbus.Subscribe;
  *
  * <p>Compost: RuneLite's compost tracking forgets a patch's compost once the crop is grown, so
  * the compost seen while the crop was still growing is remembered here (per RuneLite profile)
- * and sent with the harvest.
+ * and sent with the harvest. A crop seen diseased (and cured) is remembered the same way.
+ *
+ * <p>A dead crop is sent too, with nothing picked, once you clear it: the stats page can then
+ * show how often a patch is lost. Also sent: the anima plant growing at the Farming Guild
+ * (attas raises yields) and the Kandarin and Kourend &amp; Kebos diary tiers (their diaries
+ * raise the Catherby and Hosidius herb yields).
  */
 @Slf4j
 @Singleton
 public class FarmHarvestTracker {
 	private static final String CONFIG_GROUP = OSRSCompanionConfig.CONFIG_GROUP;
 	private static final String COMPOST_KEY = "harvestCompost.";
+	private static final String DISEASE_KEY = "harvestDiseased.";
+	/** Diaries whose rewards raise herb yields at one patch (Catherby, Hosidius), as the diary reader names them. */
+	private static final String KANDARIN = "Kandarin";
+	private static final String KOUREND = "Kourend & Kebos";
+	private static final String[] DIARY_TIERS = {"Easy", "Medium", "Hard", "Elite"};
 	/** Ticks without a pick before an unfinished harvest is dropped (about three minutes). */
 	private static final int IDLE_TICKS = 300;
 	/** Tiles from the patch before an unfinished harvest is dropped. */
@@ -75,6 +87,7 @@ public class FarmHarvestTracker {
 	private final OSRSCompanionApiClient apiClient;
 	private final ConfigManager configManager;
 	private final FarmRunManager farmRunManager;
+	private final AchievementDiariesReader diaryReader;
 	private final Gson gson;
 
 	private volatile FarmingWorld farmingWorld;
@@ -87,17 +100,18 @@ public class FarmHarvestTracker {
 	private boolean xpThisTick;
 	private Map<Integer, Integer> lastInventory;
 	private final Map<Integer, Integer> gainedThisTick = new HashMap<>();
-	/** Compost last seen per patch (config key), as stored; "none" for none. */
+	/** Compost last seen per patch (config key), as stored; "none" for none. Also holds the disease marks. */
 	private final Map<String, String> compostSeen = new HashMap<>();
 
 	@Inject
 	public FarmHarvestTracker(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient, ConfigManager configManager,
-		FarmRunManager farmRunManager, Gson gson) {
+		FarmRunManager farmRunManager, AchievementDiariesReader diaryReader, Gson gson) {
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;
 		this.configManager = configManager;
 		this.farmRunManager = farmRunManager;
+		this.diaryReader = diaryReader;
 		this.gson = gson;
 	}
 
@@ -132,14 +146,15 @@ public class FarmHarvestTracker {
 		}
 	}
 
-	/** Pick / Harvest on a patch starts (or resumes) counting it. */
+	/** Pick / Harvest on a patch starts (or resumes) counting it; Clear on a dead crop records it as lost. */
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event) {
 		if (!isObjectOption(event.getMenuAction()) || event.getMenuOption() == null) {
 			return;
 		}
 		String option = event.getMenuOption().toLowerCase();
-		if (!option.startsWith("pick") && !option.startsWith("harvest")) {
+		boolean clear = option.startsWith("clear");
+		if (!clear && !option.startsWith("pick") && !option.startsWith("harvest")) {
 			return;
 		}
 		ObjectComposition def = client.getObjectDefinition(event.getId());
@@ -156,12 +171,13 @@ public class FarmHarvestTracker {
 			return;
 		}
 		PatchPrediction prediction = predict(patch);
-		if (prediction == null || prediction.getCropState() != CropState.HARVESTABLE) {
+		CropState wanted = clear ? CropState.DEAD : CropState.HARVESTABLE;
+		if (prediction == null || prediction.getCropState() != wanted) {
 			return;
 		}
 		active = new Harvest(patch, at, prediction.getProduce() == null ? null : prediction.getProduce().getName(),
-			rememberedCompost(patch), client.getTickCount());
-		log.debug("Harvest started at {} ({})", patch, active.produce);
+			rememberedCompost(patch), clear, client.getTickCount());
+		log.debug("{} started at {} ({})", clear ? "Clearing a dead crop" : "Harvest", patch, active.produce);
 	}
 
 	private static boolean isObjectOption(MenuAction action) {
@@ -219,7 +235,16 @@ public class FarmHarvestTracker {
 			noteCompost();
 		}
 		Harvest h = active;
-		if (h != null) {
+		if (h != null && h.dead) {
+			// A dead crop is done once the patch no longer shows it (cleared, back to weeds or empty).
+			PatchPrediction now = predict(h.patch);
+			if (now != null && now.getCropState() != CropState.DEAD) {
+				active = null;
+				send(h);
+			} else if (client.getTickCount() - h.lastTick > IDLE_TICKS || tooFar(h)) {
+				active = null;
+			}
+		} else if (h != null) {
 			if (xpThisTick) {
 				int items = 0;
 				for (Map.Entry<Integer, Integer> e : gainedThisTick.entrySet()) {
@@ -274,15 +299,79 @@ public class FarmHarvestTracker {
 		body.put("produce", h.produce);
 		body.put("produce_item", produceItem);
 		body.put("amount", h.amount);
-		body.put("farming_cape", h.capePicks * 2 >= h.picks);
-		body.put("magic_secateurs", h.secateursPicks * 2 >= h.picks);
+		body.put("outcome", h.dead ? "dead" : "harvested");
+		// A dead crop has no picks: what was worn when it was cleared.
+		body.put("farming_cape", h.picks == 0 ? farmRunManager.isFarmingCapeWorn() : h.capePicks * 2 >= h.picks);
+		body.put("magic_secateurs", h.picks == 0 ? farmRunManager.carried(ItemID.FAIRY_ENCHANTED_SECATEURS) > 0 : h.secateursPicks * 2 >= h.picks);
 		body.put("compost", h.compost);
+		body.put("diseased", h.dead || "true".equals(rememberedRaw(diseaseKey(h.patch))));
+		body.put("anima", animaPlant());
+		Map<String, Map<String, DiaryTierResult>> diaries = readDiaries();
+		body.put("kandarin_diary", diaryTier(diaries, KANDARIN));
+		body.put("kourend_diary", diaryTier(diaries, KOUREND));
 		body.put("farming_level", client.getRealSkillLevel(Skill.FARMING));
 		body.put("boosted_level", client.getBoostedSkillLevel(Skill.FARMING));
 		body.put("on_run", farmRunManager.isRunning() && routePatch != null);
 		body.put("harvested_at", Instant.now().toString());
-		log.debug("Harvest at {}: {} x {}", h.patch, h.amount, h.produce);
+		log.debug("Harvest at {}: {} x {}{}", h.patch, h.amount, h.produce, h.dead ? " (dead)" : "");
 		apiClient.sendFarmHarvest(gson.toJson(body));
+		// The crop is gone: a disease mark belonged to it, not to the next one.
+		forgetDisease(h.patch);
+	}
+
+	// ---- Yield modifiers -----------------------------------------------------------
+
+	/**
+	 * The anima plant alive in the Farming Guild's anima patch ("attas", "iasor", "kronos"),
+	 * "none" when the patch has none (or it died), null when RuneLite never saw the patch.
+	 */
+	private String animaPlant() {
+		FarmingWorld world = farmingWorld;
+		if (world == null) {
+			return null;
+		}
+		for (Set<FarmingPatch> tab : world.getTabs().values()) {
+			for (FarmingPatch fp : tab) {
+				if (fp.getImplementation() != PatchImplementation.ANIMA) {
+					continue;
+				}
+				PatchPrediction p = predict(fp);
+				if (p == null || p.getProduce() == null) {
+					return null;
+				}
+				Produce plant = p.getProduce();
+				boolean anima = plant == Produce.ATTAS || plant == Produce.IASOR || plant == Produce.KRONOS;
+				// The last stage is the dead plant, whose effect is over.
+				return anima && p.getStage() < p.getStages() - 1 ? plant.getName().toLowerCase() : "none";
+			}
+		}
+		return null;
+	}
+
+	private Map<String, Map<String, DiaryTierResult>> readDiaries() {
+		try {
+			return diaryReader.read(client);
+		} catch (RuntimeException e) {
+			log.debug("Could not read the achievement diaries", e);
+			return null;
+		}
+	}
+
+	/** Highest tier of the diary done in order: 0 none, 1 easy, 2 medium, 3 hard, 4 elite; null when not read. */
+	private static Integer diaryTier(Map<String, Map<String, DiaryTierResult>> diaries, String region) {
+		Map<String, DiaryTierResult> tiers = diaries == null ? null : diaries.get(region);
+		if (tiers == null) {
+			return null;
+		}
+		int done = 0;
+		for (String tier : DIARY_TIERS) {
+			DiaryTierResult r = tiers.get(tier);
+			if (r == null || !r.isComplete()) {
+				break;
+			}
+			done++;
+		}
+		return done;
 	}
 
 	// ---- Compost -------------------------------------------------------------------
@@ -306,7 +395,11 @@ public class FarmHarvestTracker {
 					continue;
 				}
 				PatchPrediction p = predict(fp);
-				if (p == null || (p.getCropState() != CropState.GROWING && p.getCropState() != CropState.EMPTY)) {
+				if (p == null) {
+					continue;
+				}
+				noteDisease(fp, p.getCropState());
+				if (p.getCropState() != CropState.GROWING && p.getCropState() != CropState.EMPTY) {
 					continue;
 				}
 				CompostState state = compost.getCompostState(fp);
@@ -338,6 +431,27 @@ public class FarmHarvestTracker {
 
 	private static String compostKey(FarmingPatch fp) {
 		return COMPOST_KEY + fp.getRegion().getRegionID() + "." + fp.getVarbit();
+	}
+
+	/** Marks a crop seen diseased; an empty patch starts a new crop, so the mark goes. */
+	private void noteDisease(FarmingPatch fp, CropState state) {
+		String key = diseaseKey(fp);
+		if (state == CropState.DISEASED && !"true".equals(rememberedRaw(key))) {
+			compostSeen.put(key, "true");
+			configManager.setRSProfileConfiguration(CONFIG_GROUP, key, "true");
+		} else if (state == CropState.EMPTY && rememberedRaw(key) != null) {
+			forgetDisease(fp);
+		}
+	}
+
+	private void forgetDisease(FarmingPatch fp) {
+		String key = diseaseKey(fp);
+		compostSeen.put(key, null);
+		configManager.unsetRSProfileConfiguration(CONFIG_GROUP, key);
+	}
+
+	private static String diseaseKey(FarmingPatch fp) {
+		return DISEASE_KEY + fp.getRegion().getRegionID() + "." + fp.getVarbit();
 	}
 
 	// ---- Patches ---------------------------------------------------------------------
@@ -388,6 +502,8 @@ public class FarmHarvestTracker {
 		final WorldPoint at;
 		final String produce;
 		final String compost;
+		/** Clearing a dead crop: nothing is picked. */
+		final boolean dead;
 		final Map<Integer, Integer> items = new HashMap<>();
 		int amount;
 		int picks;
@@ -395,11 +511,12 @@ public class FarmHarvestTracker {
 		int secateursPicks;
 		int lastTick;
 
-		Harvest(FarmingPatch patch, WorldPoint at, String produce, String compost, int tick) {
+		Harvest(FarmingPatch patch, WorldPoint at, String produce, String compost, boolean dead, int tick) {
 			this.patch = patch;
 			this.at = at;
 			this.produce = produce;
 			this.compost = compost;
+			this.dead = dead;
 			this.lastTick = tick;
 		}
 	}
