@@ -59,4 +59,14 @@ public class BankLayoutsTest {
 		assertEquals(7, big[56]);
 		assertEquals(7, big[57]);
 	}
+
+	@Test
+	public void fullInventoryReachesTheLastInventoryRow() {
+		// 28 items: slot 27 sits at position 55 (row 6, column 7), below the rune pouch row.
+		List<Integer> inventory = new java.util.ArrayList<>(Collections.nCopies(28, 385));
+		int[] out = BankLayouts.build(new HashMap<>(), inventory, Arrays.asList(554, 555, 556), -1);
+		assertEquals(56, out.length);
+		assertEquals(385, out[55]);
+		assertEquals(554, out[BankLayouts.POUCH_START]);
+	}
 }
