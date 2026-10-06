@@ -275,9 +275,19 @@ public class FarmRunManager {
 		capeRemindedStop = -1;
 		recountPending = true;
 		updateStatuses();
+		if (log.isDebugEnabled()) {
+			Map<Status, Integer> counts = new java.util.EnumMap<>(Status.class);
+			for (FarmRoute.Stop stop : r.getStops()) {
+				for (FarmRoute.Patch p : stop.getPatches()) {
+					counts.merge(statusOf(p), 1, Integer::sum);
+				}
+			}
+			log.debug("Farm run: started '{}' at step 1: {} (complete: {})", r.getName(), counts, isComplete());
+		}
 	}
 
 	public void stop() {
+		log.debug("Farm run: stopped");
 		running = false;
 		needCompost = Collections.emptySet();
 		completedTick = -1;
@@ -353,6 +363,7 @@ public class FarmRunManager {
 		}
 		if (completedTick < 0) {
 			completedTick = client.getTickCount();
+			log.debug("Farm run: complete at step {} ({} / {} patches handled)", stopIndex + 1, progress()[0], progress()[1]);
 			int[] done = finishedCounts();
 			if (done[0] == 0) {
 				// Nothing was planted: every patch is still growing or skipped.

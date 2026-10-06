@@ -147,11 +147,13 @@ public class BankLayoutPrep {
 			applied = null;
 			searched = null;
 			retries = 0;
+			log.debug("Bank layout: bank opened. {}", state());
 			// An active setup / route lays the bank out even with its window closed: make sure it is loaded and current.
 			long now = System.currentTimeMillis();
 			if (config.bossGearBankLayout() && config.bossGearActive() && !bossGear.isOpen() && !bossGear.isLoading()
 					&& (bossGear.getSet() == null || now - lastBossRefresh > AUTO_REFRESH_MS)) {
 				lastBossRefresh = now;
+				log.debug("Bank layout: reloading the boss setup ({})", bossGear.getSet() == null ? "none loaded" : "older than a minute");
 				bossGear.refresh();
 			}
 			if (config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isOpen()) {
@@ -178,7 +180,8 @@ public class BankLayoutPrep {
 			return;
 		}
 		if (applied != null && client.getTickCount() <= verifyUntilTick && retries < MAX_RETRIES && bankTagsOn() && !showingOurs()) {
-			log.debug("Bank layout did not stick (tag open: {}); applying it again", isOurTagOpen());
+			log.debug("Bank layout: did not stick (our tag open: {}, Bank Tags tag: {}), applying it again, retry {}/{}",
+				isOurTagOpen(), bankTags.getActiveTag(), retries + 1, MAX_RETRIES);
 			retries++;
 			if (isOurTagOpen()) {
 				bankTags.closeBankTag();
@@ -213,10 +216,21 @@ public class BankLayoutPrep {
 			}
 			int item = itemManager.canonicalize(id);
 			if (d == Driver.BOSS ? !bossGear.needs(item) : !farmRun.needs(item)) {
+				log.debug("Bank layout: the bank shows item {} the {} does not need", item, d == Driver.BOSS ? "boss setup" : "farm route");
 				return false;
 			}
 		}
 		return true;
+	}
+
+	/** Everything that decides the layout, for the debug log. */
+	private String state() {
+		BossGear set = bossGear.getSet();
+		return "boss: set " + (set == null ? "none" : set.getId() + " " + set.getBossName()) + ", active " + config.bossGearActive()
+			+ ", bank layout setting " + config.bossGearBankLayout() + ", loading " + bossGear.isLoading() + ", window open " + bossGear.isOpen()
+			+ " | farm: route " + (farmRun.getRoute() == null ? "none" : farmRun.getRoute().getId()) + ", setting " + config.farmRunBankFilter()
+			+ ", running " + farmRun.isRunning() + ", complete " + farmRun.isComplete()
+			+ " | Bank Tags on " + bankTagsOn() + ", driver " + driver();
 	}
 
 	/** With the boss setup Active in the bank, have it loaded before the bank opens. */
@@ -226,6 +240,7 @@ public class BankLayoutPrep {
 				&& client.getGameState() == GameState.LOGGED_IN && now - lastPreloadTick >= PRELOAD_EVERY_TICKS) {
 			lastPreloadTick = now;
 			lastBossRefresh = System.currentTimeMillis();
+			log.debug("Bank layout: loading the boss setup in the background");
 			bossGear.refresh();
 		}
 	}
@@ -265,6 +280,7 @@ public class BankLayoutPrep {
 		String k = d == null ? null : key(d);
 		if (k == null) {
 			if (applied != null || isOurTagOpen()) {
+				log.debug("Bank layout: nothing to lay out any more, back to the normal bank. {}", state());
 				release();
 			}
 			applied = null;
@@ -273,6 +289,7 @@ public class BankLayoutPrep {
 		if (k.equals(applied)) {
 			return;
 		}
+		log.debug("Bank layout: laying out {} ({})", d, k);
 		applied = k;
 		try {
 			apply(d);
@@ -295,6 +312,7 @@ public class BankLayoutPrep {
 	private void apply(Driver d) {
 		String tag = d == Driver.BOSS ? BOSS_TAG : FARM_TAG;
 		if (!bankTagsOn()) {
+			log.debug("Bank layout: Bank Tags plugin is off, filtering with a bank search instead");
 			// Fallback: a bank search that only shows the needed items (see onScriptCallbackEvent).
 			searched = d == Driver.BOSS ? BOSS_SEARCH : FARM_SEARCH;
 			bankSearch.initSearch();
@@ -308,6 +326,8 @@ public class BankLayoutPrep {
 		int options = BankTagsService.OPTION_HIDE_TAG_NAME | BankTagsService.OPTION_ITEMS_NOT_IN_LAYOUT_AT_BOTTOM
 			| (config.bankLayoutPositions() ? 0 : BankTagsService.OPTION_NO_LAYOUT);
 		bankTags.openBankTag(tag, options);
+		log.debug("Bank layout: opened tag '{}' ({} positions, exact layout {}, {} bank items); Bank Tags now shows '{}'",
+			tag, positions.length, config.bankLayoutPositions(), bank.ids.size(), bankTags.getActiveTag());
 		verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
 	}
 

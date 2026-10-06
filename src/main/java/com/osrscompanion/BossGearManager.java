@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.ItemComposition;
 import net.runelite.client.config.ConfigManager;
@@ -20,6 +21,7 @@ import net.runelite.client.game.ItemVariationMapping;
  *
  * <p>Network work runs on OkHttp threads; fields the window and the bank layout read are volatile.
  */
+@Slf4j
 @Singleton
 public class BossGearManager {
 	private final Client client;
@@ -99,12 +101,15 @@ public class BossGearManager {
 				error = null;
 				loaded = true;
 				loading = false;
+				log.debug("Boss gear: loaded {} ({} saved builds)", set == null ? "no active build" : set.getId() + " " + set.getBossName() + " - " + set.getStyle(),
+					sets.size());
 			}
 
 			@Override
 			public void onError(String message) {
 				error = (switchedTo == null ? "Could not load your boss gear" : "Could not switch to " + switchedTo) + " (" + message + ").";
 				loading = false;
+				log.debug("Boss gear: {}", error);
 			}
 		};
 	}
@@ -171,6 +176,7 @@ public class BossGearManager {
 
 	public void setSetActive(boolean active) {
 		if (config.bossGearActive() != active) {
+			log.debug("Boss gear: setup set {}", active ? "Active" : "Inactive");
 			configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, "bossGearActive", active);
 		}
 	}
