@@ -2,6 +2,7 @@ package com.osrscompanion;
 
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
+import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapGoal;
 import java.awt.BorderLayout;
@@ -44,6 +45,7 @@ public class RoadmapPanel extends PluginPanel {
 	private final RoadmapManager roadmapManager;
 	private final FarmRunManager farmRun;
 	private final BossGearManager bossGear;
+	private final GearProgressionManager gearProgression;
 
 	private final CardLayout cards = new CardLayout();
 	private final JPanel deck = new JPanel(cards);
@@ -52,7 +54,7 @@ public class RoadmapPanel extends PluginPanel {
 
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
-			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear) {
+			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression) {
 		super(false);
 		this.itemManager = itemManager;
 		this.spriteManager = spriteManager;
@@ -62,6 +64,7 @@ public class RoadmapPanel extends PluginPanel {
 		this.roadmapManager = roadmapManager;
 		this.farmRun = farmRun;
 		this.bossGear = bossGear;
+		this.gearProgression = gearProgression;
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -124,7 +127,8 @@ public class RoadmapPanel extends PluginPanel {
 		}), null);
 		add(p, toggle("Roadmap box", "Next goal in the game", "Hidden", ROADMAP, "showNextGoal", config::showNextGoal), null);
 		add(p, toggle("Goal popup", "Popup on completion", "No popup", ROADMAP, "showGoalPopup", config::showGoalPopup), null);
-		add(p, overview("GOAL", "OVERVIEW", "Goals and progress", ROADMAP, new Color(0x0D1530), new Color(0x1E40AF), SpriteID.TAB_QUESTS, openWindow),
+		add(p, FeatureTile.banner("GOAL", "OVERVIEW", "Goals and progress", ROADMAP, new Color(0x0D1530), new Color(0x1E40AF),
+				itemManager.getImage(ItemID.SKILLCAPE_QP), openWindow),
 			"Open or close the roadmap window: goals, progress, complete or delete, switch roadmap (Escape closes it).");
 		return p;
 	}
@@ -132,6 +136,8 @@ public class RoadmapPanel extends PluginPanel {
 	private JPanel gearPage(Runnable openWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
+		add(p, new PanelTiles.Progress("CURRENT TIER", GEAR, this::gearProgress),
+			"The ring is your whole gear progression (the current tier's number inside); the bar is the current tier.");
 		add(p, toggle("Progression box", "Next gear step in game", "Hidden", GEAR, "showGearProgress", config::showGearProgress), null);
 		add(p, overview("TIER", "OVERVIEW", "Gear order by tier", GEAR, new Color(0x1C0D06), new Color(0x9A3412), SpriteID.TAB_STATS, openWindow),
 			"Open or close your gear progression: the gear order in tiers, ticking itself off (Escape closes it).");
@@ -149,8 +155,12 @@ public class RoadmapPanel extends PluginPanel {
 			int[] done = farmRun.progress();
 			String state = farmRun.isRunning() ? (farmRun.isComplete() ? "Run complete" : "Running: " + done[0] + " / " + done[1] + " patches") : "Not running";
 			return new String[]{r.getName(), state};
+		}, () -> {
+			FarmRoute r = farmRun.getRoute();
+			Integer item = r == null ? null : r.pictureItem();
+			return item == null ? null : itemManager.getImage(item);
 		}), null);
-		add(p, toggle("Active in the bank", "Bank shows route items", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter), null);
+		add(p, toggle("Active in the bank", "Bank shows items during a run", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter), null);
 		add(p, toggle("Run guide", "Arrow + patch outlines", "Guide hidden", FARM, "showFarmRun", config::showFarmRun), null);
 		add(p, overview("ROUTE", "OVERVIEW", "Stops and what to bring", FARM, new Color(0x08130C), new Color(0x166534), SpriteID.SKILL_FARMING, openWindow),
 			"Open or close the farm run window: stops, what to bring, start or stop the run, switch route (Escape closes it).");
@@ -176,6 +186,29 @@ public class RoadmapPanel extends PluginPanel {
 		return p;
 	}
 
+	/** The gear page's progress card: the tier with the next open step, its share done and the whole plan's. */
+	private PanelTiles.ProgressState gearProgress() {
+		GearPlan plan = gearProgression.getPlan();
+		if (plan == null) {
+			String why = gearProgression.isLoading() ? "Loading..." : gearProgression.getError() != null ? "Could not load it" : "No gear progression loaded";
+			return new PanelTiles.ProgressState(new String[]{why, "Load one on the website: Tools > Gear progression"}, null, -1, -1);
+		}
+		float overall = plan.getTotal() == 0 ? 0 : plan.getDone() / (float) plan.getTotal();
+		String percent = Math.round(overall * 100) + "% of all gear";
+		GearPlan.Tier tier = null;
+		for (GearPlan.Tier t : plan.getTiers()) {
+			if (plan.getNextTier() != null && t.getTier() == plan.getNextTier()) {
+				tier = t;
+			}
+		}
+		if (tier == null) {
+			return new PanelTiles.ProgressState(new String[]{"Every tier done!", plan.getDone() + " / " + plan.getTotal() + " - " + percent}, "\u2713", 1f, 1f);
+		}
+		String name = tier.getName().isEmpty() ? "Tier " + tier.getTier() : "Tier " + tier.getTier() + ": " + tier.getName();
+		return new PanelTiles.ProgressState(new String[]{name, tier.getDone() + " / " + tier.getTotal() + " in this tier - " + percent},
+			String.valueOf(tier.getTier()), overall, tier.getTotal() == 0 ? 0 : tier.getDone() / (float) tier.getTotal());
+	}
+
 	// ---- Pieces -----------------------------------------------------------------------------
 
 	private void show(String page) {
@@ -184,6 +217,8 @@ public class RoadmapPanel extends PluginPanel {
 			bossGear.refresh();
 		} else if ("farm".equals(page)) {
 			farmRun.refreshIfStale();
+		} else if ("gear".equals(page) && gearProgression.getPlan() == null && !gearProgression.isLoading()) {
+			gearProgression.refresh();
 		}
 		cards.show(deck, page);
 		deck.repaint();

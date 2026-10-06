@@ -269,7 +269,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "farmRunBankFilter",
 			name = "Farm run active in the bank",
-			description = "When you open the bank, it shows only what your farm route needs, laid out like the worn gear and the inventory (see Exact bank layout). An open window or a run going wins over the boss setup. Click another bank tab to see everything.",
+			description = "While a farm run is going (started in the farm run window and not complete), the bank shows only what your route needs, laid out like the worn gear and the inventory (see Exact bank layout). Without a run going the bank is left alone. Click another bank tab to see everything.",
 			section = FEATURES_SECTION,
 			position = 8)
 	default boolean farmRunBankFilter() {
