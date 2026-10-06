@@ -287,6 +287,16 @@ public interface OSRSCompanionConfig extends Config {
 	}
 
 	@ConfigItem(
+			keyName = "forceFarmingCape",
+			name = "Force Farming cape",
+			description = "With 99 Farming, during a farm run: until you wear the Farming cape, a herb patch to pick says WEAR Farming cape and a left click walks there instead of picking. Once the cape is on, picking is the left click again.",
+			section = FEATURES_SECTION,
+			position = 9)
+	default boolean forceFarmingCape() {
+		return false;
+	}
+
+	@ConfigItem(
 			keyName = "farmRunPopup",
 			name = "Farm run complete popup",
 			description = "Show an in-game popup (like the goal completion one) when every patch of a started farm run is done; the run then stops by itself.",
