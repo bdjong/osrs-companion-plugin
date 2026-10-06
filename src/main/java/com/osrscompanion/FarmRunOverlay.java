@@ -86,7 +86,7 @@ public class FarmRunOverlay extends OverlayPanel {
 		for (String line : wrap(stop.getName(), fm, textWidth)) {
 			panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(Color.WHITE).build());
 		}
-		FarmRoute.Travel travel = stop.getTravel();
+		FarmRoute.Travel travel = manager.travelOf(stop);
 		String via = (travel.isWalk() ? "" : travel.isSpell() ? "Cast " : "Use ") + travel.getName() + (travel.isSpell() ? " (normal spellbook)" : "");
 		Integer travelItem = travel.getItems().isEmpty() ? null : travel.getItems().get(0);
 		addIconLine(travelItem, via, Color.CYAN, fm, textWidth);
@@ -95,7 +95,8 @@ public class FarmRunOverlay extends OverlayPanel {
 		}
 		int cooldown = manager.minigameCooldownMinutes();
 		if (cooldown > 0) {
-			String wait = "Minigame teleports are on cooldown for " + cooldown + " more min" + (cooldown == 1 ? "" : "s") + ": use another way there.";
+			String wait = "Minigame teleports are on cooldown for " + cooldown + " more min" + (cooldown == 1 ? "" : "s")
+				+ (travel != stop.getTravel() ? ": go this way instead of the " + stop.getTravel().getName() + "." : ": use another way there.");
 			for (String line : wrap(wait, fm, textWidth)) {
 				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(Color.YELLOW).build());
 			}
