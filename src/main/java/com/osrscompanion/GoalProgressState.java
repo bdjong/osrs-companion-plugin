@@ -653,10 +653,13 @@ final class GoalProgressState {
 			lg.farmItemId = lg.type == GoalType.FARMING_TIMER ? g.getOsrsItemId() : null;
 			lg.farmTimerType = g.getTimerType();
 			lg.farmEntity = g.getEntity();
+			// A new target means new numbers (e.g. kill counts now counted from the goal's start):
+			// what was counted locally against the old ones no longer applies.
+			boolean retargeted = !isNew && lg.serverTarget != g.getTarget();
 			lg.serverTarget = g.getTarget();
 			lg.serverComplete = g.isComplete();
 			if (usesLocalDelta(lg)) {
-				lg.localDelta = lg.serverComplete ? 0 : Math.max(0, oldDisplayed - g.getCurrent());
+				lg.localDelta = lg.serverComplete || retargeted ? 0 : Math.max(0, oldDisplayed - g.getCurrent());
 			} else {
 				lg.localDelta = 0;
 			}
