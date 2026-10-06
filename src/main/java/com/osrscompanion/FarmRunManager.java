@@ -799,6 +799,9 @@ public class FarmRunManager {
 	 * The cape options for the current stop's way there, best first: Tele to POH, the Farming Guild,
 	 * the Ardougne cloak's farm or Monastery teleport. Empty when it isn't a cape teleport.
 	 */
+	/** "Max cape (Hosidius house portal)": the cape's teleport to a town's house portal. */
+	private static final Pattern HOUSE_PORTAL = Pattern.compile("\\(([a-z' ]+) house portal\\)");
+
 	static List<String> capeOptions(FarmRoute.Travel travel) {
 		if (travel == null) {
 			return Collections.emptyList();
@@ -806,6 +809,10 @@ public class FarmRunManager {
 		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
 		if (text.contains("tele to poh")) {
 			return Collections.singletonList("tele to poh");
+		}
+		if (HOUSE_PORTAL.matcher(text).find()) {
+			// Worn: the town is in its "POH Portals" list.
+			return Collections.singletonList("poh portals");
 		}
 		if (text.contains("farming guild") || text.contains("farming cape")) {
 			return java.util.Arrays.asList("farming guild", "other teleports", "teleport");
@@ -828,6 +835,10 @@ public class FarmRunManager {
 		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
 		if (text.contains("tele to poh")) {
 			return Collections.singletonList("home");
+		}
+		java.util.regex.Matcher portal = HOUSE_PORTAL.matcher(text);
+		if (portal.find()) {
+			return Collections.singletonList(portal.group(1));
 		}
 		if (text.contains("farming guild")) {
 			return Collections.singletonList("farming guild");
