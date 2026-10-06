@@ -28,6 +28,7 @@ public class BossGearManager {
 
 	private volatile BossGear set;
 	private volatile List<BossGear.SetSummary> sets = Collections.emptyList();
+	private volatile List<BossGear.CatalogBoss> catalog = Collections.emptyList();
 	private volatile String error;
 	private volatile boolean loading;
 	private volatile boolean loaded;
@@ -67,12 +68,23 @@ public class BossGearManager {
 		apiClient.activateBossGear(summary.getId(), player, callback(summary.getName()));
 	}
 
+	/** Switches to any boss preset (on the website too) and loads it. */
+	public void activatePreset(BossGear.CatalogBoss boss, int setup) {
+		String player = roadmapManager.getPlayerUsername();
+		if (boss == null || player == null || setup < 0 || setup >= boss.getSetups().size()) {
+			return;
+		}
+		loading = true;
+		apiClient.activateBossGearPreset(boss.getKey(), setup, player, callback(boss.getName() + " - " + boss.getSetups().get(setup)));
+	}
+
 	private OSRSCompanionApiClient.RoadmapCallback<BossGear.Response> callback(String switchedTo) {
 		return new OSRSCompanionApiClient.RoadmapCallback<BossGear.Response>() {
 			@Override
 			public void onSuccess(BossGear.Response result) {
 				set = result.getSet();
 				sets = result.getSets();
+				catalog = result.getCatalog();
 				error = null;
 				loaded = true;
 				loading = false;
@@ -120,6 +132,10 @@ public class BossGearManager {
 
 	public List<BossGear.SetSummary> getSets() {
 		return sets;
+	}
+
+	public List<BossGear.CatalogBoss> getCatalog() {
+		return catalog;
 	}
 
 	public String getError() {

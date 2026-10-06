@@ -170,12 +170,24 @@ public class BossGear {
 		@SerializedName("active")
 		private boolean active;
 
+		/** Your own edited copy of a preset: shown by its name. */
+		@SerializedName("custom")
+		private boolean custom;
+
+		@SerializedName("name")
+		private String name;
+
 		public int getId() {
 			return id;
 		}
 
 		public String getName() {
-			return (bossName == null ? "Boss" : bossName) + (style == null || style.isEmpty() ? "" : " - " + style);
+			String label = custom && name != null ? name : style;
+			return (bossName == null ? "Boss" : bossName) + (label == null || label.isEmpty() ? "" : " - " + label);
+		}
+
+		public boolean isCustom() {
+			return custom;
 		}
 
 		public boolean isActive() {
@@ -188,7 +200,31 @@ public class BossGear {
 		}
 	}
 
-	/** GET /api/runelite/boss-gear/ and the activate call: the active set (or null) and every saved set. */
+	/** A boss and its wiki setups (styles), to switch to any of them from the game. */
+	public static class CatalogBoss {
+		@SerializedName("key")
+		private String key;
+
+		@SerializedName("name")
+		private String name;
+
+		@SerializedName("setups")
+		private List<String> setups;
+
+		public String getKey() {
+			return key;
+		}
+
+		public String getName() {
+			return name == null ? key : name;
+		}
+
+		public List<String> getSetups() {
+			return setups == null ? Collections.emptyList() : setups;
+		}
+	}
+
+	/** GET /api/runelite/boss-gear/ and the activate calls: the active set (or null), every saved set and every boss. */
 	public static class Response {
 		@SerializedName("set")
 		private BossGear set;
@@ -196,12 +232,19 @@ public class BossGear {
 		@SerializedName("sets")
 		private List<SetSummary> sets;
 
+		@SerializedName("catalog")
+		private List<CatalogBoss> catalog;
+
 		public BossGear getSet() {
 			return set;
 		}
 
 		public List<SetSummary> getSets() {
 			return sets == null ? Collections.emptyList() : sets;
+		}
+
+		public List<CatalogBoss> getCatalog() {
+			return catalog == null ? Collections.emptyList() : catalog;
 		}
 	}
 }
