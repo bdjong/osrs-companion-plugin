@@ -18,6 +18,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.input.MouseManager;
 import net.runelite.client.util.HotkeyListener;
@@ -154,6 +155,9 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	@Inject
 	private GoalImageCache goalImageCache;
+
+	@Inject
+	private SpriteManager spriteManager;
 
 	@Inject
 	private GearProgressionManager gearProgressionManager;
@@ -316,7 +320,7 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		// Side-panel roadmap tab.
 		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, itemManager,
-				config, configManager, roadmapManager, farmRunManager, bossGearManager);
+				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")

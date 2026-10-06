@@ -14,10 +14,13 @@ import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.api.SpriteID;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
@@ -34,6 +37,8 @@ public class RoadmapPanel extends PluginPanel {
 	private static final Color BOSS = new Color(0xA78BFA);
 
 	private final ItemManager itemManager;
+	private final SpriteManager spriteManager;
+	private final GoalImageCache images;
 	private final OSRSCompanionConfig config;
 	private final ConfigManager configManager;
 	private final RoadmapManager roadmapManager;
@@ -46,10 +51,12 @@ public class RoadmapPanel extends PluginPanel {
 	private final Timer refresh = new Timer(1000, e -> deck.repaint());
 
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear,
-			ItemManager itemManager, OSRSCompanionConfig config, ConfigManager configManager,
+			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
 			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear) {
 		super(false);
 		this.itemManager = itemManager;
+		this.spriteManager = spriteManager;
+		this.images = images;
 		this.config = config;
 		this.configManager = configManager;
 		this.roadmapManager = roadmapManager;
@@ -103,34 +110,37 @@ public class RoadmapPanel extends PluginPanel {
 	private JPanel roadmapPage(Runnable openWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
-		add(p, roadmapTile(openWindow), "Open or close the roadmap window (Escape closes it).");
 		add(p, new PanelTiles.Info("SELECTED ROADMAP", () -> {
 			Roadmap r = roadmapManager.getCurrentRoadmap();
 			if (r == null) {
-				return new String[]{"No roadmap loaded yet", "Open the window to load your roadmaps"};
+				return new String[]{"No roadmap loaded yet", "Open Goal overview to load it"};
 			}
 			RoadmapGoal next = r.firstIncompleteGoal();
 			return new String[]{r.getTitle(), next == null ? "Every goal is done!" : "Next: " + next.getName()};
+		}, () -> {
+			Roadmap r = roadmapManager.getCurrentRoadmap();
+			RoadmapGoal next = r == null ? null : r.firstIncompleteGoal();
+			return next == null ? null : images.get(next.getImageUrl());
 		}), null);
 		add(p, toggle("Roadmap box", "Next goal in the game", "Hidden", ROADMAP, "showNextGoal", config::showNextGoal), null);
 		add(p, toggle("Goal popup", "Popup on completion", "No popup", ROADMAP, "showGoalPopup", config::showGoalPopup), null);
-		add(p, FeatureTile.slim("Open roadmap window", ROADMAP, openWindow), "Goals, progress, complete or delete, switch roadmap.");
+		add(p, overview("GOAL", "OVERVIEW", "Goals and progress", ROADMAP, new Color(0x0D1530), new Color(0x1E40AF), SpriteID.TAB_QUESTS, openWindow),
+			"Open or close the roadmap window: goals, progress, complete or delete, switch roadmap (Escape closes it).");
 		return p;
 	}
 
 	private JPanel gearPage(Runnable openWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
-		add(p, gearTile(openWindow), "Open or close your gear progression (Escape closes it).");
 		add(p, toggle("Progression box", "Next gear step in game", "Hidden", GEAR, "showGearProgress", config::showGearProgress), null);
-		add(p, FeatureTile.slim("Open gear progression", GEAR, openWindow), "Your gear order in tiers; it ticks itself off.");
+		add(p, overview("TIER", "OVERVIEW", "Gear order by tier", GEAR, new Color(0x1C0D06), new Color(0x9A3412), SpriteID.TAB_STATS, openWindow),
+			"Open or close your gear progression: the gear order in tiers, ticking itself off (Escape closes it).");
 		return p;
 	}
 
 	private JPanel farmPage(Runnable openWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
-		add(p, farmTile(openWindow), "Open or close the farm run window (Escape closes it).");
 		add(p, new PanelTiles.Info("ACTIVE ROUTE", () -> {
 			FarmRoute r = farmRun.getRoute();
 			if (r == null) {
@@ -142,23 +152,27 @@ public class RoadmapPanel extends PluginPanel {
 		}), null);
 		add(p, toggle("Active in the bank", "Bank shows route items", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter), null);
 		add(p, toggle("Run guide", "Arrow + patch outlines", "Guide hidden", FARM, "showFarmRun", config::showFarmRun), null);
-		add(p, FeatureTile.slim("Open farm run window", FARM, openWindow), "Stops, what to bring, start or stop the run, switch route.");
+		add(p, overview("ROUTE", "OVERVIEW", "Stops and what to bring", FARM, new Color(0x08130C), new Color(0x166534), SpriteID.SKILL_FARMING, openWindow),
+			"Open or close the farm run window: stops, what to bring, start or stop the run, switch route (Escape closes it).");
 		return p;
 	}
 
 	private JPanel bossPage(Runnable openWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
-		add(p, bossTile(openWindow), "Open or close the boss gear window (Escape closes it).");
 		add(p, new PanelTiles.Info("ACTIVE SETUP", () -> {
 			BossGear s = bossGear.getSet();
 			if (s == null) {
-				return new String[]{bossGear.isLoading() ? "Loading..." : "No setup picked yet", "Pick one in the window or on the website"};
+				return new String[]{bossGear.isLoading() ? "Loading..." : "No setup picked yet", "Pick one in Gear overview or on the website"};
 			}
 			return new String[]{s.getBossName(), s.getStyle()};
+		}, () -> {
+			BossGear s = bossGear.getSet();
+			return s == null ? null : images.get(s.getImage());
 		}), null);
 		add(p, toggle("Active in the bank", "Bank shows this setup", "Bank left alone", BOSS, "bossGearBankLayout", config::bossGearBankLayout), null);
-		add(p, FeatureTile.slim("Open boss gear window", BOSS, openWindow), "See the setup and switch boss or setup.");
+		add(p, overview("GEAR", "OVERVIEW", "Switch boss or setup", BOSS, new Color(0x120A24), new Color(0x5B21B6), SpriteID.TAB_EQUIPMENT, openWindow),
+			"Open or close the boss gear window: the setup's gear and inventory; switch boss or setup there (Escape closes it).");
 		return p;
 	}
 
@@ -173,6 +187,13 @@ public class RoadmapPanel extends PluginPanel {
 		}
 		cards.show(deck, page);
 		deck.repaint();
+	}
+
+	/** A full-size tile that opens the tool's window, with the game's own interface icon (loaded in the background). */
+	private FeatureTile overview(String white, String accentWord, String subtitle, Color accent, Color from, Color to, int spriteId, Runnable action) {
+		FeatureTile tile = FeatureTile.banner(white, accentWord, subtitle, accent, from, to, null, action);
+		spriteManager.getSpriteAsync(spriteId, 0, img -> SwingUtilities.invokeLater(() -> tile.setIcon(img)));
+		return tile;
 	}
 
 	private FeatureTile back() {

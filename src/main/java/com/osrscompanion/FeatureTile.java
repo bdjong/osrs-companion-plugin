@@ -37,7 +37,7 @@ class FeatureTile extends JComponent {
 	private final Color to;
 	private final Runnable action;
 	private final boolean compact;
-	private BufferedImage icon;
+	private volatile BufferedImage icon;
 	/** The picture's drop shadow, made once the picture has loaded. */
 	private BufferedImage shadow;
 	private boolean hover;
@@ -211,6 +211,13 @@ class FeatureTile extends JComponent {
 			t = t.substring(0, t.length() - 1);
 		}
 		return t + "...";
+	}
+
+	/** Sets (or replaces) the picture, e.g. an interface sprite once it has loaded. */
+	void setIcon(BufferedImage image) {
+		icon = image;
+		shadow = null;
+		repaint();
 	}
 
 	/** The picture's shape in black, for the drop shadow. */

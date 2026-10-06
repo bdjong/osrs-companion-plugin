@@ -111,10 +111,17 @@ final class PanelTiles {
 	static final class Info extends JComponent {
 		private final String heading;
 		private final Supplier<String[]> lines;
+		private final Supplier<java.awt.image.BufferedImage> picture;
 
 		Info(String heading, Supplier<String[]> lines) {
+			this(heading, lines, () -> null);
+		}
+
+		/** With a picture on the right, like the tool tiles (the active boss, the next goal). */
+		Info(String heading, Supplier<String[]> lines, Supplier<java.awt.image.BufferedImage> picture) {
 			this.heading = heading;
 			this.lines = lines;
+			this.picture = picture;
 			setPreferredSize(new Dimension(200, 54));
 			setMinimumSize(new Dimension(120, 54));
 			setMaximumSize(new Dimension(Integer.MAX_VALUE, 54));
@@ -132,6 +139,17 @@ final class PanelTiles {
 				g.fill(card);
 				g.setColor(new Color(0x313A4E));
 				g.draw(card);
+				java.awt.image.BufferedImage img = picture.get();
+				int textW = w - 24;
+				if (img != null && img.getWidth() > 0) {
+					int box = 40;
+					float scale = Math.min(box / (float) img.getWidth(), box / (float) img.getHeight());
+					int iw = Math.round(img.getWidth() * scale);
+					int ih = Math.round(img.getHeight() * scale);
+					g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+					g.drawImage(img, w - 10 - box + (box - iw) / 2, (h - ih) / 2, iw, ih, null);
+					textW = w - 24 - box - 6;
+				}
 				g.setFont(FontManager.getRunescapeSmallFont());
 				shadow(g, heading, 12, 16, new Color(0x8C96A8));
 				String[] text = lines.get();
@@ -140,7 +158,7 @@ final class PanelTiles {
 				int y = 32;
 				for (int i = 0; i < text.length && i < 2; i++) {
 					g.setFont(i == 0 ? FontManager.getRunescapeFont() : FontManager.getRunescapeSmallFont());
-					shadow(g, fit(text[i], g.getFontMetrics(), w - 24), 12, y, i == 0 ? Color.WHITE : new Color(0xC9D1DE));
+					shadow(g, fit(text[i], g.getFontMetrics(), textW), 12, y, i == 0 ? Color.WHITE : new Color(0xC9D1DE));
 					y += i == 0 ? 15 : 13;
 				}
 			} finally {
