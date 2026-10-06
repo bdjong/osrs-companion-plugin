@@ -118,11 +118,15 @@ final class PanelTiles {
 	}
 
 	/**
-	 * The boss page's setup card: like {@link Info} with the boss picture on the right (same size and
-	 * place, never dimmed), plus an Active / Inactive switch on its bottom row.
+	 * A card like {@link Info} with a picture on the right (same size and place, never dimmed), plus an
+	 * Active / Inactive switch on its bottom row: the boss page's setup, the farm page's route.
 	 */
 	static final class SetupCard extends JComponent {
 		private static final java.awt.Rectangle SWITCH_AREA = new java.awt.Rectangle(6, 46, 100, 24);
+		private final String activeHeading;
+		private final String selectedHeading;
+		private final String activeTip;
+		private final String inactiveTip;
 		private final Color accent;
 		private final Supplier<String[]> lines;
 		private final Supplier<java.awt.image.BufferedImage> picture;
@@ -130,8 +134,12 @@ final class PanelTiles {
 		private final BooleanSupplier active;
 		private final Runnable flip;
 
-		SetupCard(Color accent, Supplier<String[]> lines, Supplier<java.awt.image.BufferedImage> picture, BooleanSupplier hasSet,
-				BooleanSupplier active, Runnable flip) {
+		SetupCard(String activeHeading, String selectedHeading, String activeTip, String inactiveTip, Color accent, Supplier<String[]> lines,
+				Supplier<java.awt.image.BufferedImage> picture, BooleanSupplier hasSet, BooleanSupplier active, Runnable flip) {
+			this.activeHeading = activeHeading;
+			this.selectedHeading = selectedHeading;
+			this.activeTip = activeTip;
+			this.inactiveTip = inactiveTip;
 			this.accent = accent;
 			this.lines = lines;
 			this.picture = picture;
@@ -166,9 +174,7 @@ final class PanelTiles {
 			if (!hasSet.getAsBoolean() || !SWITCH_AREA.contains(e.getPoint())) {
 				return null;
 			}
-			return active.getAsBoolean()
-				? "Active: the bank lays out this setup and the gear display shows it. Click to set Inactive (the setup stays selected)."
-				: "Inactive: the setup stays selected, but the bank is left alone and no gear is shown. Click to set Active.";
+			return active.getAsBoolean() ? activeTip : inactiveTip;
 		}
 
 		@Override
@@ -198,7 +204,7 @@ final class PanelTiles {
 					textW = w - 24 - box - 6;
 				}
 				g.setFont(FontManager.getRunescapeSmallFont());
-				shadow(g, set && !on ? "SELECTED SETUP" : "ACTIVE SETUP", 12, 16, new Color(0x8C96A8));
+				shadow(g, on ? activeHeading : selectedHeading, 12, 16, new Color(0x8C96A8));
 				String[] text = lines.get();
 				if (text.length > 0) {
 					g.setFont(FontManager.getRunescapeFont());
