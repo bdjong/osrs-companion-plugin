@@ -111,7 +111,7 @@ public class FarmRunManager {
 	private static final Pattern COMPOST_MESSAGE = Pattern.compile(
 		"You treat the .+ with (ultra|super|)compost\\.|^The .+ has been treated with (ultra|super|)compost"
 			+ "|This .+ has already been (treated|fertilised) with (ultra|super|)compost");
-	static final String FINISHED_TITLE = "<col=f28c28>Farm Run Complete!</col>";
+	static final String FINISHED_TITLE = "<col=f28c28>Farm run complete</col>";
 
 	private final Client client;
 	private final OSRSCompanionApiClient apiClient;
@@ -424,34 +424,20 @@ public class FarmRunManager {
 		return new int[]{planted, (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, gp))};
 	}
 
-	/** The summary popup (when that setting is on) and a notification: patches planted, Farming XP gained, estimated profit. */
+	/** The summary popup (when that setting is on) and a notification: patches done and Farming XP gained. */
 	private void showFinished(int[] done) {
-		FarmRoute r = route;
 		int xp = Math.max(0, client.getSkillExperience(Skill.FARMING) - startXp);
 		if (config.farmRunPopup()) {
-			popups.showMessage(FINISHED_TITLE, finishedBody(r == null ? null : r.getName(), done[0], xp, done[1]));
+			popups.showMessage(FINISHED_TITLE, finishedBody(done[0], xp));
 		}
 		notifier.notify("Farm run complete: " + done[0] + (done[0] == 1 ? " patch" : " patches")
 			+ (xp > 0 ? ", " + QuantityFormatter.formatNumber(xp) + " Farming XP" : "") + ".");
 	}
 
-	/** The popup body: the patches in white, then the XP gained and estimated profit when known, then the route name. */
-	static String finishedBody(String routeName, int patches, int xp, int gp) {
-		StringBuilder sb = new StringBuilder("<col=ffffff>").append(patches).append(patches == 1 ? " patch" : " patches").append(" planted</col>");
-		StringBuilder numbers = new StringBuilder();
-		if (xp > 0) {
-			numbers.append(QuantityFormatter.formatNumber(xp)).append(" Farming XP");
-		}
-		if (gp != 0) {
-			numbers.append(numbers.length() > 0 ? " - " : "").append("~").append(QuantityFormatter.quantityToStackSize(gp)).append(" gp");
-		}
-		if (numbers.length() > 0) {
-			sb.append("<br><col=ffffff>").append(numbers).append("</col>");
-		}
-		if (routeName != null && !routeName.trim().isEmpty()) {
-			sb.append("<br><col=c6c6c6>").append(Text.removeTags(routeName)).append("</col>");
-		}
-		return sb.toString();
+	/** The popup body: "8 patches, 1,234 Farming XP" (the XP left out when none was gained). */
+	static String finishedBody(int patches, int xp) {
+		return "<col=ffffff>" + patches + (patches == 1 ? " patch" : " patches")
+			+ (xp > 0 ? ", " + QuantityFormatter.formatNumber(xp) + " Farming XP" : "") + "</col>";
 	}
 
 	// ---- Compost and the minigame teleport ---------------------------------------------

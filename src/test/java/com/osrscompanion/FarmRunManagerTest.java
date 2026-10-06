@@ -13,14 +13,13 @@ import static org.junit.Assert.assertTrue;
 
 public class FarmRunManagerTest {
 	@Test
-	public void finishedBodyListsPatchesXpProfitAndRoute() {
-		assertEquals("<col=ffffff>8 patches planted</col><br><col=ffffff>1,234 Farming XP - ~56K gp</col><br><col=c6c6c6>Herb run</col>",
-				FarmRunManager.finishedBody("Herb run", 8, 1234, 56_000));
+	public void finishedBodyListsPatchesAndXp() {
+		assertEquals("<col=ffffff>8 patches, 1,234 Farming XP</col>", FarmRunManager.finishedBody(8, 1234));
 	}
 
 	@Test
-	public void finishedBodyLeavesOutUnknownNumbers() {
-		assertEquals("<col=ffffff>1 patch planted</col>", FarmRunManager.finishedBody(null, 1, 0, 0));
+	public void finishedBodyLeavesOutXpWhenNone() {
+		assertEquals("<col=ffffff>1 patch</col>", FarmRunManager.finishedBody(1, 0));
 	}
 
 	@Test
