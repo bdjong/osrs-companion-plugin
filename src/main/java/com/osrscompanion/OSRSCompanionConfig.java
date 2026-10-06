@@ -279,11 +279,11 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "farmingCapeForHerbs",
 			name = "Wear Farming cape for herbs",
-			description = "Adds the Farming cape to the farm run (and the bank filter) and reminds you to put it on before you pick herbs, for the extra herbs it gives.",
+			description = "With 99 Farming: adds the Farming cape to the farm run (and the bank layout) when the route has herbs, and reminds you to put it on before you pick them, for the 5% extra herbs it gives.",
 			section = FEATURES_SECTION,
 			position = 9)
 	default boolean farmingCapeForHerbs() {
-		return false;
+		return true;
 	}
 
 	@ConfigItem(

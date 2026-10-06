@@ -71,6 +71,21 @@ public class FarmRunManager {
 	/** Farming cape and Farming cape (t): extra herbs when worn. */
 	static final int FARMING_CAPE = 9810;
 	static final int FARMING_CAPE_T = 9811;
+	/** Per elemental rune (air 556, water 555, earth 557, fire 554): the combination runes that also count as it. */
+	static final Map<Integer, int[]> COMBO_RUNES = new HashMap<>();
+
+	static {
+		int mist = 4695;
+		int dust = 4696;
+		int smoke = 4697;
+		int steam = 4694;
+		int mud = 4698;
+		int lava = 4699;
+		COMBO_RUNES.put(556, new int[]{mist, dust, smoke});
+		COMBO_RUNES.put(555, new int[]{mist, steam, mud});
+		COMBO_RUNES.put(557, new int[]{dust, mud, lava});
+		COMBO_RUNES.put(554, new int[]{smoke, steam, lava});
+	}
 	/** Rune pouches (regular and divine, and their locked versions): the runes inside count as carried. */
 	static final Set<Integer> RUNE_POUCHES = ImmutableSet.of(
 		ItemID.BH_RUNE_POUCH, ItemID.BH_RUNE_POUCH_TROUVER, ItemID.DIVINE_RUNE_POUCH, ItemID.DIVINE_RUNE_POUCH_TROUVER);
@@ -704,9 +719,12 @@ public class FarmRunManager {
 		return s == null ? ItemID.BUCKET_ULTRACOMPOST : s.getItem();
 	}
 
-	/** True while the current stop still has herbs to pick and the Farming cape setting is on but the cape is not worn. */
+	/**
+	 * True while the current stop still has herbs to pick and the cape is not worn: the setting is on and
+	 * you have 99 Farming (so can have the cape).
+	 */
 	public boolean needsFarmingCape() {
-		if (!config.farmingCapeForHerbs() || !running || isComplete() || capeWorn) {
+		if (!config.farmingCapeForHerbs() || !running || isComplete() || capeWorn || client.getRealSkillLevel(Skill.FARMING) < 99) {
 			return false;
 		}
 		FarmRoute.Stop stop = getCurrentStop();
@@ -1008,6 +1026,15 @@ public class FarmRunManager {
 		if (itemId == FARMING_CAPE || itemId == FARMING_CAPE_T) {
 			return carried.getOrDefault(FARMING_CAPE, 0) + carried.getOrDefault(FARMING_CAPE_T, 0);
 		}
+		int[] combos = COMBO_RUNES.get(itemId);
+		if (combos != null) {
+			// An elemental rune: the combination runes that count as it are carried too (dust: air and earth).
+			int n = carried.getOrDefault(itemId, 0);
+			for (int combo : combos) {
+				n += carried.getOrDefault(combo, 0);
+			}
+			return n;
+		}
 		Integer n = carried.get(itemId);
 		if (n == null) {
 			n = carriedBase.get(ItemVariationMapping.map(itemId));
@@ -1138,7 +1165,9 @@ public class FarmRunManager {
 		}
 		List<FarmRoute.Stack> inv = compostAdjustedFor == r && compostAdjusted != null ? compostAdjusted : r.getInventory();
 		boolean herbs = r.getStops().stream().anyMatch(s -> s.getPatches().stream().anyMatch(FarmRunManager::isHerb));
-		if (!config.farmingCapeForHerbs() || !herbs || inv.stream().anyMatch(s -> s.getItem() == FARMING_CAPE || s.getItem() == FARMING_CAPE_T)) {
+		boolean listed = inv.stream().anyMatch(s -> s.getItem() == FARMING_CAPE || s.getItem() == FARMING_CAPE_T)
+			|| r.getEquipment().stream().anyMatch(s -> s.getItem() == FARMING_CAPE || s.getItem() == FARMING_CAPE_T);
+		if (!config.farmingCapeForHerbs() || !herbs || listed || client.getRealSkillLevel(Skill.FARMING) < 99) {
 			return inv;
 		}
 		List<FarmRoute.Stack> all = new ArrayList<>(inv);
