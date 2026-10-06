@@ -1,5 +1,8 @@
 package com.osrscompanion;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.TimerSyncItem;
 import com.osrscompanion.model.TimersSyncPayload;
@@ -28,6 +31,7 @@ import com.osrscompanion.runelite.farming.PatchImplementation;
 import com.osrscompanion.runelite.farming.PatchPrediction;
 import com.osrscompanion.runelite.farming.Produce;
 import com.osrscompanion.runelite.hunter.BirdHouse;
+import com.osrscompanion.runelite.Tab;
 import com.osrscompanion.runelite.hunter.BirdHouseSpace;
 
 @Slf4j
@@ -43,6 +47,8 @@ public class TimerMonitor {
 	private static final String FARMING_CONTRACT_KEY = "contract";
 	private static final String FARMING_CONTRACT_TYPE = "farming contract";
 	private static final String FARMING_GUILD = "Farming Guild";
+	/** RuneLite ClockManager's key (plain config, not per RS profile): the panel's timers as a JSON list. */
+	private static final String CLOCK_TIMERS_KEY = "timers";
 
 	private final Client client;
 	private final OSRSCompanionConfig config;
@@ -191,6 +197,7 @@ public class TimerMonitor {
 		collectFarmingContractTimer(timers, playerUsername, syncEnabled);
 		collectBirdHouseTimers(timers, playerUsername, syncEnabled);
 		collectTearsOfGuthixTimer(timers, playerUsername, syncEnabled);
+		collectClockTimers(timers, playerUsername, syncEnabled);
 
 		Consumer<List<TimerSyncItem>> listener = timersListener;
 		if (listener != null) {
@@ -207,53 +214,46 @@ public class TimerMonitor {
 	}
 
 	/**
-	 * Iterates all farming patches across all tabs, builds a TimerSyncItem for each
-	 * patch with a valid, in-progress prediction, and appends them to the timers list.
+	 * Every farming patch the core Time Tracking plugin knows (seen in game at least once),
+	 * in the state its panel shows: growing (with the finish time), harvestable, diseased,
+	 * dead, empty (weeds, an empty compost bin) or filling (a compost bin being filled).
+	 * Only a growing crop, or produce regrowing on a bush / fruit tree, has a finish time.
+	 * Ready, diseased and dead patches used to be left out (their prediction has no finish
+	 * time), so a patch vanished from the website once it was seen ready in game.
 	 */
 	private void collectFarmingTimers(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {
 		for (var entry : farmingWorld.getTabs().entrySet()) {
 			for (FarmingPatch patch : entry.getValue()) {
 				PatchPrediction prediction = farmingTracker.predictPatch(patch);
-				if (!isValidFarmingPrediction(prediction)) {
+				if (prediction == null || prediction.getProduce() == Produce.SCARECROW) {
+					// Never seen in game (Time Tracking shows "Unknown"), or a scarecrow (no timer).
 					continue;
 				}
 
+				Produce produce = prediction.getProduce();
+				CropState state = prediction.getCropState();
+				boolean empty = state == CropState.EMPTY || produce == Produce.WEEDS;
 				long doneEstimate = prediction.getDoneEstimate();
-				if (doneEstimate <= 0) {
-					continue;
-				}
-
-				boolean notificationsEnabled = syncEnabled && isFarmingNotifyEnabled(patch);
-				String regionName = resolveRegionName(patch, entry.getKey());
-				String tabName = resolveTabName(entry.getKey());
-
-				Instant completedAt = Instant.ofEpochSecond(doneEstimate);
-				Instant startedAt = computeFarmingStartedAt(prediction, doneEstimate);
-				int produceItemId = prediction.getProduce().getItemID();
+				Instant completedAt = !empty && doneEstimate > 0 ? Instant.ofEpochSecond(doneEstimate) : null;
+				Instant startedAt = state == CropState.GROWING && completedAt != null
+						? computeFarmingStartedAt(prediction, doneEstimate) : null;
+				int produceItemId = produce.getItemID();
+				// The empty bins' item is a placeholder RuneLite draws nothing meaningful with.
+				boolean emptyBin = produce == Produce.EMPTY_COMPOST_BIN || produce == Produce.EMPTY_BIG_COMPOST_BIN;
 
 				timers.add(new TimerSyncItem(
-						tabName,
-						regionName,
-						prediction.getProduce().getName(),
+						resolveTabName(entry.getKey()),
+						resolveRegionName(patch, entry.getKey()),
+						produce.getName(),
 						completedAt,
-						notificationsEnabled,
+						syncEnabled && isFarmingNotifyEnabled(patch),
 						playerUsername,
 						startedAt,
-						prediction.getCropState().name().toLowerCase(),
-						produceItemId >= 0 ? produceItemId : null,
+						empty ? CropState.EMPTY.name().toLowerCase() : state.name().toLowerCase(),
+						produceItemId >= 0 && !emptyBin ? produceItemId : null,
 						patch.getVarbit()));
 			}
 		}
-	}
-
-	private boolean isValidFarmingPrediction(PatchPrediction prediction) {
-		if (prediction == null || prediction.getProduce().getItemID() < 0) {
-			return false;
-		}
-		if (prediction.getProduce() == Produce.WEEDS || prediction.getProduce() == Produce.SCARECROW) {
-			return false;
-		}
-		return prediction.getCropState() != CropState.EMPTY && prediction.getCropState() != CropState.FILLING;
 	}
 
 	private String resolveRegionName(FarmingPatch patch, com.osrscompanion.runelite.Tab tab) {
@@ -403,6 +403,81 @@ public class TimerMonitor {
 					null,
 					null,
 					0));
+		}
+	}
+
+	/**
+	 * The countdown timers from Time Tracking's "Timers &amp; Stopwatches" tab, as RuneLite's
+	 * ClockManager stores them: [{name, duration, remaining, lastUpdate, active, loop}, ...]
+	 * (seconds). A running timer ends at lastUpdate + remaining; a paused one has no end
+	 * yet and is sent as "paused". Stopwatches count up, so they are not timers here.
+	 */
+	private void collectClockTimers(List<TimerSyncItem> timers, String playerUsername, boolean syncEnabled) {
+		String json = configManager.getConfiguration(TimeTrackingConfig.CONFIG_GROUP, CLOCK_TIMERS_KEY);
+		if (json == null || json.isBlank()) {
+			return;
+		}
+		JsonElement root;
+		try {
+			root = new JsonParser().parse(json);
+		} catch (RuntimeException e) {
+			log.debug("Unreadable Time Tracking timers: {}", e.getMessage());
+			return;
+		}
+		if (!root.isJsonArray()) {
+			return;
+		}
+		long now = Instant.now().getEpochSecond();
+		int index = 0;
+		for (JsonElement el : root.getAsJsonArray()) {
+			index++;
+			if (!el.isJsonObject()) {
+				continue;
+			}
+			JsonObject t = el.getAsJsonObject();
+			String name = string(t, "name");
+			long duration = number(t, "duration");
+			long remaining = number(t, "remaining");
+			long lastUpdate = number(t, "lastUpdate");
+			boolean active = t.has("active") && t.get("active").isJsonPrimitive() && t.get("active").getAsBoolean();
+			boolean loop = t.has("loop") && t.get("loop").isJsonPrimitive() && t.get("loop").getAsBoolean();
+
+			Instant completedAt = null;
+			Instant startedAt = null;
+			if (active && lastUpdate > 0) {
+				long end = lastUpdate + Math.max(0, remaining);
+				if (loop && duration > 0 && end < now) {
+					// A looping timer restarts each time it ends.
+					end += ((now - end) / duration + 1) * duration;
+				}
+				completedAt = Instant.ofEpochSecond(end);
+				startedAt = duration > 0 ? Instant.ofEpochSecond(end - duration) : null;
+			}
+			timers.add(new TimerSyncItem(
+					Tab.CLOCK.getName(),
+					"timer",
+					name == null || name.isBlank() ? "Timer " + index : name,
+					completedAt,
+					syncEnabled,
+					playerUsername,
+					startedAt,
+					active ? null : "paused",
+					null,
+					index));
+		}
+	}
+
+	private static String string(JsonObject o, String key) {
+		JsonElement e = o.get(key);
+		return e != null && e.isJsonPrimitive() ? e.getAsString() : null;
+	}
+
+	private static long number(JsonObject o, String key) {
+		JsonElement e = o.get(key);
+		try {
+			return e != null && e.isJsonPrimitive() ? e.getAsLong() : 0;
+		} catch (NumberFormatException ex) {
+			return 0;
 		}
 	}
 
