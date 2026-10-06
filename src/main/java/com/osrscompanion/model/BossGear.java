@@ -19,6 +19,10 @@ public class BossGear {
 	@SerializedName("boss_name")
 	private String bossName;
 
+	/** The boss picture on the OSRS Wiki (for the side panel). */
+	@SerializedName("image")
+	private String image;
+
 	@SerializedName("style")
 	private String style;
 
@@ -49,6 +53,10 @@ public class BossGear {
 
 	public String getBossName() {
 		return bossName == null ? "Boss" : bossName;
+	}
+
+	public String getImage() {
+		return image;
 	}
 
 	public String getStyle() {
