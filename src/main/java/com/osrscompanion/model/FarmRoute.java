@@ -240,6 +240,10 @@ public class FarmRoute {
 		@SerializedName("minigame")
 		private boolean minigame;
 
+		/** For a minigame teleport: the way there while it is on cooldown; null when there is none. */
+		@SerializedName("fallback")
+		private Travel fallback;
+
 		public String getName() {
 			return name == null ? "Walk there" : name;
 		}
@@ -262,6 +266,10 @@ public class FarmRoute {
 
 		public boolean isMinigame() {
 			return minigame;
+		}
+
+		public Travel getFallback() {
+			return fallback;
 		}
 	}
 

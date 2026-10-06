@@ -328,7 +328,7 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 				FarmRoute.Patch patch = stop.getPatches().get(p);
 				patchIcon(g, patch, ix + p * 22, row.y + 4);
 			}
-			FarmRoute.Travel travel = stop.getTravel();
+			FarmRoute.Travel travel = manager.travelOf(stop);
 			g.setFont(FontManager.getRunescapeSmallFont());
 			int tx = row.x + 22;
 			if (!travel.getItems().isEmpty()) {
@@ -530,7 +530,7 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		text(g, truncate("Stop " + (index + 1) + " - " + stop.getName(), g.getFontMetrics(), textW), area.x + 10, area.y + 18, ORANGE);
 		g.setFont(FontManager.getRunescapeFont());
 		int lineY = area.y + 34;
-		FarmRoute.Travel t = stop.getTravel();
+		FarmRoute.Travel t = manager.travelOf(stop);
 		String via = (t.isWalk() ? "" : t.isSpell() ? "Cast " : "Use ") + t.getName() + (t.isSpell() ? " (normal spellbook)" : "")
 			+ (t.getHow().isEmpty() ? "" : ": " + t.getHow());
 		for (String line : wrap(via, g.getFontMetrics(), textW)) {
