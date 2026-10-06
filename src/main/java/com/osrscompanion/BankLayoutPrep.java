@@ -16,8 +16,10 @@ import net.runelite.api.GameState;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ScriptCallbackEvent;
+import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
@@ -138,6 +140,12 @@ public class BankLayoutPrep {
 	private static final long AUTO_REFRESH_MS = 60_000;
 	private long lastBossRefresh;
 
+	/** Set when the bank opens until its first build: the layout waits for it. */
+	private boolean waitingForBuild;
+	private int bankOpenedTick;
+	/** The positions last laid out (-1: empty): an item showing in an empty one means the layout is not drawn. */
+	private int[] laidOut;
+
 	/** Loads the active boss setup in the background after login, at most this often, so the first bank open has it. */
 	private static final int PRELOAD_EVERY_TICKS = 50;
 	private int lastPreloadTick = -PRELOAD_EVERY_TICKS;
@@ -161,6 +169,18 @@ public class BankLayoutPrep {
 				farmRun.refreshIfStale();
 			}
 			verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
+			// Not yet: opening our tag before the bank has been built leaves Bank Tags filtering without
+			// drawing the layout. The first build (or two ticks, whichever comes first) lays it out.
+			waitingForBuild = true;
+			bankOpenedTick = client.getTickCount();
+		}
+	}
+
+	@Subscribe
+	public void onScriptPostFired(ScriptPostFired event) {
+		if (event.getScriptId() == ScriptID.BANKMAIN_BUILD && waitingForBuild) {
+			waitingForBuild = false;
+			log.debug("Bank layout: bank built, laying it out");
 			clientThread.invokeLater(this::update);
 		}
 	}
@@ -179,6 +199,13 @@ public class BankLayoutPrep {
 		preloadBossGear();
 		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
 			return;
+		}
+		if (waitingForBuild) {
+			if (client.getTickCount() - bankOpenedTick < 2) {
+				return;
+			}
+			log.debug("Bank layout: no bank build seen, laying it out anyway");
+			waitingForBuild = false;
 		}
 		if (applied != null && client.getTickCount() <= verifyUntilTick && retries < MAX_RETRIES && bankTagsOn() && !showingOurs()) {
 			log.debug("Bank layout: did not stick (our tag open: {}, Bank Tags tag: {}), applying it again, retry {}/{}",
@@ -209,6 +236,18 @@ public class BankLayoutPrep {
 		Widget[] children = items.getDynamicChildren();
 		if (children == null) {
 			return true;
+		}
+		int[] positions = laidOut;
+		if (positions != null && config.bankLayoutPositions()) {
+			// Laid out, the empty spots of the layout show nothing; filtered only, the items fill them from the top.
+			for (int pos = 0; pos < positions.length && pos < children.length; pos++) {
+				Widget w = children[pos];
+				int id = w.getItemId();
+				if (positions[pos] == -1 && !w.isHidden() && id > 0 && id != BANK_FILLER && id != EMPTY_SLOT) {
+					log.debug("Bank layout: item {} shows at position {}, which the layout keeps empty: the layout is not drawn", id, pos);
+					return false;
+				}
+			}
 		}
 		for (Widget w : children) {
 			int id = w.getItemId();
@@ -312,6 +351,7 @@ public class BankLayoutPrep {
 
 	private void apply(Driver d) {
 		String tag = d == Driver.BOSS ? BOSS_TAG : FARM_TAG;
+		laidOut = null;
 		if (!bankTagsOn()) {
 			log.debug("Bank layout: Bank Tags plugin is off, filtering with a bank search instead");
 			// Fallback: a bank search that only shows the needed items (see onScriptCallbackEvent).
@@ -324,6 +364,7 @@ public class BankLayoutPrep {
 		BankItems bank = new BankItems();
 		int[] positions = d == Driver.BOSS ? bossLayout(bossGear.getSet(), bank) : farmLayout(bank);
 		layoutManager.saveLayout(new Layout(tag, positions));
+		laidOut = positions;
 		int options = BankTagsService.OPTION_HIDE_TAG_NAME | BankTagsService.OPTION_ITEMS_NOT_IN_LAYOUT_AT_BOTTOM
 			| (config.bankLayoutPositions() ? 0 : BankTagsService.OPTION_NO_LAYOUT);
 		bankTags.openBankTag(tag, options);
