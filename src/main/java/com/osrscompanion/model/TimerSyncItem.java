@@ -21,11 +21,11 @@ public class TimerSyncItem
 	String playerUsername;
 	/** When the timer started; null if unknown (e.g. Tears of Guthix weekly reset). */
 	Instant startedAt;
-	/** Crop state for farming patches only: growing, harvestable, diseased, dead, empty, filling; null otherwise. */
+	/** Farming patches: growing, harvestable, diseased, dead, empty, filling; "paused" for a paused Time Tracking timer; null otherwise. */
 	String cropState;
 	/** OSRS item ID for the entity (farming produce, bird house); null if not applicable. */
 	Integer osrsItemId;
-	/** Stable patch identifier (varbit ID for farming patches); 0 for non-farming timers. */
+	/** Stable patch identifier (varbit ID for farming patches, the varp for bird houses, the 1-based position for Time Tracking timers); 0 otherwise. */
 	int patchId;
 
 	/**
