@@ -804,11 +804,12 @@ public class FarmRunManager {
 			return Collections.emptyList();
 		}
 		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
+		// Worn, the Max cape has "Tele to POH" (and "Other Teleports"); in the inventory only "Teleports", its teleport menu.
 		if (text.contains("tele to poh")) {
-			return Collections.singletonList("tele to poh");
+			return java.util.Arrays.asList("tele to poh", "teleports");
 		}
 		if (text.contains("farming guild") || text.contains("farming cape")) {
-			return java.util.Arrays.asList("farming guild", "teleport", "other teleports");
+			return java.util.Arrays.asList("farming guild", "other teleports", "teleport");
 		}
 		if (text.contains("ardougne cloak")) {
 			return text.contains("monastery") ? java.util.Arrays.asList("kandarin monastery", "monastery")
