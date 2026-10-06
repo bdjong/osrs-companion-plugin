@@ -13,6 +13,7 @@ import net.runelite.api.GameState;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.Notifier;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.EventBus;
@@ -158,6 +159,21 @@ public class OSRSCompanionPlugin extends Plugin {
 	private GearNextOverlay gearNextOverlay;
 
 	@Inject
+	private FarmRunManager farmRunManager;
+
+	@Inject
+	private FarmRunOverlay farmRunOverlay;
+
+	@Inject
+	private FarmRunSceneOverlay farmRunSceneOverlay;
+
+	@Inject
+	private FarmRunItemOverlay farmRunItemOverlay;
+
+	@Inject
+	private ClientThread clientThread;
+
+	@Inject
 	private MouseManager mouseManager;
 
 	@Inject
@@ -167,6 +183,7 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
+	private NavigationButton farmNavButton;
 
 	@Override
 	protected void startUp() throws Exception {
@@ -189,6 +206,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		timerMonitor = new TimerMonitor(
 				client, config, apiClient, configManager, executorService,
 				farmingTracker, farmingWorld);
+		farmRunManager.setFarming(farmingWorld, farmingTracker);
 
 		eventBus.register(this);
 		eventBus.register(timerMonitor);
@@ -213,6 +231,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(slayerCatalogMonitor);
 		eventBus.register(slayerRewardsMonitor);
 		eventBus.register(goalProgressTracker);
+		eventBus.register(farmRunManager);
+		eventBus.register(farmRunSceneOverlay);
 
 		timerMonitor.start();
 		lootMonitor.start();
@@ -289,6 +309,18 @@ public class OSRSCompanionPlugin extends Plugin {
 			}
 		};
 		keyManager.registerKeyListener(gearHotkeyListener);
+
+		// Guided farm run: its own side panel, the step box, scene pointers and item highlights.
+		farmNavButton = NavigationButton.builder()
+				.tooltip("OSRS Companion Farm run")
+				.icon(FarmRunIcon.create())
+				.priority(8)
+				.panel(new FarmRunPanel(farmRunManager))
+				.build();
+		clientToolbar.addNavigation(farmNavButton);
+		overlayManager.add(farmRunOverlay);
+		overlayManager.add(farmRunSceneOverlay);
+		overlayManager.add(farmRunItemOverlay);
 	}
 
 	@Override
@@ -316,6 +348,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(slayerCatalogMonitor);
 		eventBus.unregister(slayerRewardsMonitor);
 		eventBus.unregister(goalProgressTracker);
+		eventBus.unregister(farmRunManager);
+		eventBus.unregister(farmRunSceneOverlay);
 
 		roadmapManager.stopPeriodicRefresh();
 		roadmapManager.setRoadmapListener(null);
@@ -394,6 +428,16 @@ public class OSRSCompanionPlugin extends Plugin {
 			gearHotkeyListener = null;
 		}
 		gearProgressionManager.clear();
+		if (farmNavButton != null) {
+			clientToolbar.removeNavigation(farmNavButton);
+			farmNavButton = null;
+		}
+		overlayManager.remove(farmRunOverlay);
+		overlayManager.remove(farmRunSceneOverlay);
+		overlayManager.remove(farmRunItemOverlay);
+		clientThread.invoke(farmRunSceneOverlay::clearPointers);
+		farmRunManager.setChangeListener(null);
+		farmRunManager.clear();
 		roadmapManager.clear();
 		log.debug("OSRS Companion stopped");
 	}
@@ -436,6 +480,7 @@ public class OSRSCompanionPlugin extends Plugin {
 					this::loadRoadmapQuietly, 1, java.util.concurrent.TimeUnit.SECONDS);
 			executorService.schedule(
 					this::loadRoadmapQuietly, 8, java.util.concurrent.TimeUnit.SECONDS);
+			executorService.schedule(farmRunManager::refresh, 9, java.util.concurrent.TimeUnit.SECONDS);
 		}
 	}
 
