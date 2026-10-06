@@ -198,25 +198,6 @@ public class BossGearManager {
 		return tip.toString();
 	}
 
-	/** Items carried in full / all different items of the set. */
-	public int[] carriedCount(BossGear set) {
-		int carried = 0;
-		int total = 0;
-		java.util.Set<Integer> seen = new java.util.HashSet<>();
-		Map<Integer, Integer> needs = inventoryNeeds();
-		for (BossGear.Item it : items(set)) {
-			if (!seen.add(it.getItem())) {
-				continue;
-			}
-			total++;
-			int need = it instanceof BossGear.Slot ? 1 : needs.getOrDefault(it.getItem(), it.getQty());
-			if (carried(it) >= need) {
-				carried++;
-			}
-		}
-		return new int[]{carried, total};
-	}
-
 	/** How many of the item you carry (inventory, worn, rune pouch), counting any of its versions. */
 	public int carried(BossGear.Item item) {
 		int best = 0;
