@@ -435,6 +435,18 @@ public class FarmRoute {
 			return where == null ? Collections.emptyMap() : where;
 		}
 
+		/** The same entry with another quantity (the plugin's live compost count). */
+		public Stack withQty(int qty) {
+			Stack s = new Stack();
+			s.item = item;
+			s.qty = qty;
+			s.name = name;
+			s.why = why;
+			s.slot = slot;
+			s.where = where;
+			return s;
+		}
+
 		/** An item the plugin adds itself (from a setting), not from the website's route. */
 		public static Stack extra(int item, String name, String why) {
 			Stack s = new Stack();
