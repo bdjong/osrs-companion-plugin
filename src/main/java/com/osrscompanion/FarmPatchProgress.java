@@ -22,21 +22,34 @@ final class FarmPatchProgress {
 		}
 	}
 
-	/** One reading of a patch: its crop state, whether it holds weeds, and when it is expected to finish. */
+	/**
+	 * One reading of a patch: its crop state, whether it holds weeds, when it is expected to finish,
+	 * and whether its timer says it is fully grown.
+	 */
 	static final class Snapshot {
 		final CropState state;
 		final boolean weeds;
 		final long doneEstimate;
+		final boolean grown;
 
 		Snapshot(CropState state, boolean weeds, long doneEstimate) {
+			this(state, weeds, doneEstimate, false);
+		}
+
+		/**
+		 * @param grown Time Tracking keeps the state it last saw in game ("growing") and only moves the
+		 *              stage on with time: a crop whose timer is at its last stage is ready, not growing.
+		 */
+		Snapshot(CropState state, boolean weeds, long doneEstimate, boolean grown) {
 			this.state = state;
 			this.weeds = weeds;
 			this.doneEstimate = doneEstimate;
+			this.grown = grown;
 		}
 
-		/** A crop (not weeds) that is still growing. */
+		/** A crop (not weeds) that is still growing: not yet fully grown by its timer. */
 		boolean growingCrop() {
-			return state == CropState.GROWING && !weeds;
+			return state == CropState.GROWING && !weeds && !grown;
 		}
 	}
 

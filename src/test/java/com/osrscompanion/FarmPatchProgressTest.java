@@ -37,6 +37,15 @@ public class FarmPatchProgressTest {
 	}
 
 	@Test
+	public void grownByItsTimerIsReadyNotGrowing() {
+		// Time Tracking still says "growing" (the last state seen in game), but the timer reached the last stage.
+		Snapshot start = new Snapshot(CropState.GROWING, false, 5000, true);
+		assertEquals(Status.TODO, FarmPatchProgress.classify(start, start));
+		assertEquals(Status.TODO, FarmPatchProgress.classify(start, snap(CropState.HARVESTABLE, 5000)));
+		assertEquals(Status.DONE, FarmPatchProgress.classify(start, snap(CropState.GROWING, 9000)));
+	}
+
+	@Test
 	public void diseasedAndDeadNeedAVisit() {
 		assertEquals(Status.TODO, FarmPatchProgress.classify(snap(CropState.DISEASED, 0), snap(CropState.DISEASED, 0)));
 		assertEquals(Status.TODO, FarmPatchProgress.classify(snap(CropState.DEAD, 0), snap(CropState.DEAD, 0)));
