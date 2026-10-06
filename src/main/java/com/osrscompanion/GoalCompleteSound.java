@@ -3,7 +3,6 @@ package com.osrscompanion;
 /** Sound played alongside the goal completion popup. */
 public enum GoalCompleteSound {
 	IN_GAME("In-game sound"),
-	CUSTOM("Custom file"),
 	OFF("Off");
 
 	private final String label;
