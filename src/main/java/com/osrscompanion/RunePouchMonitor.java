@@ -87,13 +87,34 @@ public class RunePouchMonitor {
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		int id = event.getVarbitId();
+		if (isPouchVarbit(event.getVarbitId())) {
+			dirty = true;
+		}
+	}
+
+	/** True for the rune pouch's slot type and quantity varbits. */
+	static boolean isPouchVarbit(int id) {
 		for (int i = 0; i < TYPE_VARBITS.length; i++) {
 			if (id == TYPE_VARBITS[i] || id == QUANTITY_VARBITS[i]) {
-				dirty = true;
-				return;
+				return true;
 			}
 		}
+		return false;
+	}
+
+	/** The pouch's runes now (item id to quantity), whether it is carried or not. Client thread. */
+	static Map<Integer, Integer> read(Client client) {
+		EnumComposition runes = client.getEnum(EnumID.RUNEPOUCH_RUNE);
+		if (runes == null) {
+			return new LinkedHashMap<>();
+		}
+		int[] types = new int[TYPE_VARBITS.length];
+		int[] quantities = new int[QUANTITY_VARBITS.length];
+		for (int i = 0; i < TYPE_VARBITS.length; i++) {
+			types[i] = client.getVarbitValue(TYPE_VARBITS[i]);
+			quantities[i] = client.getVarbitValue(QUANTITY_VARBITS[i]);
+		}
+		return contents(types, quantities, runes::getIntValue);
 	}
 
 	@Subscribe
@@ -114,17 +135,10 @@ public class RunePouchMonitor {
 			return;
 		}
 		dirty = false;
-		EnumComposition runes = client.getEnum(EnumID.RUNEPOUCH_RUNE);
-		if (runes == null) {
+		if (client.getEnum(EnumID.RUNEPOUCH_RUNE) == null) {
 			return;
 		}
-		int[] types = new int[TYPE_VARBITS.length];
-		int[] quantities = new int[QUANTITY_VARBITS.length];
-		for (int i = 0; i < TYPE_VARBITS.length; i++) {
-			types[i] = client.getVarbitValue(TYPE_VARBITS[i]);
-			quantities[i] = client.getVarbitValue(QUANTITY_VARBITS[i]);
-		}
-		Map<Integer, Integer> contents = contents(types, quantities, runes::getIntValue);
+		Map<Integer, Integer> contents = read(client);
 		BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
 		if (listener != null) {
 			listener.accept(SOURCE, contents);

@@ -168,6 +168,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private FarmRunManager farmRunManager;
 
 	@Inject
+	private FarmHarvestTracker farmHarvestTracker;
+
+	@Inject
 	private FarmRunOverlay farmRunOverlay;
 
 	@Inject
@@ -219,6 +222,7 @@ public class OSRSCompanionPlugin extends Plugin {
 				client, config, apiClient, configManager, executorService,
 				farmingTracker, farmingWorld);
 		farmRunManager.setFarming(farmingWorld, farmingTracker, compostTracker);
+		farmHarvestTracker.setFarming(farmingWorld, farmingTracker, compostTracker);
 
 		eventBus.register(this);
 		eventBus.register(timerMonitor);
@@ -245,6 +249,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(slayerRewardsMonitor);
 		eventBus.register(goalProgressTracker);
 		eventBus.register(farmRunManager);
+		eventBus.register(farmHarvestTracker);
 		eventBus.register(farmRunBankFilter);
 		eventBus.register(farmRunSceneOverlay);
 		eventBus.register(sessionMonitor);
@@ -370,6 +375,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(slayerRewardsMonitor);
 		eventBus.unregister(goalProgressTracker);
 		eventBus.unregister(farmRunManager);
+		eventBus.unregister(farmHarvestTracker);
+		farmHarvestTracker.stop();
 		eventBus.unregister(farmRunBankFilter);
 		eventBus.unregister(farmRunSceneOverlay);
 		eventBus.unregister(sessionMonitor);
