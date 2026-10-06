@@ -39,6 +39,10 @@ public class FarmRoute {
 	@SerializedName("review_changes")
 	private int reviewChanges;
 
+	/** Every patch of the run is ready to harvest (from the synced Time Tracking timers). */
+	@SerializedName("ready")
+	private boolean ready;
+
 	public int getId() {
 		return id;
 	}
@@ -73,6 +77,10 @@ public class FarmRoute {
 
 	public int getReviewChanges() {
 		return reviewChanges;
+	}
+
+	public boolean isReady() {
+		return ready;
 	}
 
 	public static class Summary {

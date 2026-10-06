@@ -194,6 +194,10 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		int after = text(g, "Route: ", win.x + 12, subY, BEIGE);
 		g.setFont(FontManager.getRunescapeFont());
 		after = text(g, truncate(route.getName(), g.getFontMetrics(), win.width / 4), after, subY, Color.WHITE);
+		if (route.isReady() && !manager.isRunning()) {
+			// Every patch of the run is ready to harvest.
+			after = text(g, "  READY", after, subY, GREEN);
+		}
 		Rectangle switchButton = null;
 		if (manager.getRoutes().size() > 1) {
 			switchButton = new Rectangle(after + 8, subY - 13, 62, 17);
