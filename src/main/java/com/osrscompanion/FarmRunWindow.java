@@ -575,11 +575,8 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		boolean current = running && index == manager.getStopIndex();
 		if (!running) {
 			Rectangle start = new Rectangle(bx, by, BUTTON_WIDTH, BUTTON_HEIGHT);
-			button(g, start, "Start run here", false);
-			newHits.add(new Hit(start, () -> {
-				manager.start();
-				manager.goTo(index);
-			}, "Start the run at this stop"));
+			button(g, start, "Start run", false);
+			newHits.add(new Hit(start, manager::start, "Start the run at step 1 (then pick another stop and Go to this stop if you want)"));
 		} else if (!current) {
 			Rectangle go = new Rectangle(bx, by, BUTTON_WIDTH, BUTTON_HEIGHT);
 			button(g, go, "Go to this stop", false);

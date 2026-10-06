@@ -270,11 +270,11 @@ public class FarmRunManager {
 			}
 		}
 		running = true;
+		// Always step 1: going to another stop is done from the window after starting.
 		stopIndex = 0;
 		capeRemindedStop = -1;
 		recountPending = true;
 		updateStatuses();
-		stopIndex = firstOpenFrom(0);
 	}
 
 	public void stop() {
@@ -783,16 +783,6 @@ public class FarmRunManager {
 		}
 	}
 
-	private int firstOpenFrom(int from) {
-		FarmRoute r = route;
-		if (r == null) {
-			return 0;
-		}
-		int next = nextOpenFrom(from);
-		// Nothing left: stay on the last stop, which shows the run as complete.
-		return next >= 0 ? next : Math.max(0, r.getStops().size() - 1);
-	}
-
 	/** The first stop from this one on with a patch still to do, or -1 when there is none. */
 	private int nextOpenFrom(int from) {
 		FarmRoute r = route;
@@ -848,7 +838,8 @@ public class FarmRunManager {
 				return null;
 			}
 			boolean weeds = prediction.getProduce() == Produce.WEEDS || prediction.getProduce() == Produce.SCARECROW;
-			return new Snapshot(prediction.getCropState(), weeds, prediction.getDoneEstimate());
+			boolean grown = prediction.getStages() > 1 && prediction.getStage() >= prediction.getStages() - 1;
+			return new Snapshot(prediction.getCropState(), weeds, prediction.getDoneEstimate(), grown);
 		} catch (RuntimeException e) {
 			log.debug("Could not read patch {}", p.getKey(), e);
 			return null;
