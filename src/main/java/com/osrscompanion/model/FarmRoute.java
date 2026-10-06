@@ -2,6 +2,7 @@ package com.osrscompanion.model;
 
 import com.google.gson.annotations.SerializedName;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -81,6 +82,53 @@ public class FarmRoute {
 
 	public boolean isReady() {
 		return ready;
+	}
+
+	/**
+	 * The item that pictures this route in the side panel: the patch type the route visits most
+	 * (12 tree patches and 10 herbs: trees), shown as its most planted crop. Trees show their
+	 * sapling (magic, papaya...), other crops what they give (a ranarr weed, a cactus spine), else
+	 * the seed. Compost bins don't count. Null when no patch has a crop.
+	 */
+	public Integer pictureItem() {
+		Map<String, Integer> perType = new LinkedHashMap<>();
+		for (Stop stop : getStops()) {
+			for (Patch p : stop.getPatches()) {
+				if (p.getImpl() != null && !p.getImpl().contains("COMPOST") && p.getSeed() != null) {
+					perType.merge(p.getImpl(), 1, Integer::sum);
+				}
+			}
+		}
+		String type = mostCommon(perType);
+		if (type == null) {
+			return null;
+		}
+		boolean tree = isTree(type);
+		Map<Integer, Integer> perItem = new LinkedHashMap<>();
+		for (Stop stop : getStops()) {
+			for (Patch p : stop.getPatches()) {
+				if (type.equals(p.getImpl()) && p.getSeed() != null) {
+					perItem.merge(!tree && p.getProduce() != null ? p.getProduce() : p.getSeed(), 1, Integer::sum);
+				}
+			}
+		}
+		return mostCommon(perItem);
+	}
+
+	/** The key with the highest count; the first one seen on a tie. */
+	private static <K> K mostCommon(Map<K, Integer> counts) {
+		K best = null;
+		for (Map.Entry<K, Integer> e : counts.entrySet()) {
+			if (best == null || e.getValue() > counts.get(best)) {
+				best = e.getKey();
+			}
+		}
+		return best;
+	}
+
+	/** Patch types where a sapling is planted: the sapling pictures the tree best. */
+	static boolean isTree(String impl) {
+		return impl.contains("TREE") || impl.equals("REDWOOD") || impl.equals("CALQUAT") || impl.equals("CELASTRUS");
 	}
 
 	public static class Summary {
@@ -265,6 +313,10 @@ public class FarmRoute {
 		@SerializedName("gp")
 		private int gp;
 
+		/** What the crop gives (the herb, the fruit...); null for trees and from an older website. */
+		@SerializedName("produce")
+		private Integer produce;
+
 		public String getKey() {
 			return key;
 		}
@@ -324,6 +376,10 @@ public class FarmRoute {
 
 		public int getGp() {
 			return gp;
+		}
+
+		public Integer getProduce() {
+			return produce;
 		}
 	}
 

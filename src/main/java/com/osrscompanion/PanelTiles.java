@@ -167,6 +167,100 @@ final class PanelTiles {
 		}
 	}
 
+	/** What a {@link Progress} card shows; null lines mean "nothing loaded" (then only the first two lines draw). */
+	static final class ProgressState {
+		final String[] lines;
+		/** Big text inside the ring (the tier number), the ring's share (whole progression) and the bar's (this tier); -1: none. */
+		final String badge;
+		final float ring;
+		final float bar;
+
+		ProgressState(String[] lines, String badge, float ring, float bar) {
+			this.lines = lines;
+			this.badge = badge;
+			this.ring = ring;
+			this.bar = bar;
+		}
+	}
+
+	/**
+	 * A card like {@link Info} with a progress ring on the right (the whole progression, the current
+	 * tier's number inside) and a bar under the text (the current tier).
+	 */
+	static final class Progress extends JComponent {
+		private final String heading;
+		private final Color accent;
+		private final Supplier<ProgressState> state;
+
+		Progress(String heading, Color accent, Supplier<ProgressState> state) {
+			this.heading = heading;
+			this.accent = accent;
+			this.state = state;
+			setPreferredSize(new Dimension(200, 64));
+			setMinimumSize(new Dimension(120, 64));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, 64));
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			try {
+				smooth(g);
+				int w = getWidth();
+				int h = getHeight();
+				RoundRectangle2D card = new RoundRectangle2D.Float(0.5f, 0.5f, w - 1.5f, h - 1.5f, ARC, ARC);
+				g.setColor(new Color(0x1A1F2B));
+				g.fill(card);
+				g.setColor(new Color(0x313A4E));
+				g.draw(card);
+				ProgressState s = state.get();
+				int textW = w - 24;
+				if (s.ring >= 0) {
+					// The ring: a dim track, the done share in the accent from the top, the tier number inside.
+					int d = 42;
+					int rx = w - 10 - d;
+					int ry = (h - d) / 2;
+					g.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+					g.setColor(new Color(0x2C3446));
+					g.drawOval(rx + 3, ry + 3, d - 6, d - 6);
+					g.setColor(accent);
+					int arc = Math.round(360 * Math.min(1f, s.ring));
+					if (arc > 0) {
+						g.drawArc(rx + 3, ry + 3, d - 6, d - 6, 90, -arc);
+					}
+					g.setStroke(new BasicStroke(1f));
+					if (s.badge != null) {
+						g.setFont(FontManager.getRunescapeBoldFont());
+						FontMetrics fm = g.getFontMetrics();
+						shadow(g, s.badge, rx + (d - fm.stringWidth(s.badge)) / 2, ry + (d + fm.getAscent()) / 2 - 2, Color.WHITE);
+					}
+					textW = w - 24 - d - 6;
+				}
+				g.setFont(FontManager.getRunescapeSmallFont());
+				shadow(g, heading, 12, 15, new Color(0x8C96A8));
+				String[] text = s.lines;
+				int y = 30;
+				for (int i = 0; i < text.length && i < 2; i++) {
+					g.setFont(i == 0 ? FontManager.getRunescapeFont() : FontManager.getRunescapeSmallFont());
+					shadow(g, fit(text[i], g.getFontMetrics(), textW), 12, y, i == 0 ? Color.WHITE : new Color(0xC9D1DE));
+					y += i == 0 ? 14 : 12;
+				}
+				if (s.bar >= 0) {
+					int bw = textW;
+					g.setColor(new Color(0x2C3446));
+					g.fillRoundRect(12, h - 12, bw, 5, 5, 5);
+					g.setColor(accent);
+					int fill = Math.round(bw * Math.min(1f, s.bar));
+					if (fill > 0) {
+						g.fillRoundRect(12, h - 12, Math.max(5, fill), 5, 5, 5);
+					}
+				}
+			} finally {
+				g.dispose();
+			}
+		}
+	}
+
 	private static void smooth(Graphics2D g) {
 		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);

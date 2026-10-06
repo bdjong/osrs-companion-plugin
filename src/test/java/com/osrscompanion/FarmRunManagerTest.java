@@ -6,6 +6,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class FarmRunManagerTest {
@@ -26,5 +27,21 @@ public class FarmRunManagerTest {
 		assertTrue(gson.fromJson("{\"impl\":\"HERB\"}", FarmRoute.Patch.class).takesCompost());
 		assertFalse(gson.fromJson("{\"impl\":\"COMPOST\"}", FarmRoute.Patch.class).takesCompost());
 		assertFalse(gson.fromJson("{\"impl\":\"HERB\",\"compost\":false}", FarmRoute.Patch.class).takesCompost());
+	}
+
+	@Test
+	public void routePictureIsTheMostVisitedPatchTypesMostPlantedCrop() {
+		Gson gson = new Gson();
+		// 3 tree patches (2 magic, 1 yew), 2 herbs, 4 compost bins: a magic sapling.
+		String trees = "{\"stops\":[{\"patches\":["
+			+ "{\"impl\":\"TREE\",\"seed\":5374},{\"impl\":\"TREE\",\"seed\":5374},{\"impl\":\"TREE\",\"seed\":5373},"
+			+ "{\"impl\":\"HERB\",\"seed\":5295,\"produce\":207},{\"impl\":\"HERB\",\"seed\":5295,\"produce\":207},"
+			+ "{\"impl\":\"COMPOST\",\"seed\":6032},{\"impl\":\"COMPOST\",\"seed\":6032},{\"impl\":\"COMPOST\",\"seed\":6032},{\"impl\":\"COMPOST\",\"seed\":6032}]}]}";
+		assertEquals(Integer.valueOf(5374), gson.fromJson(trees, FarmRoute.class).pictureItem());
+		// Mostly herbs: the herb they give, not the seed.
+		String herbs = "{\"stops\":[{\"patches\":[{\"impl\":\"FRUIT_TREE\",\"seed\":5501},"
+			+ "{\"impl\":\"HERB\",\"seed\":5295,\"produce\":207},{\"impl\":\"HERB\",\"seed\":5295,\"produce\":207}]}]}";
+		assertEquals(Integer.valueOf(207), gson.fromJson(herbs, FarmRoute.class).pictureItem());
+		assertNull(gson.fromJson("{\"stops\":[]}", FarmRoute.class).pictureItem());
 	}
 }
