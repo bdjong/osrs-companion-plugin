@@ -237,9 +237,19 @@ public interface OSRSCompanionConfig extends Config {
 	}
 
 	@ConfigItem(
+			keyName = "farmRunHotkey",
+			name = "Farm run hotkey",
+			description = "Opens or closes the farm run window. It also opens from the Farm run button in the OSRS Companion side panel.",
+			section = FEATURES_SECTION,
+			position = 7)
+	default Keybind farmRunHotkey() {
+		return Keybind.NOT_SET;
+	}
+
+	@ConfigItem(
 			keyName = "showFarmRun",
 			name = "Show farm run guide",
-			description = "While a farm run is started from the Farm run side panel: the step box, the arrow and outlines on the patches, and highlighted items.",
+			description = "While a farm run is started from the farm run window: the step box, the arrow and outlines on the patches, and highlighted items.",
 			section = FEATURES_SECTION,
 			position = 6)
 	default boolean showFarmRun() {

@@ -66,7 +66,11 @@ public class FarmRunManager {
 	private final Map<String, FarmingPatch> patchCache = new ConcurrentHashMap<>();
 
 	private volatile Map<Integer, Integer> carried = Collections.emptyMap();
-	private volatile Runnable changeListener;
+	private volatile Map<Integer, Integer> leprechaun = Collections.emptyMap();
+
+	/** The in-game farm run window, and the stop shown in its details (-1: the current one). */
+	private volatile boolean open;
+	private volatile int selectedStop = -1;
 
 	@Inject
 	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager) {
@@ -82,18 +86,6 @@ public class FarmRunManager {
 		patchCache.clear();
 	}
 
-	/** Called (on any thread) after anything the panel shows changed. */
-	public void setChangeListener(Runnable listener) {
-		this.changeListener = listener;
-	}
-
-	private void changed() {
-		Runnable l = changeListener;
-		if (l != null) {
-			l.run();
-		}
-	}
-
 	// ---- Loading -----------------------------------------------------------------
 
 	public void refreshIfStale() {
@@ -106,17 +98,14 @@ public class FarmRunManager {
 		String player = roadmapManager.getPlayerUsername();
 		if (player == null) {
 			error = "Log in to the game to load your farm route.";
-			changed();
 			return;
 		}
 		if (!roadmapManager.hasAppKey()) {
 			error = "Add your App Key in the OSRS Companion settings first.";
-			changed();
 			return;
 		}
 		loading = true;
 		fetchedAtMs = System.currentTimeMillis();
-		changed();
 		apiClient.getFarmRoute(player, callback(null));
 	}
 
@@ -128,7 +117,6 @@ public class FarmRunManager {
 		}
 		stop();
 		loading = true;
-		changed();
 		apiClient.activateFarmRoute(summary.getId(), player, callback(summary.getName()));
 	}
 
@@ -152,14 +140,12 @@ public class FarmRunManager {
 				} else if (stopIndex >= route.getStops().size()) {
 					stopIndex = Math.max(0, route.getStops().size() - 1);
 				}
-				changed();
 			}
 
 			@Override
 			public void onError(String message) {
 				error = (switchedTo == null ? "Could not load your farm route" : "Could not switch to " + switchedTo) + " (" + message + ").";
 				loading = false;
-				changed();
 			}
 		};
 	}
@@ -187,26 +173,22 @@ public class FarmRunManager {
 		stopIndex = 0;
 		updateStatuses();
 		stopIndex = firstOpenFrom(0);
-		changed();
 	}
 
 	public void stop() {
 		running = false;
-		changed();
 	}
 
 	public void next() {
 		FarmRoute r = route;
 		if (r != null && stopIndex < r.getStops().size() - 1) {
 			stopIndex++;
-			changed();
 		}
 	}
 
 	public void previous() {
 		if (stopIndex > 0) {
 			stopIndex--;
-			changed();
 		}
 	}
 
@@ -214,7 +196,6 @@ public class FarmRunManager {
 		FarmRoute r = route;
 		if (r != null && index >= 0 && index < r.getStops().size()) {
 			stopIndex = index;
-			changed();
 		}
 	}
 
@@ -231,17 +212,18 @@ public class FarmRunManager {
 			}
 		}
 		advance();
-		changed();
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
+		if (open || running) {
+			leprechaun = ToolLeprechaun.read(client);
+		}
 		if (!running || route == null) {
 			return;
 		}
 		if (updateStatuses()) {
 			advance();
-			changed();
 		}
 	}
 
@@ -264,7 +246,6 @@ public class FarmRunManager {
 			}
 		}
 		carried = counts;
-		changed();
 	}
 
 	/** Moves past a stop once none of its patches needs a visit. */
@@ -357,6 +338,48 @@ public class FarmRunManager {
 			}
 		}
 		return null;
+	}
+
+	// ---- The window --------------------------------------------------------------------
+
+	public boolean isOpen() {
+		return open;
+	}
+
+	public void toggle() {
+		if (open) {
+			close();
+		} else {
+			openWindow();
+		}
+	}
+
+	public void openWindow() {
+		open = true;
+		selectedStop = -1;
+		refreshIfStale();
+	}
+
+	public void close() {
+		open = false;
+	}
+
+	/** The stop shown in the window's details: the one clicked, else the current one. */
+	public int getSelectedStop() {
+		FarmRoute r = route;
+		int size = r == null ? 0 : r.getStops().size();
+		int s = selectedStop >= 0 ? selectedStop : stopIndex;
+		return size == 0 ? -1 : Math.min(s, size - 1);
+	}
+
+	public void selectStop(int index) {
+		selectedStop = index;
+	}
+
+	/** How many of an item the tool leprechaun holds (tools: 1 when stored). */
+	public int inLeprechaun(int itemId) {
+		Integer n = leprechaun.get(itemId);
+		return n == null ? 0 : n;
 	}
 
 	// ---- Read by the panel and overlays -------------------------------------------
@@ -487,6 +510,9 @@ public class FarmRunManager {
 
 	public void clear() {
 		running = false;
+		open = false;
+		selectedStop = -1;
+		leprechaun = Collections.emptyMap();
 		route = null;
 		routes = Collections.emptyList();
 		loaded = false;

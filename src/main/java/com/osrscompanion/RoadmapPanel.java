@@ -83,12 +83,15 @@ public class RoadmapPanel extends PluginPanel {
 
 	/** Opens or closes the in-game gear progression window. */
 	private final Runnable openGearProgression;
+	/** Opens or closes the in-game farm run window. */
+	private final Runnable openFarmRun;
 
-	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker, Runnable openGearProgression) {
+	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker, Runnable openGearProgression, Runnable openFarmRun) {
 		super(false);
 		this.roadmapManager = roadmapManager;
 		this.goalProgressTracker = goalProgressTracker;
 		this.openGearProgression = openGearProgression;
+		this.openFarmRun = openFarmRun;
 
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -154,6 +157,14 @@ public class RoadmapPanel extends PluginPanel {
 		gearButton.setToolTipText("Open or close your gear progression in the game window (Escape closes it).");
 		gearButton.addActionListener(e -> openGearProgression.run());
 		header.add(gearButton);
+		header.add(Box.createVerticalStrut(6));
+
+		JButton farmButton = new JButton("Farm run");
+		farmButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+		farmButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+		farmButton.setToolTipText("Open or close your farm route in the game window: stops, what to bring and the guided run (Escape closes it).");
+		farmButton.addActionListener(e -> openFarmRun.run());
+		header.add(farmButton);
 		header.add(Box.createVerticalStrut(8));
 
 		statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
