@@ -255,4 +255,24 @@ public interface OSRSCompanionConfig extends Config {
 	default boolean showFarmRun() {
 		return true;
 	}
+
+	@ConfigItem(
+			keyName = "farmRunBankFilter",
+			name = "Farm run bank filter",
+			description = "When you open the bank with the farm run window open (or a run going), the bank shows only what the route needs. Clear the search to see everything.",
+			section = FEATURES_SECTION,
+			position = 8)
+	default boolean farmRunBankFilter() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "farmingCapeForHerbs",
+			name = "Wear Farming cape for herbs",
+			description = "Adds the Farming cape to the farm run (and the bank filter) and reminds you to put it on before you pick herbs, for the extra herbs it gives.",
+			section = FEATURES_SECTION,
+			position = 9)
+	default boolean farmingCapeForHerbs() {
+		return false;
+	}
 }

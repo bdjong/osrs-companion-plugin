@@ -86,6 +86,11 @@ public class FarmRunOverlay extends OverlayPanel {
 		}
 		panelComponent.getChildren().add(new ImageComponent(SPACER));
 
+		if (manager.needsFarmingCape()) {
+			for (String line : wrap("Put on your Farming cape before picking the herbs.", fm, textWidth)) {
+				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(Color.YELLOW).build());
+			}
+		}
 		for (FarmRoute.Patch p : stop.getPatches()) {
 			Status s = manager.statusOf(p);
 			String label = p.getType() + (p.getCrop() != null ? ": " + p.getCrop() : "");

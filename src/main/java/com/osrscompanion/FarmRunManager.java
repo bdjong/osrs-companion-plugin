@@ -22,12 +22,15 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
+import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.client.Notifier;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.ItemVariationMapping;
 
 /**
  * The guided farm run: the active route from the website, which stop you are on and,
@@ -43,6 +46,11 @@ import net.runelite.client.eventbus.Subscribe;
 public class FarmRunManager {
 	/** Re-read the route at most this often while the panel or a run uses it. */
 	static final long REFRESH_INTERVAL_MS = 5 * 60_000;
+	/** Farming cape and Farming cape (t): extra herbs when worn. */
+	static final int FARMING_CAPE = 9810;
+	static final int FARMING_CAPE_T = 9811;
+	/** How close to the stop the "wear your Farming cape" reminder fires. */
+	private static final int CAPE_REMINDER_DISTANCE = 20;
 
 	private final Client client;
 	private final OSRSCompanionApiClient apiClient;
@@ -66,17 +74,27 @@ public class FarmRunManager {
 	private final Map<String, FarmingPatch> patchCache = new ConcurrentHashMap<>();
 
 	private volatile Map<Integer, Integer> carried = Collections.emptyMap();
+	/** The same counts by item variation (charges, colours) and by name (graceful's worn ids). */
+	private volatile Map<Integer, Integer> carriedBase = Collections.emptyMap();
+	private volatile Map<String, Integer> carriedNames = Collections.emptyMap();
+	private volatile boolean capeWorn;
+	private int capeRemindedStop = -1;
 	private volatile Map<Integer, Integer> leprechaun = Collections.emptyMap();
 
 	/** The in-game farm run window, and the stop shown in its details (-1: the current one). */
 	private volatile boolean open;
 	private volatile int selectedStop = -1;
 
+	private final OSRSCompanionConfig config;
+	private final Notifier notifier;
+
 	@Inject
-	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager) {
+	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, OSRSCompanionConfig config, Notifier notifier) {
 		this.client = client;
 		this.apiClient = apiClient;
 		this.roadmapManager = roadmapManager;
+		this.config = config;
+		this.notifier = notifier;
 	}
 
 	/** The farming data the plugin builds at start-up. */
@@ -171,6 +189,7 @@ public class FarmRunManager {
 		}
 		running = true;
 		stopIndex = 0;
+		capeRemindedStop = -1;
 		updateStatuses();
 		stopIndex = firstOpenFrom(0);
 	}
@@ -225,6 +244,33 @@ public class FarmRunManager {
 		if (updateStatuses()) {
 			advance();
 		}
+		remindCape();
+	}
+
+	/** True while the current stop still has herbs to pick and the Farming cape setting is on but the cape is not worn. */
+	public boolean needsFarmingCape() {
+		if (!config.farmingCapeForHerbs() || !running || isComplete() || capeWorn) {
+			return false;
+		}
+		FarmRoute.Stop stop = getCurrentStop();
+		return stop != null && stop.getPatches().stream().anyMatch(p -> isHerb(p) && statusOf(p) == Status.TODO);
+	}
+
+	private static boolean isHerb(FarmRoute.Patch p) {
+		return p.getType() != null && p.getType().toLowerCase().contains("herb");
+	}
+
+	/** Once per stop, near it: a notification to put the Farming cape on before picking the herbs. */
+	private void remindCape() {
+		if (!needsFarmingCape() || capeRemindedStop == stopIndex || client.getLocalPlayer() == null) {
+			return;
+		}
+		FarmRoute.Stop stop = getCurrentStop();
+		WorldPoint at = client.getLocalPlayer().getWorldLocation();
+		if (at.distanceTo2D(new WorldPoint(stop.getX(), stop.getY(), stop.getPlane())) <= CAPE_REMINDER_DISTANCE) {
+			capeRemindedStop = stopIndex;
+			notifier.notify("Farm run: put on your Farming cape before you pick the herbs.");
+		}
 	}
 
 	@Subscribe
@@ -234,6 +280,9 @@ public class FarmRunManager {
 			return;
 		}
 		Map<Integer, Integer> counts = new HashMap<>();
+		Map<Integer, Integer> byBase = new HashMap<>();
+		Map<String, Integer> byName = new HashMap<>();
+		boolean cape = false;
 		for (int container : new int[]{InventoryID.INV, InventoryID.WORN}) {
 			ItemContainer c = client.getItemContainer(container);
 			if (c == null) {
@@ -242,10 +291,19 @@ public class FarmRunManager {
 			for (Item item : c.getItems()) {
 				if (item.getId() > 0) {
 					counts.merge(item.getId(), item.getQuantity(), Integer::sum);
+					byBase.merge(ItemVariationMapping.map(item.getId()), item.getQuantity(), Integer::sum);
+					String name = nameOf(item.getId());
+					if (name != null) {
+						byName.merge(name, item.getQuantity(), Integer::sum);
+					}
+					cape |= container == InventoryID.WORN && (item.getId() == FARMING_CAPE || item.getId() == FARMING_CAPE_T);
 				}
 			}
 		}
 		carried = counts;
+		carriedBase = byBase;
+		carriedNames = byName;
+		capeWorn = cape;
 	}
 
 	/** Moves past a stop once none of its patches needs a visit. */
@@ -461,10 +519,56 @@ public class FarmRunManager {
 		return new int[]{done, total};
 	}
 
-	/** Item counts in the inventory plus worn equipment. */
+	/**
+	 * Item counts in the inventory plus worn equipment. Other variants count too: worn graceful has
+	 * its own item id, jewellery its charges, the Farming cape a trimmed one.
+	 */
 	public int carried(int itemId) {
+		if (itemId == FARMING_CAPE || itemId == FARMING_CAPE_T) {
+			return carried.getOrDefault(FARMING_CAPE, 0) + carried.getOrDefault(FARMING_CAPE_T, 0);
+		}
 		Integer n = carried.get(itemId);
+		if (n == null) {
+			n = carriedBase.get(ItemVariationMapping.map(itemId));
+		}
+		if (n == null) {
+			String name = nameOf(itemId);
+			n = name == null ? null : carriedNames.get(name);
+		}
 		return n == null ? 0 : n;
+	}
+
+	private String nameOf(int itemId) {
+		ItemComposition comp = client.getItemDefinition(itemId);
+		return comp == null || comp.getName() == null ? null : comp.getName().toLowerCase();
+	}
+
+	/** Whether the route (or the Farming cape setting) needs this item; variants count. For the bank filter. */
+	public boolean needs(int itemId) {
+		return neededStack(itemId) != null;
+	}
+
+	/** The loadout entry this item satisfies: the same item, a variant (charges, colours) or one of the same name (filled/empty). */
+	public FarmRoute.Stack neededStack(int itemId) {
+		int base = ItemVariationMapping.map(itemId);
+		String name = null;
+		for (FarmRoute.Stack s : loadout()) {
+			if (s.getItem() == itemId || ItemVariationMapping.map(s.getItem()) == base) {
+				return s;
+			}
+		}
+		for (FarmRoute.Stack s : loadout()) {
+			if (name == null) {
+				name = nameOf(itemId);
+				if (name == null) {
+					return null;
+				}
+			}
+			if (name.equals(nameOf(s.getItem()))) {
+				return s;
+			}
+		}
+		return null;
 	}
 
 	/** Where the guide points: the current stop's tile. */
@@ -504,7 +608,22 @@ public class FarmRunManager {
 			return Collections.emptyList();
 		}
 		List<FarmRoute.Stack> all = new ArrayList<>(r.getEquipment());
-		all.addAll(r.getInventory());
+		all.addAll(inventory());
+		return all;
+	}
+
+	/** The route's inventory, plus the Farming cape when that setting is on and the route picks herbs. */
+	public List<FarmRoute.Stack> inventory() {
+		FarmRoute r = route;
+		if (r == null) {
+			return Collections.emptyList();
+		}
+		boolean herbs = r.getStops().stream().anyMatch(s -> s.getPatches().stream().anyMatch(FarmRunManager::isHerb));
+		if (!config.farmingCapeForHerbs() || !herbs || r.getInventory().stream().anyMatch(s -> s.getItem() == FARMING_CAPE || s.getItem() == FARMING_CAPE_T)) {
+			return r.getInventory();
+		}
+		List<FarmRoute.Stack> all = new ArrayList<>(r.getInventory());
+		all.add(FarmRoute.Stack.extra(FARMING_CAPE, "Farming cape", "Wear before picking herbs"));
 		return all;
 	}
 

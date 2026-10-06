@@ -157,6 +157,11 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 			return new Dimension(w, h);
 		}
 
+		if (route.getReviewChanges() > 0) {
+			// The route changed since it was saved (new unlocks, bank): the website lists what.
+			g.setFont(FontManager.getRunescapeSmallFont());
+			text(g, "Route changed - review it on the website", x + 12, y + 19, YELLOW);
+		}
 		Rectangle switchButton = subtitle(g, route, win, newHits);
 		int bodyY = y + TITLE_HEIGHT + SUBTITLE_HEIGHT + 6;
 		int bodyBottom = y + h - 10;
@@ -407,7 +412,7 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		}
 		// Inventory: 4 x 7.
 		int ix = ex + 3 * cell + 14;
-		List<FarmRoute.Stack> inv = route.getInventory();
+		List<FarmRoute.Stack> inv = manager.inventory();
 		for (int i = 0; i < 28; i++) {
 			Rectangle cellRect = new Rectangle(ix + (i % 4) * cell, top + (i / 4) * cell, slot, slot);
 			drawItemSlot(g, cellRect, i < inv.size() ? inv.get(i) : null, newHits);
