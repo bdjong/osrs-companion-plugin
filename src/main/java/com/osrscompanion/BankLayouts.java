@@ -58,8 +58,9 @@ final class BankLayouts {
 	 * @param special   the special attack weapon, or -1
 	 */
 	static int[] build(Map<String, Integer> worn, List<Integer> inventory, List<Integer> pouch, int special) {
+		// The pouch row, or further down when the inventory reaches its last rows (slot 27 is position 55).
 		int last = POUCH_START + 3;
-		if (inventory.size() > 28) {
+		if (!inventory.isEmpty()) {
 			last = Math.max(last, inventoryPos(inventory.size() - 1));
 		}
 		int size = (last / ROW + 1) * ROW;
