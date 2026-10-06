@@ -40,7 +40,7 @@ public class FarmRoute {
 	@SerializedName("review_changes")
 	private int reviewChanges;
 
-	/** Every patch of the run is ready to harvest (from the synced Time Tracking timers). */
+	/** The run is ready (website lib/timers.ts routeReady): no crop of it still growing or diseased, at least one ready; compost bins, empty, dead and never-checked patches do not count. */
 	@SerializedName("ready")
 	private boolean ready;
 
@@ -369,7 +369,7 @@ public class FarmRoute {
 			return protect == null ? Collections.emptyList() : protect;
 		}
 
-		/** "ready", "growing", "diseased", "dead" or "unknown" when the route was loaded. */
+		/** "ready", "growing", "diseased", "dead", "empty" or "unknown" when the route was loaded. */
 		public String getReady() {
 			return ready == null ? "unknown" : ready;
 		}
