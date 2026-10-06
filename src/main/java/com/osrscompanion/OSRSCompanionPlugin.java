@@ -313,7 +313,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear);
+		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, itemManager);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
