@@ -42,6 +42,8 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.ui.ColorScheme;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 
@@ -75,7 +77,7 @@ public class RoadmapPanel extends PluginPanel {
 	private final GoalProgressTracker goalProgressTracker;
 
 	private final JComboBox<RoadmapSummary> roadmapSelector = new JComboBox<>();
-	private final JButton reloadButton = new JButton("Refresh");
+	private final FeatureTile reloadButton;
 	private final JLabel statusLabel = new JLabel();
 	private final GoalsTreePanel goalsPanel = new GoalsTreePanel();
 
@@ -88,9 +90,14 @@ public class RoadmapPanel extends PluginPanel {
 	/** Opens or closes the in-game boss gear window. */
 	private final Runnable openBossGear;
 
+	/** Item pictures for the tool tiles. */
+	private final ItemManager itemManager;
+
 	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker, Runnable openGearProgression, Runnable openFarmRun,
-			Runnable openBossGear) {
+			Runnable openBossGear, ItemManager itemManager) {
 		super(false);
+		this.itemManager = itemManager;
+		this.reloadButton = FeatureTile.slim("Refresh", new Color(0x60A5FA), this::loadRoadmaps);
 		this.roadmapManager = roadmapManager;
 		this.goalProgressTracker = goalProgressTracker;
 		this.openGearProgression = openGearProgression;
@@ -149,41 +156,45 @@ public class RoadmapPanel extends PluginPanel {
 		header.add(Box.createVerticalStrut(8));
 
 		reloadButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-		reloadButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
 		reloadButton.setToolTipText("Reload your roadmaps and goals from the OSRS Companion app.");
-		reloadButton.addActionListener(e -> loadRoadmaps());
 		header.add(reloadButton);
-		header.add(Box.createVerticalStrut(8));
+		header.add(Box.createVerticalStrut(12));
 
-		JButton gearButton = new JButton("Gear progression");
-		gearButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-		gearButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-		gearButton.setToolTipText("Open or close your gear progression in the game window (Escape closes it).");
-		gearButton.addActionListener(e -> openGearProgression.run());
-		header.add(gearButton);
-		header.add(Box.createVerticalStrut(6));
+		// The in-game windows, as tiles like the website's tool banners.
+		JLabel tools = new JLabel("Tools");
+		tools.setFont(FontManager.getRunescapeSmallFont());
+		tools.setForeground(new Color(0x9AA3B2));
+		tools.setAlignmentX(Component.LEFT_ALIGNMENT);
+		header.add(tools);
+		header.add(Box.createVerticalStrut(4));
 
-		JButton farmButton = new JButton("Farm run");
-		farmButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-		farmButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-		farmButton.setToolTipText("Open or close your farm route in the game window: stops, what to bring and the guided run (Escape closes it).");
-		farmButton.addActionListener(e -> openFarmRun.run());
-		header.add(farmButton);
-		header.add(Box.createVerticalStrut(6));
+		FeatureTile gearTile = FeatureTile.banner("GEAR", "PROGRESSION", "Gear order, auto-ticked",
+			new Color(0xFB923C), new Color(0x1C0D06), new Color(0x9A3412), itemManager.getImage(ItemID.HUNDRED_GAUNTLETS_LEVEL_10), openGearProgression);
+		gearTile.setToolTipText("Open or close your gear progression in the game window (Escape closes it).");
+		addTile(header, gearTile);
 
-		JButton bossButton = new JButton("Boss gear");
-		bossButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-		bossButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-		bossButton.setToolTipText("Open or close your boss gear (picked on the website) in the game window; the bank lays it out when you open it (Escape closes it).");
-		bossButton.addActionListener(e -> openBossGear.run());
-		header.add(bossButton);
-		header.add(Box.createVerticalStrut(8));
+		FeatureTile farmTile = FeatureTile.banner("FARM", "RUN", "Route & guided run",
+			new Color(0x4ADE80), new Color(0x08130C), new Color(0x166534), itemManager.getImage(ItemID.WATERING_CAN_8), openFarmRun);
+		farmTile.setToolTipText("Open or close your farm route in the game window: stops, what to bring and the guided run (Escape closes it).");
+		addTile(header, farmTile);
+
+		FeatureTile bossTile = FeatureTile.banner("BOSS", "GEAR", "Setups + bank layout",
+			new Color(0xA78BFA), new Color(0x120A24), new Color(0x5B21B6), itemManager.getImage(ItemID.VORKATH_HEAD), openBossGear);
+		bossTile.setToolTipText("Open or close your boss gear in the game window: switch boss or setup there; the bank lays it out when you open it (Escape closes it).");
+		addTile(header, bossTile);
+		header.add(Box.createVerticalStrut(4));
 
 		statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		statusLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		header.add(statusLabel);
 
 		return header;
+	}
+
+	private static void addTile(JPanel header, FeatureTile tile) {
+		tile.setAlignmentX(Component.LEFT_ALIGNMENT);
+		header.add(tile);
+		header.add(Box.createVerticalStrut(6));
 	}
 
 	private JPanel buildFooterNote() {
