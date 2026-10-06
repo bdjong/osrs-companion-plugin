@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import com.google.common.collect.ImmutableSet;
 import com.osrscompanion.FarmPatchProgress.Snapshot;
 import com.osrscompanion.FarmPatchProgress.Status;
 import com.osrscompanion.api.OSRSCompanionApiClient;
@@ -37,6 +38,7 @@ import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
@@ -68,6 +70,9 @@ public class FarmRunManager {
 	/** Farming cape and Farming cape (t): extra herbs when worn. */
 	static final int FARMING_CAPE = 9810;
 	static final int FARMING_CAPE_T = 9811;
+	/** Rune pouches (regular and divine, and their locked versions): the runes inside count as carried. */
+	static final Set<Integer> RUNE_POUCHES = ImmutableSet.of(
+		ItemID.BH_RUNE_POUCH, ItemID.BH_RUNE_POUCH_TROUVER, ItemID.DIVINE_RUNE_POUCH, ItemID.DIVINE_RUNE_POUCH_TROUVER);
 	/** How close to the stop the "wear your Farming cape" reminder fires (also "still at the stop" for compost and finishing). */
 	private static final int CAPE_REMINDER_DISTANCE = 20;
 	/** A finished run stops once you leave the last stop, or after this many ticks (a minute). */
@@ -115,6 +120,8 @@ public class FarmRunManager {
 	private volatile Map<Integer, Integer> carriedBase = Collections.emptyMap();
 	private volatile Map<String, Integer> carriedNames = Collections.emptyMap();
 	private volatile boolean capeWorn;
+	/** The rune pouch changed (runes added, taken or cast): count again on the next tick. */
+	private boolean pouchChanged;
 	private int capeRemindedStop = -1;
 	private volatile Map<Integer, Integer> leprechaun = Collections.emptyMap();
 
@@ -297,6 +304,10 @@ public class FarmRunManager {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
+		if (pouchChanged) {
+			pouchChanged = false;
+			recount();
+		}
 		if (open || running) {
 			leprechaun = ToolLeprechaun.read(client);
 		}
@@ -591,13 +602,25 @@ public class FarmRunManager {
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
 		int id = event.getContainerId();
-		if (id != InventoryID.INV && id != InventoryID.WORN) {
-			return;
+		if (id == InventoryID.INV || id == InventoryID.WORN) {
+			recount();
 		}
+	}
+
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged event) {
+		if (RunePouchMonitor.isPouchVarbit(event.getVarbitId())) {
+			pouchChanged = true;
+		}
+	}
+
+	/** Counts the inventory and worn items, plus the runes in a carried rune pouch. Client thread. */
+	private void recount() {
 		Map<Integer, Integer> counts = new HashMap<>();
 		Map<Integer, Integer> byBase = new HashMap<>();
 		Map<String, Integer> byName = new HashMap<>();
 		boolean cape = false;
+		boolean pouch = false;
 		for (int container : new int[]{InventoryID.INV, InventoryID.WORN}) {
 			ItemContainer c = client.getItemContainer(container);
 			if (c == null) {
@@ -605,14 +628,16 @@ public class FarmRunManager {
 			}
 			for (Item item : c.getItems()) {
 				if (item.getId() > 0) {
-					counts.merge(item.getId(), item.getQuantity(), Integer::sum);
-					byBase.merge(ItemVariationMapping.map(item.getId()), item.getQuantity(), Integer::sum);
-					String name = nameOf(item.getId());
-					if (name != null) {
-						byName.merge(name, item.getQuantity(), Integer::sum);
-					}
+					count(counts, byBase, byName, item.getId(), item.getQuantity());
 					cape |= container == InventoryID.WORN && (item.getId() == FARMING_CAPE || item.getId() == FARMING_CAPE_T);
+					pouch |= container == InventoryID.INV && RUNE_POUCHES.contains(item.getId());
 				}
+			}
+		}
+		if (pouch) {
+			// The pouch's runes (from its varbits) are carried too, so the window marks them green.
+			for (Map.Entry<Integer, Integer> rune : RunePouchMonitor.read(client).entrySet()) {
+				count(counts, byBase, byName, rune.getKey(), rune.getValue());
 			}
 		}
 		carried = counts;
@@ -855,6 +880,37 @@ public class FarmRunManager {
 			n = name == null ? null : carriedNames.get(name);
 		}
 		return n == null ? 0 : n;
+	}
+
+	private void count(Map<Integer, Integer> counts, Map<Integer, Integer> byBase, Map<String, Integer> byName, int itemId, int qty) {
+		counts.merge(itemId, qty, Integer::sum);
+		byBase.merge(ItemVariationMapping.map(itemId), qty, Integer::sum);
+		String name = nameOf(itemId);
+		if (name != null) {
+			byName.merge(name, qty, Integer::sum);
+		}
+	}
+
+	/** Whether a Farming cape (or the trimmed one) is worn. */
+	public boolean isFarmingCapeWorn() {
+		return capeWorn;
+	}
+
+	/** The route patch for a RuneLite patch (same region, varbit and type), or null when the route does not have it. */
+	public FarmRoute.Patch routePatch(FarmingPatch fp) {
+		FarmRoute r = route;
+		if (r == null || fp == null || fp.getRegion() == null) {
+			return null;
+		}
+		for (FarmRoute.Stop stop : r.getStops()) {
+			for (FarmRoute.Patch p : stop.getPatches()) {
+				if (p.getVarbit() == fp.getVarbit() && fp.getRegion().getName().equals(p.getRegion())
+					&& fp.getImplementation().name().equals(p.getImpl())) {
+					return p;
+				}
+			}
+		}
+		return null;
 	}
 
 	private String nameOf(int itemId) {

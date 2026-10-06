@@ -174,6 +174,16 @@ public interface OSRSCompanionConfig extends Config {
 		return false;
 	}
 
+	@ConfigItem(
+			keyName = "syncFarmHarvests",
+			name = "Farm Harvests",
+			description = "Send each patch you pick clean (crop, how many, Farming cape, magic secateurs, compost and Farming level) to OSRS Companion for the Harvest stats page.",
+			section = SYNC_SECTION,
+			position = 13)
+	default boolean syncFarmHarvests() {
+		return true;
+	}
+
 	// --- Plugin Features ---
 
 	@ConfigItem(
