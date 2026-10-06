@@ -31,20 +31,27 @@ final class FarmPatchProgress {
 		final boolean weeds;
 		final long doneEstimate;
 		final boolean grown;
+		/** How many weeds are on it (0: raked clean; RuneLite counts an empty patch as weeds at stage 0). */
+		final int weedStage;
 
 		Snapshot(CropState state, boolean weeds, long doneEstimate) {
-			this(state, weeds, doneEstimate, false);
+			this(state, weeds, doneEstimate, false, 0);
+		}
+
+		Snapshot(CropState state, boolean weeds, long doneEstimate, boolean grown) {
+			this(state, weeds, doneEstimate, grown, 0);
 		}
 
 		/**
 		 * @param grown Time Tracking keeps the state it last saw in game ("growing") and only moves the
 		 *              stage on with time: a crop whose timer is at its last stage is ready, not growing.
 		 */
-		Snapshot(CropState state, boolean weeds, long doneEstimate, boolean grown) {
+		Snapshot(CropState state, boolean weeds, long doneEstimate, boolean grown, int weedStage) {
 			this.state = state;
 			this.weeds = weeds;
 			this.doneEstimate = doneEstimate;
 			this.grown = grown;
+			this.weedStage = weedStage;
 		}
 
 		/** A crop (not weeds) that is still growing: not yet fully grown by its timer. */
