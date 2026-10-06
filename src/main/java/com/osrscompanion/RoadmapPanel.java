@@ -85,13 +85,17 @@ public class RoadmapPanel extends PluginPanel {
 	private final Runnable openGearProgression;
 	/** Opens or closes the in-game farm run window. */
 	private final Runnable openFarmRun;
+	/** Opens or closes the in-game boss gear window. */
+	private final Runnable openBossGear;
 
-	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker, Runnable openGearProgression, Runnable openFarmRun) {
+	public RoadmapPanel(RoadmapManager roadmapManager, GoalProgressTracker goalProgressTracker, Runnable openGearProgression, Runnable openFarmRun,
+			Runnable openBossGear) {
 		super(false);
 		this.roadmapManager = roadmapManager;
 		this.goalProgressTracker = goalProgressTracker;
 		this.openGearProgression = openGearProgression;
 		this.openFarmRun = openFarmRun;
+		this.openBossGear = openBossGear;
 
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -165,6 +169,14 @@ public class RoadmapPanel extends PluginPanel {
 		farmButton.setToolTipText("Open or close your farm route in the game window: stops, what to bring and the guided run (Escape closes it).");
 		farmButton.addActionListener(e -> openFarmRun.run());
 		header.add(farmButton);
+		header.add(Box.createVerticalStrut(6));
+
+		JButton bossButton = new JButton("Boss gear");
+		bossButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+		bossButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+		bossButton.setToolTipText("Open or close your boss gear (picked on the website) in the game window; the bank lays it out when you open it (Escape closes it).");
+		bossButton.addActionListener(e -> openBossGear.run());
+		header.add(bossButton);
 		header.add(Box.createVerticalStrut(8));
 
 		statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
