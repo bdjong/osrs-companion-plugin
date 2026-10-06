@@ -764,7 +764,7 @@ public class FarmRunManager {
 		if (harvestable(p)) {
 			return type + ": Harvest";
 		}
-		if (now.weeds) {
+		if (now.weeds && now.weedStage > 0) {
 			return type + ": Rake";
 		}
 		if (needsCompost(p)) {
@@ -1096,7 +1096,7 @@ public class FarmRunManager {
 			}
 			boolean weeds = prediction.getProduce() == Produce.WEEDS || prediction.getProduce() == Produce.SCARECROW;
 			boolean grown = prediction.getStages() > 1 && prediction.getStage() >= prediction.getStages() - 1;
-			return new Snapshot(prediction.getCropState(), weeds, prediction.getDoneEstimate(), grown);
+			return new Snapshot(prediction.getCropState(), weeds, prediction.getDoneEstimate(), grown, weeds ? prediction.getStage() : 0);
 		} catch (RuntimeException e) {
 			log.debug("Could not read patch {}", p.getKey(), e);
 			return null;
