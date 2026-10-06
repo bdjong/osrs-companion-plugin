@@ -42,11 +42,10 @@ public class FarmRunItemOverlay extends WidgetItemOverlay {
 		FarmRunManager.Highlight h = now.get(itemId);
 		Color color = h == FarmRunManager.Highlight.TELEPORT ? TELEPORT : h == FarmRunManager.Highlight.SEED ? SEED : h == FarmRunManager.Highlight.PAYMENT ? PAYMENT : null;
 		if (color == null && isBankItem(widgetItem)) {
-			for (FarmRoute.Stack s : manager.loadout()) {
-				if (s.getItem() == itemId && manager.carried(itemId) < s.getQty()) {
-					color = BRING;
-					break;
-				}
+			// Variants count: the filled and the empty compost bucket, glory charges, graceful colours.
+			FarmRoute.Stack s = manager.neededStack(itemId);
+			if (s != null && manager.carried(s.getItem()) < s.getQty()) {
+				color = BRING;
 			}
 		}
 		if (color == null) {

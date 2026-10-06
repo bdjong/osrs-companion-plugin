@@ -35,6 +35,10 @@ public class FarmRoute {
 	@SerializedName("spellbook")
 	private String spellbook;
 
+	/** How many things changed since the route was saved (new unlocks etc.); 0 = nothing to review. */
+	@SerializedName("review_changes")
+	private int reviewChanges;
+
 	public int getId() {
 		return id;
 	}
@@ -65,6 +69,10 @@ public class FarmRoute {
 
 	public String getSpellbook() {
 		return spellbook;
+	}
+
+	public int getReviewChanges() {
+		return reviewChanges;
 	}
 
 	public static class Summary {
@@ -321,6 +329,15 @@ public class FarmRoute {
 
 		public Map<String, Integer> getWhere() {
 			return where == null ? Collections.emptyMap() : where;
+		}
+
+		/** An item the plugin adds itself (from a setting), not from the website's route. */
+		public static Stack extra(int item, String name, String why) {
+			Stack s = new Stack();
+			s.item = item;
+			s.name = name;
+			s.why = why;
+			return s;
 		}
 	}
 

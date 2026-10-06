@@ -180,6 +180,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private FarmRunWindow farmRunWindow;
 
 	@Inject
+	private FarmRunBankFilter farmRunBankFilter;
+
+	@Inject
 	private ClientThread clientThread;
 
 	@Inject
@@ -242,6 +245,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(slayerRewardsMonitor);
 		eventBus.register(goalProgressTracker);
 		eventBus.register(farmRunManager);
+		eventBus.register(farmRunBankFilter);
 		eventBus.register(farmRunSceneOverlay);
 		eventBus.register(sessionMonitor);
 
@@ -366,6 +370,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(slayerRewardsMonitor);
 		eventBus.unregister(goalProgressTracker);
 		eventBus.unregister(farmRunManager);
+		eventBus.unregister(farmRunBankFilter);
 		eventBus.unregister(farmRunSceneOverlay);
 		eventBus.unregister(sessionMonitor);
 		sessionMonitor.stop();
