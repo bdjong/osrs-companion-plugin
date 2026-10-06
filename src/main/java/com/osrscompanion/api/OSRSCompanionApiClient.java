@@ -73,6 +73,7 @@ public class OSRSCompanionApiClient
 	private static final String QUESTS_ENDPOINT = "/api/runelite/quests/";
 	private static final String ACHIEVEMENT_DIARIES_ENDPOINT = "/api/runelite/achievement-diaries/";
 	private static final String HOUSE_LOCATION_ENDPOINT = "/api/runelite/house-location/";
+	private static final String FARMING_UNLOCKS_ENDPOINT = "/api/runelite/farming-unlocks/";
 	private static final String COMBAT_ACHIEVEMENTS_ENDPOINT = "/api/runelite/combat-achievements/";
 	private static final String DEATHS_ENDPOINT = "/api/runelite/deaths/";
 	private static final String KILL_COUNTS_ENDPOINT = "/api/runelite/kill-counts/";
@@ -182,6 +183,13 @@ public class OSRSCompanionApiClient
 		postAsync(ACHIEVEMENT_DIARIES_ENDPOINT, payload.toJson(gson), "achievement-diaries", false, true,
 			() -> log.debug("OSRS Companion achievement diaries sync successful: {} regions for player: {}",
 				payload.getAchievementDiaries().size(), payload.getPlayerUsername()));
+	}
+
+	/** Auto-weed and Barbarian Farming state, for the farm route's loadout. */
+	public void sendFarmingUnlocks(String json)
+	{
+		postAsync(FARMING_UNLOCKS_ENDPOINT, json, "farming-unlocks", false, true,
+			() -> log.debug("OSRS Companion farming unlocks synced"));
 	}
 
 	public void sendHouseLocationSync(HouseLocationSyncPayload payload)
