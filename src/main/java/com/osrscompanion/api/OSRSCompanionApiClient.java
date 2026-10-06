@@ -83,6 +83,7 @@ public class OSRSCompanionApiClient
 	private static final String ROADMAPS_ENDPOINT = "/api/runelite/roadmaps/";
 	private static final String GEAR_ENDPOINT = "/api/runelite/gear/";
 	private static final String FARM_ROUTE_ENDPOINT = "/api/runelite/farm-route/";
+	private static final String SESSION_ENDPOINT = "/api/runelite/session/";
 	private static final String SLAYER_ENDPOINT = "/api/runelite/slayer/";
 	private static final String SLAYER_CATALOG_ENDPOINT = "/api/runelite/slayer/catalog/";
 	private static final String SLAYER_CATALOG_STATUS_ENDPOINT = "/api/runelite/slayer/catalog/status/";
@@ -418,6 +419,17 @@ public class OSRSCompanionApiClient
 		body.put("player", playerUsername);
 		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/goal/", gson.toJson(body), "gear-goal",
 			GearPlan.GoalResult.class, callback);
+	}
+
+	/** Reports a login ("start"), a "still playing" ping or a logout ("end"). */
+	public void sendSessionEvent(String playerUsername, String event, String at)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player_username", playerUsername);
+		body.put("event", event);
+		body.put("at", at);
+		postAsync(SESSION_ENDPOINT, gson.toJson(body), "session", false, false,
+			() -> log.debug("OSRS Companion session {} recorded for {}", event, playerUsername));
 	}
 
 	/** Fetches the player's active farm route ({ route: null } until one is saved on the website). */
