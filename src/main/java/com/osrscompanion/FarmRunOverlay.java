@@ -78,7 +78,7 @@ public class FarmRunOverlay extends OverlayPanel {
 			panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(Color.WHITE).build());
 		}
 		FarmRoute.Travel travel = stop.getTravel();
-		String via = (travel.isWalk() ? "" : travel.isSpell() ? "Cast " : "Use ") + travel.getName();
+		String via = (travel.isWalk() ? "" : travel.isSpell() ? "Cast " : "Use ") + travel.getName() + (travel.isSpell() ? " (normal spellbook)" : "");
 		Integer travelItem = travel.getItems().isEmpty() ? null : travel.getItems().get(0);
 		addIconLine(travelItem, via, Color.CYAN, fm, textWidth);
 		for (String line : wrap(travel.getHow(), fm, textWidth)) {

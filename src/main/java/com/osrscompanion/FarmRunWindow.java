@@ -25,6 +25,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.input.KeyListener;
 import net.runelite.client.input.MouseListener;
@@ -423,9 +424,16 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		lx = text(g, "Stored: ", lx, ly, STORED);
 		lx = text(g, "B bank  V seed vault  S seed box  L tool leprechaun  ", lx, ly, BEIGE);
 		text(g, "Missing", lx, ly, RED);
+		int sideX = ix + 4 * cell + 6;
+		int sideW = area.width - (sideX - area.x) - 8;
+		if (route.getSpellbook() != null) {
+			// Routes cast from the normal spellbook; red while you are on another one.
+			boolean onNormal = client.getVarbitValue(VarbitID.SPELLBOOK) == 0;
+			text(g, truncate("Spellbook: " + route.getSpellbook() + (onNormal ? "" : " (switch!)"), g.getFontMetrics(), sideW),
+				sideX, top + 26, onNormal ? GREEN : RED);
+		}
 		if (!route.getRunes().isEmpty()) {
-			text(g, truncate("Runes for: " + String.join(", ", route.getRunes()), g.getFontMetrics(), area.width - (ix + 4 * cell - area.x) - 14),
-				ix + 4 * cell + 6, top + 26, BEIGE);
+			text(g, truncate("Runes for: " + String.join(", ", route.getRunes()), g.getFontMetrics(), sideW), sideX, top + 40, BEIGE);
 		}
 	}
 
@@ -512,7 +520,8 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		g.setFont(FontManager.getRunescapeFont());
 		int lineY = area.y + 34;
 		FarmRoute.Travel t = stop.getTravel();
-		String via = (t.isWalk() ? "" : t.isSpell() ? "Cast " : "Use ") + t.getName() + (t.getHow().isEmpty() ? "" : ": " + t.getHow());
+		String via = (t.isWalk() ? "" : t.isSpell() ? "Cast " : "Use ") + t.getName() + (t.isSpell() ? " (normal spellbook)" : "")
+			+ (t.getHow().isEmpty() ? "" : ": " + t.getHow());
 		for (String line : wrap(via, g.getFontMetrics(), textW)) {
 			if (lineY > area.y + area.height - 6) {
 				break;

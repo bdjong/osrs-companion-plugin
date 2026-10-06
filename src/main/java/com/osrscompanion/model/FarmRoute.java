@@ -31,6 +31,10 @@ public class FarmRoute {
 	@SerializedName("runes")
 	private List<String> runes;
 
+	/** The spellbook to be on ("Normal") when the route casts teleports, else null. */
+	@SerializedName("spellbook")
+	private String spellbook;
+
 	public int getId() {
 		return id;
 	}
@@ -57,6 +61,10 @@ public class FarmRoute {
 
 	public List<String> getRunes() {
 		return runes == null ? Collections.emptyList() : runes;
+	}
+
+	public String getSpellbook() {
+		return spellbook;
 	}
 
 	public static class Summary {
