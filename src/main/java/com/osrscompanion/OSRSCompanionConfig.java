@@ -275,4 +275,14 @@ public interface OSRSCompanionConfig extends Config {
 	default boolean farmingCapeForHerbs() {
 		return false;
 	}
+
+	@ConfigItem(
+			keyName = "farmRunPopup",
+			name = "Farm run complete popup",
+			description = "Show an in-game popup (like the goal completion one) when every patch of a started farm run is done; the run then stops by itself.",
+			section = FEATURES_SECTION,
+			position = 10)
+	default boolean farmRunPopup() {
+		return true;
+	}
 }

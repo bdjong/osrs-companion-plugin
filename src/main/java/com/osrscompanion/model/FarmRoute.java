@@ -85,6 +85,9 @@ public class FarmRoute {
 		@SerializedName("activeSec")
 		private int activeSec;
 
+		@SerializedName("gp")
+		private int gp;
+
 		public int getPatches() {
 			return patches;
 		}
@@ -95,6 +98,11 @@ public class FarmRoute {
 
 		public int getActiveSec() {
 			return activeSec;
+		}
+
+		/** Estimated profit of every patch (GE prices). */
+		public int getGp() {
+			return gp;
 		}
 	}
 
@@ -172,6 +180,10 @@ public class FarmRoute {
 		@SerializedName("walk")
 		private boolean walk;
 
+		/** A minigame (Grouping) teleport: they share a 20-minute cooldown. */
+		@SerializedName("minigame")
+		private boolean minigame;
+
 		public String getName() {
 			return name == null ? "Walk there" : name;
 		}
@@ -190,6 +202,10 @@ public class FarmRoute {
 
 		public boolean isWalk() {
 			return walk;
+		}
+
+		public boolean isMinigame() {
+			return minigame;
 		}
 	}
 
@@ -232,6 +248,14 @@ public class FarmRoute {
 
 		@SerializedName("note")
 		private String note;
+
+		/** Whether compost goes on it (null from an older website: every patch but compost bins). */
+		@SerializedName("compost")
+		private Boolean compost;
+
+		/** Estimated profit of the crop (GE prices). */
+		@SerializedName("gp")
+		private int gp;
 
 		public String getKey() {
 			return key;
@@ -284,6 +308,14 @@ public class FarmRoute {
 
 		public String getNote() {
 			return note;
+		}
+
+		public boolean takesCompost() {
+			return compost != null ? compost : impl == null || !impl.contains("COMPOST");
+		}
+
+		public int getGp() {
+			return gp;
 		}
 	}
 

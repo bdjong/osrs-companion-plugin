@@ -12,13 +12,15 @@ import net.runelite.client.ui.overlay.WidgetItemOverlay;
 
 /**
  * Highlights items during a farm run, like Quest Helper: the teleport to the current
- * stop (cyan), seeds for its open patches (green) and protection payments (yellow);
- * in the bank also every loadout item you are not carrying enough of (white).
+ * stop (cyan), seeds for its open patches (green), protection payments (yellow) and the
+ * compost while a patch there has none (orange); in the bank also every loadout item you
+ * are not carrying enough of (white).
  */
 public class FarmRunItemOverlay extends WidgetItemOverlay {
 	private static final Color TELEPORT = new Color(0x22, 0xD3, 0xEE);
 	private static final Color SEED = new Color(0x22, 0xC5, 0x5E);
 	private static final Color PAYMENT = new Color(0xFA, 0xCC, 0x15);
+	private static final Color COMPOST = new Color(0xF9, 0x73, 0x16);
 	private static final Color BRING = new Color(255, 255, 255, 200);
 
 	private final OSRSCompanionConfig config;
@@ -35,12 +37,17 @@ public class FarmRunItemOverlay extends WidgetItemOverlay {
 
 	@Override
 	public void renderItemOverlay(Graphics2D graphics, int itemId, WidgetItem widgetItem) {
-		if (!config.showFarmRun() || !manager.isRunning() || manager.isComplete()) {
+		if (!config.showFarmRun() || !manager.isRunning()) {
 			return;
 		}
 		Map<Integer, FarmRunManager.Highlight> now = manager.currentItems();
 		FarmRunManager.Highlight h = now.get(itemId);
-		Color color = h == FarmRunManager.Highlight.TELEPORT ? TELEPORT : h == FarmRunManager.Highlight.SEED ? SEED : h == FarmRunManager.Highlight.PAYMENT ? PAYMENT : null;
+		if (manager.isComplete() && h != FarmRunManager.Highlight.COMPOST) {
+			// Finished: only the compost for a last patch that has none yet.
+			return;
+		}
+		Color color = h == FarmRunManager.Highlight.TELEPORT ? TELEPORT : h == FarmRunManager.Highlight.SEED ? SEED
+			: h == FarmRunManager.Highlight.PAYMENT ? PAYMENT : h == FarmRunManager.Highlight.COMPOST ? COMPOST : null;
 		if (color == null && isBankItem(widgetItem)) {
 			// Variants count: the filled and the empty compost bucket, glory charges, graceful colours.
 			FarmRoute.Stack s = manager.neededStack(itemId);
