@@ -105,7 +105,21 @@ public class LootMonitor
 		}
 
 		flushTask = executorService.scheduleAtFixedRate(
-			this::flushDrops, FLUSH_INTERVAL_SECONDS, FLUSH_INTERVAL_SECONDS, TimeUnit.SECONDS);
+			this::flushAndSyncTotals, FLUSH_INTERVAL_SECONDS, FLUSH_INTERVAL_SECONDS, TimeUnit.SECONDS);
+	}
+
+	/**
+	 * Every few minutes: uploads the queued drops, then the loot tracker totals when they
+	 * changed (the hash check skips unchanged ones), so the website's all-time list keeps
+	 * up while you play instead of only after logging out.
+	 */
+	private void flushAndSyncTotals()
+	{
+		flushDrops();
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			syncLoot();
+		}
 	}
 
 	/** Invoked after each upload so roadmap progress can be re-read; set by the plugin. */
