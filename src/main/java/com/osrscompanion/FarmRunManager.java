@@ -1077,9 +1077,21 @@ public class FarmRunManager {
 		return null;
 	}
 
+	/** Item names (lower case) read on the client thread, for the side panel which paints on Swing's thread. */
+	private final Map<Integer, String> names = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** The item's name in lower case; off the client thread only when it was read there before, else null. */
 	private String nameOf(int itemId) {
+		String cached = names.get(itemId);
+		if (cached != null || !client.isClientThread()) {
+			return cached;
+		}
 		ItemComposition comp = client.getItemDefinition(itemId);
-		return comp == null || comp.getName() == null ? null : comp.getName().toLowerCase();
+		String name = comp == null || comp.getName() == null ? null : comp.getName().toLowerCase();
+		if (name != null) {
+			names.put(itemId, name);
+		}
+		return name;
 	}
 
 	/** Whether the route (or the Farming cape setting) needs this item; variants count. For the bank filter. */
