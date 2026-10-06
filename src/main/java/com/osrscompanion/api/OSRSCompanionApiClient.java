@@ -126,7 +126,13 @@ public class OSRSCompanionApiClient
 
 	public void sendTimersSync(List<TimerSyncItem> timers)
 	{
-		String json = TimersSyncPayload.toJson(timers);
+		sendTimersSync(timers, null);
+	}
+
+	/** Timers sync naming the player at the top level, so an empty list still reaches the character. */
+	public void sendTimersSync(List<TimerSyncItem> timers, String playerUsername)
+	{
+		String json = TimersSyncPayload.toJson(timers, playerUsername);
 		postAsync(TIMERS_ENDPOINT, json, "timers", false, true,
 			() -> log.debug("OSRS Companion timers sync successful: {} timers", timers.size()));
 	}
