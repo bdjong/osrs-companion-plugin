@@ -268,8 +268,8 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigItem(
 			keyName = "farmRunBankFilter",
-			name = "Farm run bank filter",
-			description = "When you open the bank with the farm run window open (or a run going), the bank shows only what the route needs. Clear the search to see everything.",
+			name = "Farm run bank layout",
+			description = "When you open the bank with the farm run window open (or a run going), the bank shows only what the route needs, laid out like the worn gear and the inventory (see Exact bank layout). Click another bank tab to see everything.",
 			section = FEATURES_SECTION,
 			position = 8)
 	default boolean farmRunBankFilter() {
@@ -293,6 +293,36 @@ public interface OSRSCompanionConfig extends Config {
 			section = FEATURES_SECTION,
 			position = 10)
 	default boolean farmRunPopup() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "bossGearHotkey",
+			name = "Boss gear hotkey",
+			description = "Opens or closes the boss gear window. It also opens from the Boss gear button in the OSRS Companion side panel.",
+			section = FEATURES_SECTION,
+			position = 11)
+	default Keybind bossGearHotkey() {
+		return Keybind.NOT_SET;
+	}
+
+	@ConfigItem(
+			keyName = "bossGearBankLayout",
+			name = "Boss gear bank layout",
+			description = "When you open the bank with the boss gear window open, the bank shows only the setup's items, laid out like the worn gear and the inventory (see Exact bank layout). Click another bank tab to see everything.",
+			section = FEATURES_SECTION,
+			position = 12)
+	default boolean bossGearBankLayout() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "bankLayoutPositions",
+			name = "Exact bank layout",
+			description = "For the boss gear and farm run bank layouts: put each item where it goes (gear in the equipment doll's shape, the inventory as 4 x 7, the rune pouch under the doll), like Inventory Setups. Needs the Bank Tags plugin; off (or Bank Tags off) only filters the bank.",
+			section = FEATURES_SECTION,
+			position = 13)
+	default boolean bankLayoutPositions() {
 		return true;
 	}
 }

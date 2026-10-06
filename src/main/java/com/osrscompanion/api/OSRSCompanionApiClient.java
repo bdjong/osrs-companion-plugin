@@ -10,6 +10,7 @@ import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
 import com.osrscompanion.model.CombatAchievementsSyncPayload;
 import com.osrscompanion.model.DeathSyncPayload;
+import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.KillCountsSyncPayload;
@@ -85,6 +86,7 @@ public class OSRSCompanionApiClient
 	private static final String ROADMAPS_ENDPOINT = "/api/runelite/roadmaps/";
 	private static final String GEAR_ENDPOINT = "/api/runelite/gear/";
 	private static final String FARM_ROUTE_ENDPOINT = "/api/runelite/farm-route/";
+	private static final String BOSS_GEAR_ENDPOINT = "/api/runelite/boss-gear/";
 	private static final String SESSION_ENDPOINT = "/api/runelite/session/";
 	private static final String SLAYER_ENDPOINT = "/api/runelite/slayer/";
 	private static final String SLAYER_CATALOG_ENDPOINT = "/api/runelite/slayer/catalog/";
@@ -467,6 +469,21 @@ public class OSRSCompanionApiClient
 		body.put("player", playerUsername);
 		postForResult(FARM_ROUTE_ENDPOINT + "routes/" + routeId + "/activate/", gson.toJson(body), "farm-route-activate",
 			FarmRoute.Response.class, callback);
+	}
+
+	/** Fetches the player's active boss gear set ({ set: null } until one is picked on the website). */
+	public void getBossGear(String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		getAsync(BOSS_GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "boss-gear", BossGear.Response.class, callback);
+	}
+
+	/** Makes another saved boss gear set the active one and returns it. */
+	public void activateBossGear(int setId, String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(BOSS_GEAR_ENDPOINT + "sets/" + setId + "/activate/", gson.toJson(body), "boss-gear-activate",
+			BossGear.Response.class, callback);
 	}
 
 	private <T> void getAsync(String endpoint, String label, Class<T> type, RoadmapCallback<T> callback)

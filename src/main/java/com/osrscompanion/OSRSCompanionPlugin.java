@@ -23,7 +23,9 @@ import net.runelite.client.input.KeyManager;
 import net.runelite.client.input.MouseManager;
 import net.runelite.client.util.HotkeyListener;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.banktags.BankTagsPlugin;
 import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
@@ -35,6 +37,8 @@ import com.osrscompanion.runelite.farming.FarmingWorld;
 import com.osrscompanion.runelite.farming.PaymentTracker;
 
 @Slf4j
+// Bank Tags: its public API (BankTagsService, LayoutManager, TagManager) lays out the bank for the boss gear and farm run.
+@PluginDependency(BankTagsPlugin.class)
 @PluginDescriptor(name = "OSRS Companion", description = "Syncs Farming Timers, Bank, Skills, Loadout, Loot, Collection Log, Quest, Achievement Diary, Combat Achievement, and Boss Kill Count data to the OSRS Companion website.")
 public class OSRSCompanionPlugin extends Plugin {
 	private static final String TEARS_CAVE_MESSAGE = "Your stories have entertained me. I will let you into the cave for a short time.";
@@ -183,7 +187,13 @@ public class OSRSCompanionPlugin extends Plugin {
 	private FarmRunWindow farmRunWindow;
 
 	@Inject
-	private FarmRunBankFilter farmRunBankFilter;
+	private BankLayoutPrep bankLayoutPrep;
+
+	@Inject
+	private BossGearManager bossGearManager;
+
+	@Inject
+	private BossGearWindow bossGearWindow;
 
 	@Inject
 	private ClientThread clientThread;
@@ -199,6 +209,7 @@ public class OSRSCompanionPlugin extends Plugin {
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
 	private HotkeyListener farmRunHotkeyListener;
+	private HotkeyListener bossGearHotkeyListener;
 
 	@Override
 	protected void startUp() throws Exception {
@@ -250,7 +261,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(goalProgressTracker);
 		eventBus.register(farmRunManager);
 		eventBus.register(farmHarvestTracker);
-		eventBus.register(farmRunBankFilter);
+		eventBus.register(bankLayoutPrep);
+		bankLayoutPrep.startUp();
 		eventBus.register(farmRunSceneOverlay);
 		eventBus.register(sessionMonitor);
 
@@ -301,7 +313,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle, farmRunManager::toggle);
+		roadmapPanel = new RoadmapPanel(roadmapManager, goalProgressTracker, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -339,13 +351,41 @@ public class OSRSCompanionPlugin extends Plugin {
 		farmRunHotkeyListener = new HotkeyListener(config::farmRunHotkey) {
 			@Override
 			public void hotkeyPressed() {
-				farmRunManager.toggle();
+				toggleFarmRun();
 			}
 		};
 		keyManager.registerKeyListener(farmRunHotkeyListener);
 		overlayManager.add(farmRunOverlay);
 		overlayManager.add(farmRunSceneOverlay);
 		overlayManager.add(farmRunItemOverlay);
+
+		// Boss gear: the window (side-panel button or hotkey); the bank lays the set out while it is open.
+		overlayManager.add(bossGearWindow);
+		mouseManager.registerMouseListener(bossGearWindow);
+		mouseManager.registerMouseWheelListener(bossGearWindow);
+		keyManager.registerKeyListener(bossGearWindow);
+		bossGearHotkeyListener = new HotkeyListener(config::bossGearHotkey) {
+			@Override
+			public void hotkeyPressed() {
+				toggleBossGear();
+			}
+		};
+		keyManager.registerKeyListener(bossGearHotkeyListener);
+	}
+
+	/** The farm run and boss gear windows share the middle of the screen (and the bank): one at a time. */
+	private void toggleFarmRun() {
+		if (!farmRunManager.isOpen()) {
+			bossGearManager.close();
+		}
+		farmRunManager.toggle();
+	}
+
+	private void toggleBossGear() {
+		if (!bossGearManager.isOpen()) {
+			farmRunManager.close();
+		}
+		bossGearManager.toggle();
 	}
 
 	@Override
@@ -377,7 +417,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(farmRunManager);
 		eventBus.unregister(farmHarvestTracker);
 		farmHarvestTracker.stop();
-		eventBus.unregister(farmRunBankFilter);
+		eventBus.unregister(bankLayoutPrep);
+		bankLayoutPrep.shutDown();
 		eventBus.unregister(farmRunSceneOverlay);
 		eventBus.unregister(sessionMonitor);
 		sessionMonitor.stop();
@@ -473,6 +514,15 @@ public class OSRSCompanionPlugin extends Plugin {
 		overlayManager.remove(farmRunItemOverlay);
 		clientThread.invoke(farmRunSceneOverlay::clearPointers);
 		farmRunManager.clear();
+		overlayManager.remove(bossGearWindow);
+		mouseManager.unregisterMouseListener(bossGearWindow);
+		mouseManager.unregisterMouseWheelListener(bossGearWindow);
+		keyManager.unregisterKeyListener(bossGearWindow);
+		if (bossGearHotkeyListener != null) {
+			keyManager.unregisterKeyListener(bossGearHotkeyListener);
+			bossGearHotkeyListener = null;
+		}
+		bossGearManager.clear();
 		roadmapManager.clear();
 		log.debug("OSRS Companion stopped");
 	}
