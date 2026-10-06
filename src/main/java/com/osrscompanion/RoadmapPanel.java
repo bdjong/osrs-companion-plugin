@@ -158,7 +158,6 @@ public class RoadmapPanel extends PluginPanel {
 			return new String[]{s.getBossName(), s.getStyle()};
 		}), null);
 		add(p, toggle("Active in the bank", "Bank shows this setup", "Bank left alone", BOSS, "bossGearBankLayout", config::bossGearBankLayout), null);
-		add(p, toggle("Window closed too", "Every time you bank", "Only with window open", BOSS, "bossGearBankAuto", config::bossGearBankAuto), null);
 		add(p, FeatureTile.slim("Open boss gear window", BOSS, openWindow), "See the setup and switch boss or setup.");
 		return p;
 	}
