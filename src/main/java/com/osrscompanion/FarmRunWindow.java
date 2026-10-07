@@ -32,6 +32,7 @@ import net.runelite.client.input.KeyListener;
 import net.runelite.client.input.MouseListener;
 import net.runelite.client.input.MouseWheelListener;
 import net.runelite.client.ui.FontManager;
+import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -148,7 +149,7 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
 		g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
 		g.setStroke(new BasicStroke(1));
-		newHits.add(new Hit(close, manager::close, "Close"));
+		newHits.add(new Hit(close, manager::close, null));
 		g.setColor(PANEL_EDGE);
 		g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
 		g.setColor(FRAME_LIGHT);
@@ -170,8 +171,11 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		int bodyY = y + TITLE_HEIGHT + SUBTITLE_HEIGHT + 6;
 		int bodyBottom = y + h - 10;
 		int leftW = Math.max(250, (int) (w * 0.4));
-		Rectangle stops = new Rectangle(x + 8, bodyY, leftW, bodyBottom - bodyY);
+		// Stops on top (60%), the run's numbers under them.
+		int stopsH = (bodyBottom - bodyY) * 60 / 100;
+		Rectangle stops = new Rectangle(x + 8, bodyY, leftW, stopsH);
 		renderStops(g, route, stops, newHits);
+		renderRunInfo(g, route, new Rectangle(stops.x, stops.y + stopsH + 6, leftW, bodyBottom - bodyY - stopsH - 6));
 
 		int rightX = stops.x + stops.width + 8;
 		int rightW = x + w - 8 - rightX;
@@ -216,19 +220,59 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		button(g, start, running ? "Stop run" : "Start run", false);
 		newHits.add(new Hit(start, running ? manager::stop : manager::start,
 			running ? "Stop guiding this run" : "Guide this run: arrow, patch outlines and the step box"));
+		return switchButton;
+	}
+
+	/** The run's numbers, one per line: patches, ready, progress, run time, when the next run is due, XP and profit. */
+	private void renderRunInfo(Graphics2D g, FarmRoute route, Rectangle area) {
+		if (area.height < 40) {
+			return;
+		}
+		panel(g, area);
+		g.setFont(FontManager.getRunescapeBoldFont());
+		text(g, "This run", area.x + 10, area.y + 18, ORANGE);
 
 		int[] p = manager.progress();
-		String info;
-		if (running) {
-			info = manager.isComplete() ? "Run complete!" : p[0] + " / " + p[1] + " patches done";
+		long ready = route.getStops().stream().flatMap(s -> s.getPatches().stream()).filter(pt -> "ready".equals(pt.getReady())).count();
+		FarmRoute.Summary sum = route.getSummary();
+		List<String[]> rows = new ArrayList<>();
+		List<Color> colors = new ArrayList<>();
+		java.util.function.BiConsumer<String[], Color> row = (r, c) -> { rows.add(r); colors.add(c); };
+		row.accept(new String[]{"Patches", String.valueOf(p[1])}, Color.WHITE);
+		if (manager.isRunning()) {
+			row.accept(new String[]{"Done", manager.isComplete() ? "Run complete!" : p[0] + " / " + p[1]}, manager.isComplete() ? GREEN : YELLOW);
 		} else {
-			long ready = route.getStops().stream().flatMap(s -> s.getPatches().stream()).filter(pt -> "ready".equals(pt.getReady())).count();
-			FarmRoute.Summary sum = route.getSummary();
-			info = p[1] + " patches - " + ready + " ready" + (sum == null ? "" : " - ~" + Math.max(1, Math.round(sum.getActiveSec() / 60.0)) + " min");
+			row.accept(new String[]{"Ready", String.valueOf(ready)}, ready > 0 ? GREEN : Color.WHITE);
 		}
+		if (sum != null) {
+			row.accept(new String[]{"Run time", "~" + Math.max(1, Math.round(sum.getActiveSec() / 60.0)) + " min"}, Color.WHITE);
+		}
+		long next = manager.nextRunAt();
+		long wait = next - System.currentTimeMillis() / 1000;
+		row.accept(new String[]{"Next run", next < 0 ? "not known yet" : next == 0 || wait <= 0 ? "now" : "in ~" + duration(wait)},
+			next < 0 ? GREY : next == 0 || wait <= 0 ? GREEN : Color.WHITE);
+		if (sum != null && sum.getXp() > 0) {
+			row.accept(new String[]{"Farming XP", "~" + QuantityFormatter.quantityToStackSize(sum.getXp())}, Color.WHITE);
+		}
+		if (sum != null && sum.getGp() != 0) {
+			row.accept(new String[]{"Profit", "~" + QuantityFormatter.quantityToStackSize(sum.getGp()) + " gp"}, sum.getGp() > 0 ? GREEN : RED);
+		}
+
 		g.setFont(FontManager.getRunescapeFont());
-		text(g, info, start.x - 10 - g.getFontMetrics().stringWidth(info), subY, running && !manager.isComplete() ? YELLOW : Color.WHITE);
-		return switchButton;
+		int y = area.y + 38;
+		int right = area.x + area.width - 12;
+		for (int i = 0; i < rows.size() && y <= area.y + area.height - 6; i++) {
+			text(g, rows.get(i)[0], area.x + 12, y, BEIGE);
+			String v = rows.get(i)[1];
+			text(g, v, right - g.getFontMetrics().stringWidth(v), y, colors.get(i));
+			y += 17;
+		}
+	}
+
+	/** "45 min", "3h 20m". */
+	private static String duration(long seconds) {
+		long min = Math.max(1, Math.round(seconds / 60.0));
+		return min < 60 ? min + " min" : min / 60 + "h " + min % 60 + "m";
 	}
 
 	private void renderSwitcher(Graphics2D g, Rectangle anchor, List<Hit> newHits) {

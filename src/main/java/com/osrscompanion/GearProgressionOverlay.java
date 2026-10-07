@@ -148,7 +148,7 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 		g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
 		g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
 		g.setStroke(new BasicStroke(1));
-		newHits.add(new Hit(close, manager::close, "Close"));
+		newHits.add(new Hit(close, manager::close, null));
 		g.setColor(PANEL_EDGE);
 		g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
 		g.setColor(FRAME_LIGHT);
