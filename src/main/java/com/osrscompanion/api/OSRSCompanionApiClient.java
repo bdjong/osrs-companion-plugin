@@ -77,6 +77,7 @@ public class OSRSCompanionApiClient
 	private static final String FARMING_UNLOCKS_ENDPOINT = "/api/runelite/farming-unlocks/";
 	private static final String FARM_HARVESTS_ENDPOINT = "/api/runelite/farm-harvests/";
 	private static final String FARM_RUNS_ENDPOINT = "/api/runelite/farm-runs/";
+	private static final String BOSS_TRIPS_ENDPOINT = "/api/runelite/boss-trips/";
 	private static final String COMBAT_ACHIEVEMENTS_ENDPOINT = "/api/runelite/combat-achievements/";
 	private static final String DEATHS_ENDPOINT = "/api/runelite/deaths/";
 	private static final String KILL_COUNTS_ENDPOINT = "/api/runelite/kill-counts/";
@@ -214,6 +215,13 @@ public class OSRSCompanionApiClient
 	{
 		postAsync(FARM_RUNS_ENDPOINT, gson.toJson(body), "farm-run", false, false,
 			() -> log.debug("OSRS Companion farm run recorded"));
+	}
+
+	/** One finished boss trip (Boss Gear page, Trips); an event, so never deduped. */
+	public void sendBossTrip(String json)
+	{
+		postAsync(BOSS_TRIPS_ENDPOINT, json, "boss-trip", false, false,
+			() -> log.debug("OSRS Companion boss trip recorded"));
 	}
 
 	public void sendHouseLocationSync(HouseLocationSyncPayload payload)

@@ -355,4 +355,32 @@ public interface OSRSCompanionConfig extends Config {
 	default boolean syncFarmRuns() {
 		return true;
 	}
+
+	// --- Boss trips ---
+
+	@ConfigSection(
+			name = "Boss Trips",
+			description = "The boss trip log and the supplies check in the bank.",
+			position = 4)
+	String TRIPS_SECTION = "tripsSection";
+
+	@ConfigItem(
+			keyName = "bossTrips",
+			name = "Boss trip log",
+			description = "Record each boss trip (from leaving the bank to the next bank, death or logout): kills, supplies used and loot, and send it to the website's Boss Gear page (Trips).",
+			section = TRIPS_SECTION,
+			position = 0)
+	default boolean bossTrips() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "suppliesCheck",
+			name = "Supplies check in the bank",
+			description = "With the bank open, show how many trips your bank supports for the active boss setup (and how many runs for the farm route), and which supply runs out first.",
+			section = TRIPS_SECTION,
+			position = 1)
+	default boolean suppliesCheck() {
+		return true;
+	}
 }
