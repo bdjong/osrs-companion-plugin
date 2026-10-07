@@ -272,52 +272,165 @@ public class SlayerHelperManager {
 	// ---- Slayer gear (the website's DPS calculator) ---------------------------------------------
 
 	private volatile SlayerGear gear;
-	/** The setup on show in the side panel (0: the best). */
-	private volatile int gearIndex;
+	/** The setup picked in the Slayer gear window (its key), stored per task in the RS profile; null: the best. */
+	private volatile String gearKey;
+	/** Whether the Slayer gear window is open. */
+	private volatile boolean gearOpen;
+	private volatile boolean gearLoading;
+	/** RS profile config key prefix of the picked setup, per task ("slayerGearSet." + task). */
+	static final String GEAR_SET_KEY = "slayerGearSet.";
 
 	/** Reads the best setups for the task's monster, with the guide. */
 	private void loadGear(String name) {
+		gearLoading = true;
 		apiClient.getSlayerGear(name, new OSRSCompanionApiClient.RoadmapCallback<SlayerGear>() {
 			@Override
 			public void onSuccess(SlayerGear result) {
+				gearLoading = false;
 				SlayerGear before = gear;
-				gear = result;
-				// A new task (or monster) starts on its best setup.
-				if (before == null || !java.util.Objects.equals(before.getMonster(), result.getMonster())) {
-					gearIndex = 0;
+				// A new task (or monster) starts on the setup picked for it before, else its best.
+				if (before == null || !java.util.Objects.equals(gearConfigKey(before), gearConfigKey(result))) {
+					String key = gearConfigKey(result);
+					gearKey = key == null ? null : configManager.getRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, key);
 				}
+				gear = result;
 			}
 
 			@Override
 			public void onError(String message) {
+				gearLoading = false;
 				log.debug("Slayer gear: {}", message);
 			}
 		});
+	}
+
+	/** The RS profile config key the picked setup of these setups' task is stored under, or null without a task. */
+	static String gearConfigKey(SlayerGear g) {
+		if (g == null) {
+			return null;
+		}
+		String task = g.getTask() != null && !g.getTask().trim().isEmpty() ? g.getTask() : g.getMonster();
+		if (task == null || task.trim().isEmpty()) {
+			return null;
+		}
+		return GEAR_SET_KEY + task.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "_");
+	}
+
+	/** The index of the setup with this key, else 0 (the best, as the website sends them best first). */
+	static int gearIndex(List<SlayerGear.Set> sets, String key) {
+		if (key != null) {
+			for (int i = 0; i < sets.size(); i++) {
+				if (key.equals(sets.get(i).getKey())) {
+					return i;
+				}
+			}
+		}
+		return 0;
 	}
 
 	public SlayerGear getGear() {
 		return gear;
 	}
 
-	/** The setup on show, or null when there is none. */
+	/** The picked setup (the best when none is picked or it is gone), or null when there is none. */
 	public SlayerGear.Set getGearSet() {
 		SlayerGear g = gear;
 		if (g == null || g.getSets().isEmpty()) {
 			return null;
 		}
-		return g.getSets().get(Math.min(gearIndex, g.getSets().size() - 1));
+		return g.getSets().get(gearIndex(g.getSets(), gearKey));
 	}
 
+	/** The picked setup's place in the list (0: the best). */
 	public int getGearIndex() {
-		return gearIndex;
+		SlayerGear g = gear;
+		return g == null ? 0 : gearIndex(g.getSets(), gearKey);
 	}
 
-	/** Shows the next setup (Melee, Ranged, Magic, Burst...), round. */
-	public void nextGearSet() {
+	/** Picks a setup (from the Slayer gear window) and stores it for this task in the RS profile. */
+	public void selectGearSet(SlayerGear.Set set) {
 		SlayerGear g = gear;
-		if (g != null && !g.getSets().isEmpty()) {
-			gearIndex = (gearIndex + 1) % g.getSets().size();
+		if (set == null || set.getKey() == null || g == null) {
+			return;
 		}
+		gearKey = set.getKey();
+		String key = gearConfigKey(g);
+		if (key != null) {
+			configManager.setRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, key, set.getKey());
+		}
+	}
+
+	public boolean isGearLoading() {
+		return gearLoading || loading;
+	}
+
+	/** Reads the guide and the setups again (the window's Refresh). */
+	public void refreshGear() {
+		if (!loading) {
+			refresh();
+		}
+	}
+
+	// ---- The Slayer gear window ---------------------------------------------------------------
+
+	public boolean isGearOpen() {
+		return gearOpen;
+	}
+
+	public void toggleGearWindow() {
+		if (gearOpen) {
+			closeGearWindow();
+		} else {
+			gearOpen = true;
+			refreshIfStale();
+		}
+	}
+
+	public void closeGearWindow() {
+		gearOpen = false;
+	}
+
+	// ---- The bank layout ----------------------------------------------------------------------
+
+	/** Item names (lower case) read on the client thread. */
+	private final Map<Integer, String> itemNames = new ConcurrentHashMap<>();
+
+	/** Whether the picked setup wears this item: the item, another version of it (charges) or the same name. Bank Tags, client thread. */
+	public boolean needs(int itemId) {
+		SlayerGear.Set set = getGearSet();
+		if (set == null || itemId <= 0) {
+			return false;
+		}
+		int base = net.runelite.client.game.ItemVariationMapping.map(itemId);
+		for (SlayerGear.Piece p : set.getEquipment()) {
+			if (p.getItem() == itemId || p.getItem() > 0 && net.runelite.client.game.ItemVariationMapping.map(p.getItem()) == base) {
+				return true;
+			}
+		}
+		String name = itemName(itemId);
+		if (name == null) {
+			return false;
+		}
+		for (SlayerGear.Piece p : set.getEquipment()) {
+			if (p.getItem() > 0 && name.equals(itemName(p.getItem()))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The item's name in lower case; off the client thread only when it was read there before, else null. */
+	private String itemName(int itemId) {
+		String cached = itemNames.get(itemId);
+		if (cached != null || !client.isClientThread()) {
+			return cached;
+		}
+		net.runelite.api.ItemComposition comp = itemManager.getItemComposition(itemId);
+		String name = comp == null || comp.getName() == null ? null : comp.getName().toLowerCase(java.util.Locale.ROOT);
+		if (name != null) {
+			itemNames.put(itemId, name);
+		}
+		return name;
 	}
 
 	/** How many of the item you carry (inventory, worn, rune pouch), for the slot colours. */
@@ -1021,6 +1134,7 @@ public class SlayerHelperManager {
 			loggedOut();
 		}
 		unsent = new ArrayList<>();
+		gearOpen = false;
 		fetchAtMs = 0;
 		error = null;
 		player = null;

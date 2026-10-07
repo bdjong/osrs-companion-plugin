@@ -2,6 +2,7 @@ package com.osrscompanion;
 
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
+import com.osrscompanion.model.SlayerGear;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,7 +53,10 @@ import net.runelite.client.util.Text;
  * {@link Layout} for it is saved with {@link LayoutManager#saveLayout} and the tag opens with
  * {@link BankTagsService#openBankTag}. When the Bank Tags plugin is off, the bank is left alone.
  *
- * <p>Only one drives the bank at a time: the Boss gear window first, then the farm run.
+ * <p>The Slayer helper's picked setup (Slayer gear window) is laid out the same way, its worn gear only.
+ *
+ * <p>Only one drives the bank at a time: an open Boss gear / Slayer gear window first, then the farm
+ * run, then the boss setup, then the slayer setup.
  *
  * <p>The old "Bank Tag Layouts" hub plugin lays out any open tag itself when its "Enable layout by
  * default" is on: right after Bank Tags draws our layout it packs every item from the top again (and
@@ -63,12 +67,14 @@ import net.runelite.client.util.Text;
 public class BankLayoutPrep {
 	static final String BOSS_TAG = "osrs companion boss gear";
 	static final String FARM_TAG = "osrs companion farm run";
+	static final String SLAYER_TAG = "osrs companion slayer gear";
 
 	private final Client client;
 	private final ClientThread clientThread;
 	private final ItemManager itemManager;
 	private final FarmRunManager farmRun;
 	private final BossGearManager bossGear;
+	private final SlayerHelperManager slayer;
 	private final OSRSCompanionConfig config;
 	private final BankTagsService bankTags;
 	private final TagManager tagManager;
@@ -87,7 +93,7 @@ public class BankLayoutPrep {
 	private String applied;
 
 	enum Driver {
-		BOSS, FARM
+		BOSS, FARM, SLAYER
 	}
 
 	/**
@@ -105,13 +111,14 @@ public class BankLayoutPrep {
 
 	@Inject
 	public BankLayoutPrep(Client client, ClientThread clientThread, ItemManager itemManager, FarmRunManager farmRun,
-		BossGearManager bossGear, OSRSCompanionConfig config, BankTagsService bankTags, TagManager tagManager, LayoutManager layoutManager,
-		PluginManager pluginManager, ConfigManager configManager) {
+		BossGearManager bossGear, SlayerHelperManager slayer, OSRSCompanionConfig config, BankTagsService bankTags, TagManager tagManager,
+		LayoutManager layoutManager, PluginManager pluginManager, ConfigManager configManager) {
 		this.client = client;
 		this.clientThread = clientThread;
 		this.itemManager = itemManager;
 		this.farmRun = farmRun;
 		this.bossGear = bossGear;
+		this.slayer = slayer;
 		this.config = config;
 		this.bankTags = bankTags;
 		this.tagManager = tagManager;
@@ -120,17 +127,20 @@ public class BankLayoutPrep {
 		this.configManager = configManager;
 		bankLayoutSettings.put("bossGearBankLayout", config::bossGearBankLayout);
 		bankLayoutSettings.put("farmRunBankFilter", config::farmRunBankFilter);
+		bankLayoutSettings.put("slayerGearBankLayout", config::slayerGearBankLayout);
 	}
 
-	/** Registers the two tags; their items follow the active set / route live. */
+	/** Registers the tags; their items follow the active set / route / slayer setup live. */
 	public void startUp() {
 		// Bank Tags reads its tags on the client thread.
 		clientThread.invoke(() -> {
 			tagManager.registerTag(BOSS_TAG, bossGear::needs);
 			tagManager.registerTag(FARM_TAG, farmRun::needs);
+			tagManager.registerTag(SLAYER_TAG, slayer::needs);
 		});
 		keepHubLayoutsOff(BOSS_TAG);
 		keepHubLayoutsOff(FARM_TAG);
+		keepHubLayoutsOff(SLAYER_TAG);
 		// Both used to be on by default: keep only the first one that is on.
 		String first = null;
 		for (Map.Entry<String, java.util.function.BooleanSupplier> e : bankLayoutSettings.entrySet()) {
@@ -193,9 +203,11 @@ public class BankLayoutPrep {
 			}
 			tagManager.unregisterTag(BOSS_TAG);
 			tagManager.unregisterTag(FARM_TAG);
+			tagManager.unregisterTag(SLAYER_TAG);
 			// The layouts are rebuilt on every bank open: none left in the Bank Tags config.
 			layoutManager.removeLayout(BOSS_TAG);
 			layoutManager.removeLayout(FARM_TAG);
+			layoutManager.removeLayout(SLAYER_TAG);
 			applied = null;
 			userLeft = false;
 		});
@@ -246,6 +258,9 @@ public class BankLayoutPrep {
 			}
 			if (config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isOpen()) {
 				farmRun.refreshIfStale();
+			}
+			if (config.slayerGearBankLayout() && slayer.getTask() != null) {
+				slayer.refreshIfStale();
 			}
 			verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
 			// Not yet: opening our tag before the bank has been built leaves Bank Tags filtering without
@@ -337,12 +352,23 @@ public class BankLayoutPrep {
 				continue;
 			}
 			int item = itemManager.canonicalize(id);
-			if (d == Driver.BOSS ? !bossGear.needs(item) : !farmRun.needs(item)) {
-				log.debug("Bank layout: the bank shows item {} the {} does not need", item, d == Driver.BOSS ? "boss setup" : "farm route");
+			if (!needs(d, item)) {
+				log.debug("Bank layout: the bank shows item {} the {} does not need", item, d);
 				return false;
 			}
 		}
 		return true;
+	}
+
+	private boolean needs(Driver d, int item) {
+		switch (d) {
+			case BOSS:
+				return bossGear.needs(item);
+			case SLAYER:
+				return slayer.needs(item);
+			default:
+				return farmRun.needs(item);
+		}
 	}
 
 	/** Everything that decides the layout, for the debug log. */
@@ -352,6 +378,8 @@ public class BankLayoutPrep {
 			+ ", bank layout setting " + config.bossGearBankLayout() + ", loading " + bossGear.isLoading() + ", window open " + bossGear.isOpen()
 			+ " | farm: route " + (farmRun.getRoute() == null ? "none" : farmRun.getRoute().getId()) + ", setting " + config.farmRunBankFilter()
 			+ ", running " + farmRun.isRunning() + ", complete " + farmRun.isComplete()
+			+ " | slayer: setup " + (slayer.getGearSet() == null ? "none" : slayer.getGearSet().getKey()) + ", setting " + config.slayerGearBankLayout()
+			+ ", window open " + slayer.isGearOpen()
 			+ " | Bank Tags on " + bankTagsOn() + ", driver " + driver();
 	}
 
@@ -369,19 +397,32 @@ public class BankLayoutPrep {
 
 	/**
 	 * Which feature drives the bank now. Each is "active in the bank" by its own setting, and the farm
-	 * route only while a farm run is going (started and not complete). When both are, an open boss
-	 * gear window wins, then the farm run, then the boss setup.
+	 * route only while a farm run is going (started and not complete), the slayer setup only with a
+	 * task. When more are, an open boss gear / slayer gear window wins, then the farm run, then the
+	 * boss setup, then the slayer setup.
 	 */
 	Driver driver() {
 		boolean boss = bossGear.isSetActive() && config.bossGearBankLayout();
 		boolean farm = farmRun.getRoute() != null && config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isComplete();
-		if (boss && bossGear.isOpen()) {
+		boolean slayerGear = config.slayerGearBankLayout() && slayer.getTask() != null && slayer.getGearSet() != null;
+		return pick(boss, bossGear.isOpen(), farm, slayerGear, slayer.isGearOpen());
+	}
+
+	/** Which one drives the bank, given which are on and which windows are open (see {@link #driver()}). */
+	static Driver pick(boolean boss, boolean bossOpen, boolean farm, boolean slayerGear, boolean slayerOpen) {
+		if (boss && bossOpen) {
 			return Driver.BOSS;
+		}
+		if (slayerGear && slayerOpen) {
+			return Driver.SLAYER;
 		}
 		if (farm) {
 			return Driver.FARM;
 		}
-		return boss ? Driver.BOSS : null;
+		if (boss) {
+			return Driver.BOSS;
+		}
+		return slayerGear ? Driver.SLAYER : null;
 	}
 
 	/** Changes with the driver and whenever its data is reloaded (a new object), so a switched set is laid out again. */
@@ -389,6 +430,10 @@ public class BankLayoutPrep {
 		if (d == Driver.BOSS) {
 			BossGear s = bossGear.getSet();
 			return "boss:" + s.getId() + ":" + System.identityHashCode(s) + ":" + config.bankLayoutPositions();
+		}
+		if (d == Driver.SLAYER) {
+			SlayerGear.Set s = slayer.getGearSet();
+			return "slayer:" + s.getKey() + ":" + System.identityHashCode(s) + ":" + config.bankLayoutPositions();
 		}
 		FarmRoute r = farmRun.getRoute();
 		return "farm:" + r.getId() + ":" + System.identityHashCode(r) + ":" + farmRun.inventory().size() + ":" + config.bankLayoutPositions();
@@ -432,11 +477,11 @@ public class BankLayoutPrep {
 
 	private boolean isOurTagOpen() {
 		String tag = bankTagsOn() ? bankTags.getActiveTag() : null;
-		return BOSS_TAG.equals(tag) || FARM_TAG.equals(tag);
+		return BOSS_TAG.equals(tag) || FARM_TAG.equals(tag) || SLAYER_TAG.equals(tag);
 	}
 
 	private void apply(Driver d) {
-		String tag = d == Driver.BOSS ? BOSS_TAG : FARM_TAG;
+		String tag = d == Driver.BOSS ? BOSS_TAG : d == Driver.SLAYER ? SLAYER_TAG : FARM_TAG;
 		laidOut = null;
 		if (!bankTagsOn()) {
 			// The layout goes through Bank Tags; without it the bank is left alone (no typing into the bank search).
@@ -444,13 +489,14 @@ public class BankLayoutPrep {
 			if (!bankTagsHintShown) {
 				bankTagsHintShown = true;
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff9040>OSRS Companion: turn on RuneLite's Bank Tags plugin to have your "
-					+ (d == Driver.BOSS ? "boss gear" : "farm run") + " laid out in the bank.</col>", null);
+					+ (d == Driver.BOSS ? "boss gear" : d == Driver.SLAYER ? "slayer gear" : "farm run") + " laid out in the bank.</col>", null);
 			}
 			return;
 		}
 		keepHubLayoutsOff(tag);
 		BankItems bank = new BankItems();
-		int[] positions = d == Driver.BOSS ? bossLayout(bossGear.getSet(), bank) : farmLayout(bank);
+		int[] positions = d == Driver.BOSS ? bossLayout(bossGear.getSet(), bank) : d == Driver.SLAYER ? slayerLayout(slayer.getGearSet(), bank)
+			: farmLayout(bank);
 		layoutManager.saveLayout(new Layout(tag, positions));
 		laidOut = positions;
 		int options = BankTagsService.OPTION_HIDE_TAG_NAME | BankTagsService.OPTION_ITEMS_NOT_IN_LAYOUT_AT_BOTTOM
@@ -492,6 +538,22 @@ public class BankLayoutPrep {
 		return BankLayouts.build(worn, inv, pouch, special == null ? -1 : bank.resolve(special.getIds()));
 	}
 
+	/** The slayer setup's worn gear in the doll's places; the inventory stays empty. */
+	private int[] slayerLayout(SlayerGear.Set set, BankItems bank) {
+		return BankLayouts.build(slayerWorn(set, bank::resolveOne), Collections.emptyList(), Collections.emptyList(), -1);
+	}
+
+	/** Worn slot name to item (resolved to the version in the bank), the first piece per slot; pieces without an item are left out. */
+	static Map<String, Integer> slayerWorn(SlayerGear.Set set, java.util.function.IntUnaryOperator resolve) {
+		Map<String, Integer> worn = new LinkedHashMap<>();
+		for (SlayerGear.Piece p : set.getEquipment()) {
+			if (p.getSlot() != null && p.getItem() > 0) {
+				worn.putIfAbsent(p.getSlot(), resolve.applyAsInt(p.getItem()));
+			}
+		}
+		return worn;
+	}
+
 	private int[] farmLayout(BankItems bank) {
 		FarmRoute r = farmRun.getRoute();
 		Map<String, Integer> worn = new LinkedHashMap<>();
@@ -530,6 +592,10 @@ public class BankLayoutPrep {
 				ids.add(id);
 				byBase.putIfAbsent(ItemVariationMapping.map(id), id);
 			}
+		}
+
+		int resolveOne(int itemId) {
+			return resolve(Collections.singletonList(itemId));
 		}
 
 		int resolve(List<Integer> candidates) {

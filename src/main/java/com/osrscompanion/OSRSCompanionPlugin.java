@@ -207,6 +207,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private BossGearWindow bossGearWindow;
 
 	@Inject
+	private SlayerGearWindow slayerGearWindow;
+
+	@Inject
 	private RoadmapWindow roadmapWindow;
 
 	@Inject
@@ -348,7 +351,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, itemManager,
+		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
 				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager,
 				slayerHelperManager, clientThread, dailiesManager);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
@@ -395,6 +398,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		mouseManager.registerMouseListener(bossGearWindow);
 		mouseManager.registerMouseWheelListener(bossGearWindow);
 		keyManager.registerKeyListener(bossGearWindow);
+		// Slayer gear: the DPS setups for the task (Slayer helper page tile); the picked one is what the bank lays out.
+		overlayManager.add(slayerGearWindow);
+		mouseManager.registerMouseListener(slayerGearWindow);
+		mouseManager.registerMouseWheelListener(slayerGearWindow);
+		keyManager.registerKeyListener(slayerGearWindow);
 		// Supplies check: beside the open bank.
 		overlayManager.add(suppliesOverlay);
 
@@ -403,10 +411,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		overlayManager.add(dailiesSceneOverlay);
 	}
 
-	/** The roadmap, farm run and boss gear windows share the middle of the screen (and the bank): one at a time. */
+	/** The roadmap, farm run, boss gear and slayer gear windows share the middle of the screen (and the bank): one at a time. */
 	private void toggleFarmRun() {
 		if (!farmRunManager.isOpen()) {
 			bossGearManager.close();
+			slayerHelperManager.closeGearWindow();
 			roadmapWindow.close();
 		}
 		farmRunManager.toggle();
@@ -415,15 +424,26 @@ public class OSRSCompanionPlugin extends Plugin {
 	private void toggleBossGear() {
 		if (!bossGearManager.isOpen()) {
 			farmRunManager.close();
+			slayerHelperManager.closeGearWindow();
 			roadmapWindow.close();
 		}
 		bossGearManager.toggle();
+	}
+
+	private void toggleSlayerGear() {
+		if (!slayerHelperManager.isGearOpen()) {
+			farmRunManager.close();
+			bossGearManager.close();
+			roadmapWindow.close();
+		}
+		slayerHelperManager.toggleGearWindow();
 	}
 
 	private void toggleRoadmap() {
 		if (!roadmapWindow.isOpen()) {
 			farmRunManager.close();
 			bossGearManager.close();
+			slayerHelperManager.closeGearWindow();
 		}
 		roadmapWindow.toggle();
 	}
@@ -574,6 +594,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		mouseManager.unregisterMouseListener(bossGearWindow);
 		mouseManager.unregisterMouseWheelListener(bossGearWindow);
 		keyManager.unregisterKeyListener(bossGearWindow);
+		slayerHelperManager.closeGearWindow();
+		overlayManager.remove(slayerGearWindow);
+		mouseManager.unregisterMouseListener(slayerGearWindow);
+		mouseManager.unregisterMouseWheelListener(slayerGearWindow);
+		keyManager.unregisterKeyListener(slayerGearWindow);
 		bossGearManager.clear();
 		roadmapManager.clear();
 		log.debug("OSRS Companion stopped");
