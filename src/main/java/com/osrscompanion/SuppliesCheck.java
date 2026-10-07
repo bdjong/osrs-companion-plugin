@@ -146,8 +146,9 @@ public class SuppliesCheck {
 		if (!config.suppliesCheck() || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
 			return;
 		}
-		BossGear set = bossGear.getSet();
-		FarmRoute route = farmRun.getRoute();
+		// Only for the tool whose bank checkbox is on (boss gear "Bank layout", farm run "Active in the bank").
+		BossGear set = config.bossGearBankLayout() && bossGear.isSetActive() ? bossGear.getSet() : null;
+		FarmRoute route = config.farmRunBankFilter() ? farmRun.getRoute() : null;
 		if (!dirty && set == lastSet && route == lastRoute) {
 			return;
 		}
@@ -161,7 +162,7 @@ public class SuppliesCheck {
 		for (Map.Entry<String, Long> e : counter.carried().entrySet()) {
 			have.merge(e.getKey(), e.getValue(), Long::sum);
 		}
-		boss = set == null || !bossGear.isSetActive() ? null : checkBoss(set, have);
+		boss = set == null ? null : checkBoss(set, have);
 		farm = route == null ? null : checkFarm(route, have);
 	}
 
