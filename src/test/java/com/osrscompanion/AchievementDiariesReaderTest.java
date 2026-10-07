@@ -7,8 +7,10 @@ import static org.junit.Assert.assertTrue;
 import com.google.gson.Gson;
 import com.osrscompanion.model.DiaryTierResult;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.IntUnaryOperator;
+import net.runelite.api.gameval.VarbitID;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -97,6 +99,46 @@ public class AchievementDiariesReaderTest {
 		varbits.put(4499, 1);
 		Map<String, Map<String, DiaryTierResult>> diaries = reader.read(source(varbits), ALL_ZERO);
 		assertTrue(diaries.get("Ardougne").get("Easy").isComplete());
+	}
+
+	@Test
+	public void testEachRegionCompletesFromItsOwnRewardVarbits() {
+		// Every tier's complete flag must come from that region's own reward varbit. Western
+		// Provinces once pointed at Varrock's (4519-4522), so a Varrock completion leaked into
+		// Western and a real Western completion never showed. Setting exactly one reward varbit
+		// must complete exactly that one tier across all 48.
+		Map<String, int[]> rewardVarbits = new LinkedHashMap<>();
+		rewardVarbits.put("Ardougne", new int[]{VarbitID.ARDOUGNE_EASY_REWARD, VarbitID.ARDOUGNE_MEDIUM_REWARD, VarbitID.ARDOUGNE_HARD_REWARD, VarbitID.ARDOUGNE_ELITE_REWARD});
+		rewardVarbits.put("Desert", new int[]{VarbitID.DESERT_EASY_REWARD, VarbitID.DESERT_MEDIUM_REWARD, VarbitID.DESERT_HARD_REWARD, VarbitID.DESERT_ELITE_REWARD});
+		rewardVarbits.put("Falador", new int[]{VarbitID.FALADOR_EASY_REWARD, VarbitID.FALADOR_MEDIUM_REWARD, VarbitID.FALADOR_HARD_REWARD, VarbitID.FALADOR_ELITE_REWARD});
+		rewardVarbits.put("Fremennik", new int[]{VarbitID.FREMENNIK_EASY_REWARD, VarbitID.FREMENNIK_MEDIUM_REWARD, VarbitID.FREMENNIK_HARD_REWARD, VarbitID.FREMENNIK_ELITE_REWARD});
+		rewardVarbits.put("Kandarin", new int[]{VarbitID.KANDARIN_EASY_REWARD, VarbitID.KANDARIN_MEDIUM_REWARD, VarbitID.KANDARIN_HARD_REWARD, VarbitID.KANDARIN_ELITE_REWARD});
+		rewardVarbits.put("Karamja", new int[]{VarbitID.ATJUN_EASY_REWARD, VarbitID.ATJUN_MED_REWARD, VarbitID.ATJUN_HARD_REWARD, VarbitID.KARAMJA_ELITE_REWARD});
+		rewardVarbits.put("Kourend & Kebos", new int[]{VarbitID.KOUREND_EASY_REWARD, VarbitID.KOUREND_MEDIUM_REWARD, VarbitID.KOUREND_HARD_REWARD, VarbitID.KOUREND_ELITE_REWARD});
+		rewardVarbits.put("Lumbridge & Draynor", new int[]{VarbitID.LUMBRIDGE_EASY_REWARD, VarbitID.LUMBRIDGE_MEDIUM_REWARD, VarbitID.LUMBRIDGE_HARD_REWARD, VarbitID.LUMBRIDGE_ELITE_REWARD});
+		rewardVarbits.put("Morytania", new int[]{VarbitID.MORYTANIA_EASY_REWARD, VarbitID.MORYTANIA_MEDIUM_REWARD, VarbitID.MORYTANIA_HARD_REWARD, VarbitID.MORYTANIA_ELITE_REWARD});
+		rewardVarbits.put("Varrock", new int[]{VarbitID.VARROCK_EASY_REWARD, VarbitID.VARROCK_MEDIUM_REWARD, VarbitID.VARROCK_HARD_REWARD, VarbitID.VARROCK_ELITE_REWARD});
+		rewardVarbits.put("Western Provinces", new int[]{VarbitID.WESTERN_EASY_REWARD, VarbitID.WESTERN_MEDIUM_REWARD, VarbitID.WESTERN_HARD_REWARD, VarbitID.WESTERN_ELITE_REWARD});
+		rewardVarbits.put("Wilderness", new int[]{VarbitID.WILDERNESS_EASY_REWARD, VarbitID.WILDERNESS_MEDIUM_REWARD, VarbitID.WILDERNESS_HARD_REWARD, VarbitID.WILDERNESS_ELITE_REWARD});
+		String[] tierNames = {"Easy", "Medium", "Hard", "Elite"};
+
+		assertEquals(reader.read(ALL_ZERO, ALL_ZERO).keySet(), rewardVarbits.keySet());
+
+		for (Map.Entry<String, int[]> region : rewardVarbits.entrySet()) {
+			for (int t = 0; t < tierNames.length; t++) {
+				int varbitId = region.getValue()[t];
+				Map<String, Map<String, DiaryTierResult>> diaries =
+					reader.read(id -> id == varbitId ? 1 : 0, ALL_ZERO);
+
+				for (Map.Entry<String, Map<String, DiaryTierResult>> r : diaries.entrySet()) {
+					for (Map.Entry<String, DiaryTierResult> tier : r.getValue().entrySet()) {
+						boolean expected = r.getKey().equals(region.getKey()) && tier.getKey().equals(tierNames[t]);
+						assertEquals("varbit " + varbitId + " -> " + r.getKey() + " " + tier.getKey(),
+							expected, tier.getValue().isComplete());
+					}
+				}
+			}
+		}
 	}
 
 	@Test
