@@ -34,8 +34,8 @@ public class BossGearManager {
 	private volatile BossGear set;
 	private volatile List<BossGear.SetSummary> sets = Collections.emptyList();
 	private volatile List<BossGear.CatalogBoss> catalog = Collections.emptyList();
-	/** "Use owned alternatives" for wiki presets, as stored on the website. */
-	private volatile boolean alternatives;
+	/** The gear mode of wiki presets (BossGear.MODE_*), as stored on the website. */
+	private volatile String mode = BossGear.MODE_OWNED;
 	private volatile String error;
 	private volatile boolean loading;
 	private volatile boolean loaded;
@@ -89,19 +89,20 @@ public class BossGearManager {
 	}
 
 	/**
-	 * Turns "Use owned alternatives" on or off (stored on the website, the Boss Gear page shows the same
-	 * switch) and reloads the set: wiki presets then bring the best owned item of the setup's style
-	 * where you own none of the wiki's items.
+	 * Sets the gear mode of wiki presets (stored on the website, the Boss Gear page shows the same choice)
+	 * and reloads the set: always the best in slot, the best owned item of the wiki's list, or that plus
+	 * the best owned item of the setup's style where you own none of the list.
 	 */
-	public void setAlternatives(boolean enabled) {
+	public void setMode(String newMode) {
 		String player = roadmapManager.getPlayerUsername();
-		if (player == null || !roadmapManager.hasAppKey()) {
+		String before = mode;
+		if (player == null || !roadmapManager.hasAppKey() || newMode == null || newMode.equals(before)) {
 			return;
 		}
 		// Shown straight away; the response confirms it.
-		alternatives = enabled;
+		mode = newMode;
 		loading = true;
-		apiClient.setBossGearAlternatives(enabled, player, new OSRSCompanionApiClient.RoadmapCallback<BossGear.Response>() {
+		apiClient.setBossGearMode(newMode, player, new OSRSCompanionApiClient.RoadmapCallback<BossGear.Response>() {
 			@Override
 			public void onSuccess(BossGear.Response result) {
 				callback(null).onSuccess(result);
@@ -109,16 +110,21 @@ public class BossGearManager {
 
 			@Override
 			public void onError(String message) {
-				alternatives = !enabled;
-				error = "Could not change owned alternatives (" + message + ").";
+				mode = before;
+				error = "Could not change the gear mode (" + message + ").";
 				loading = false;
 				log.debug("Boss gear: {}", error);
 			}
 		});
 	}
 
-	public boolean isAlternatives() {
-		return alternatives;
+	public String getMode() {
+		return mode;
+	}
+
+	/** The next gear mode (Best in slot, Best owned, Owned alternatives, ...). */
+	public void cycleMode() {
+		setMode(BossGear.nextMode(mode));
 	}
 
 	private OSRSCompanionApiClient.RoadmapCallback<BossGear.Response> callback(String switchedTo) {
@@ -133,7 +139,7 @@ public class BossGearManager {
 				}
 				sets = result.getSets();
 				catalog = result.getCatalog();
-				alternatives = result.isAlternatives();
+				mode = result.getMode();
 				error = null;
 				loaded = true;
 				loading = false;
@@ -230,6 +236,9 @@ public class BossGearManager {
 		}
 		if (it instanceof BossGear.Slot) {
 			BossGear.Slot s = (BossGear.Slot) it;
+			String where = "special".equals(s.getSlot()) ? "Special attack: " : "switch".equals(s.getSlot()) ? "Alternate weapon: "
+				: "switch_shield".equals(s.getSlot()) ? "Alternate off-hand: " : "";
+			tip.insert(0, where);
 			tip.append(s.isAlternative() ? " - Alternative for " + s.getAltFor() + " (not owned)"
 				: "bis".equals(s.getStatus()) ? " - best in slot" : "partial".equals(s.getStatus()) ? " - best you own (rank " + s.getRank() + ")"
 				: "missing".equals(s.getStatus()) ? " - best in slot, not owned" : "");
@@ -330,7 +339,7 @@ public class BossGearManager {
 		open = false;
 		set = null;
 		sets = Collections.emptyList();
-		alternatives = false;
+		mode = BossGear.MODE_OWNED;
 		loaded = false;
 		error = null;
 	}

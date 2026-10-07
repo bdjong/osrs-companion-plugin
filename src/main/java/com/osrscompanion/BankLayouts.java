@@ -9,7 +9,8 @@ import java.util.Map;
 /**
  * Bank positions for a loadout, 8 items per bank row: the worn equipment in the game's doll shape on
  * the left (columns 0-2), the 28 inventory slots as the 4 x 7 inventory on the right (columns 4-7),
- * the rune pouch under the doll, and anything past 28 items below it all.
+ * the rune pouch under the doll, and anything past 28 items below it all. The special attack weapon
+ * sits right of the helmet, an alternate weapon (and its off-hand) in column 3 next to it.
  *
  * <p>The positions follow the Inventory Setups plugin's "preset" bank layout (dillydill123/inventory-setups,
  * InventorySetupLayoutUtilities#getPresetLayout, BSD 2-Clause), so the bank looks the same either way.
@@ -21,6 +22,9 @@ final class BankLayouts {
 	static final int ROW = 8;
 	/** Where the special attack weapon goes: right of the helmet, where the doll has no slot. */
 	static final int SPECIAL_POS = 2;
+	/** The boss gear's Alternate weapon (a switch): next to the special attack weapon, its off-hand under it. */
+	static final int SWITCH_POS = 3;
+	static final int SWITCH_SHIELD_POS = 11;
 	/** The rune pouch's runes: under the doll (row 5, columns 0-3). */
 	static final int POUCH_START = 40;
 	/** Items past the 28 inventory slots: from row 7 on. */
@@ -41,6 +45,8 @@ final class BankLayouts {
 		m.put("hands", 32);
 		m.put("feet", 33);
 		m.put("ring", 34);
+		m.put("switch", SWITCH_POS);
+		m.put("switch_shield", SWITCH_SHIELD_POS);
 		EQUIPMENT_POS = Collections.unmodifiableMap(m);
 	}
 
@@ -52,7 +58,7 @@ final class BankLayouts {
 	/**
 	 * The layout as bank positions holding item ids (-1: empty).
 	 *
-	 * @param worn      item per worn slot name (head, cape, ...); unknown slots are left out
+	 * @param worn      item per worn slot name (head, cape, ..., switch, switch_shield); unknown slots are left out
 	 * @param inventory item per inventory slot in order; null or -1 = empty slot
 	 * @param pouch     the rune pouch's runes (up to 4 used)
 	 * @param special   the special attack weapon, or -1

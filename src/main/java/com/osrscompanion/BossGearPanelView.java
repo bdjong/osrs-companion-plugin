@@ -21,8 +21,8 @@ import net.runelite.client.ui.FontManager;
 
 /**
  * The active boss setup in the side panel (Boss page, "Gear display" on): the worn gear in the
- * game's layout with the special attack weapon beside it, the 28 inventory slots and the rune
- * pouch, each slot coloured like the boss gear window (carried, in the bank, missing).
+ * game's layout with the special attack weapon and the alternate weapon beside it, the 28 inventory
+ * slots and the rune pouch, each slot coloured like the boss gear window (carried, in the bank, missing).
  */
 class BossGearPanelView extends JComponent {
 	private static final int SLOT = 36;
@@ -125,23 +125,41 @@ class BossGearPanelView extends JComponent {
 			g.setFont(FontManager.getRunescapeSmallFont());
 			shadow(g, "ACTIVE GEAR", 12, 16, HEADING);
 
-			// Worn: the game's 3-column doll, the special attack weapon in the 4th column on the weapon row.
+			// Worn: the game's 3-column doll, the special attack weapon in the 4th column on the weapon row
+			// (on the cape row when there is an alternate weapon: that one, and its off-hand, go below it).
 			g.setFont(FontManager.getRunescapeBoldFont());
 			shadow(g, "Worn", x0, 36, Color.WHITE);
 			for (int r = 0; r < BossGearWindow.EQUIPMENT.length; r++) {
 				for (int col = 0; col < 3; col++) {
 					String name = BossGearWindow.EQUIPMENT[r][col];
 					if (name != null) {
-						slot(g, new Rectangle(x0 + col * CELL, 44 + r * CELL, SLOT, SLOT), set.slot(name), 0, set.isSynced(), newTips);
+						Rectangle area = new Rectangle(x0 + col * CELL, 44 + r * CELL, SLOT, SLOT);
+						slot(g, area, set.slot(name), 0, set.isSynced(), newTips);
+						if ("shield".equals(name) && set.isTwoHanded() && set.slot(name) == null) {
+							// Nothing in the off-hand with a two-handed weapon.
+							g.setFont(FontManager.getRunescapeSmallFont());
+							shadow(g, "2H", area.x + (SLOT - g.getFontMetrics().stringWidth("2H")) / 2, area.y + SLOT / 2 + 4, GREY);
+							newTips.add(new Tip(area, "Shield: empty, the weapon is two-handed"));
+						}
 					}
 				}
 			}
 			BossGear.Slot special = set.slot("special");
+			BossGear.Slot alternate = set.slot("switch");
+			BossGear.Slot alternateShield = set.slot("switch_shield");
+			int sx = x0 + 3 * CELL;
+			g.setFont(FontManager.getRunescapeSmallFont());
+			int specialY = alternate == null ? 124 : 84;
 			if (special != null) {
-				g.setFont(FontManager.getRunescapeSmallFont());
-				int sx = x0 + 3 * CELL;
-				shadow(g, "Spec", sx + (SLOT - g.getFontMetrics().stringWidth("Spec")) / 2, 118, GREY);
-				slot(g, new Rectangle(sx, 124, SLOT, SLOT), special, 0, set.isSynced(), newTips);
+				shadow(g, "Spec", sx + (SLOT - g.getFontMetrics().stringWidth("Spec")) / 2, specialY - 6, GREY);
+				slot(g, new Rectangle(sx, specialY, SLOT, SLOT), special, 0, set.isSynced(), newTips);
+			}
+			if (alternate != null) {
+				shadow(g, "Alt", sx + (SLOT - g.getFontMetrics().stringWidth("Alt")) / 2, 158, GREY);
+				slot(g, new Rectangle(sx, 164, SLOT, SLOT), alternate, 0, set.isSynced(), newTips);
+				if (alternateShield != null) {
+					slot(g, new Rectangle(sx, 204, SLOT, SLOT), alternateShield, 0, set.isSynced(), newTips);
+				}
 			}
 
 			// Inventory: 4 x 7.

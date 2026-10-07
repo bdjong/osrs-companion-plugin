@@ -296,12 +296,14 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, toggle("Gear display", "Shown below", "Hidden", BOSS, "bossGearPanelDisplay", config::bossGearPanelDisplay)
 			.withNote(() -> bossGear.getSet() != null && !bossGear.isSetActive() && config.bossGearPanelDisplay() ? "Hidden while Inactive" : null),
 			"Show the active setup's worn gear, inventory and rune pouch in this panel.");
-		add(p, new PanelTiles.Toggle("Owned alternatives", "Missing items: best owned instead", "Wiki gear only", BOSS, bossGear::isAlternatives, () -> {
-			bossGear.setAlternatives(!bossGear.isAlternatives());
-			deck.repaint();
-		}).withNote(() -> bossGear.isAlternatives() && isCustomBuild(bossGear.getSet()) ? "Custom builds unchanged" : null),
-			"Wiki presets: where you own none of the items the wiki lists for a slot, use the best item you own of the setup's style "
-				+ "(melee / ranged / magic, checked with the DPS calculator), marked A. Synced with the website's Boss Gear page.");
+		add(p, new PanelTiles.Choice("Gear mode", BossGear.MODES, BossGear::modeLabel, BossGear::modeShortLabel, BossGear::modeDescription, BOSS,
+			bossGear::getMode, m -> {
+				bossGear.setMode(m);
+				deck.repaint();
+			}).withNote(() -> isCustomBuild(bossGear.getSet()) ? "Wiki presets only: custom builds unchanged" : null),
+			"Which gear wiki presets bring: Best in slot (always the wiki's best, owned or not), Best owned (the best you own from the wiki's "
+				+ "list) or Owned alternatives (also your best item of the setup's style where you own none of the list, marked A). "
+				+ "Synced with the website's Boss Gear page.");
 		add(p, overview("GEAR", "OVERVIEW", "Load a preset or build", BOSS, new Color(0x120A24), new Color(0x5B21B6), SpriteID.TAB_EQUIPMENT, openWindow),
 			"Open or close the boss gear window: the setup's gear and inventory; load a wiki preset or one of your custom builds there (Escape closes it).");
 		gearView = new BossGearPanelView(bossGear, itemManager);
