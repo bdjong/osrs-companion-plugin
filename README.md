@@ -12,6 +12,10 @@ The goal overlay updates as you play: XP, kills, drops and collection log unlock
 
 Load the ironman gear progression on the website (Tools > Gear progression), then open it in game with the **Gear progression** button in the side panel. It shows the tiers like the Leagues menus: steps from left to right, items stacked in one column are on the same level. Select an item to mark it done or make it your current roadmap goal. Escape closes the window.
 
+## Slayer helper
+
+The **Slayer helper** tile in the side panel shows your task (kills left, master) and the best place to do it (or the one you picked on the website). Switch the **Guide** on and a step box, the hint arrow and a Slayer icon on the world map lead you there; click the icon for the way there in a popup. Once you are in the area the box shows the task's stats instead: time at the location, average kill time (each monster timed on its own, so barraging stays valid), kills per hour, estimated time left and loot. Each visit is sent to the website (with Slayer syncing on), which charts it per task.
+
 ## License
 
 BSD 2-Clause, see [LICENSE](LICENSE). This plugin includes third-party code; see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) for their copyright notices and licenses.

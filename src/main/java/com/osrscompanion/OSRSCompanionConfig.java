@@ -280,7 +280,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "autoCapeTeleport",
 			name = "Auto set teleport left click",
-			description = "During a farm run, the teleport item the current stop uses gets that teleport as its left click, worn or in the inventory: capes (Tele to POH, a town's house portal, the Farming Guild), the Ardougne cloak, Kharedst's memoirs / Book of the dead, jewellery and others.",
+			description = "During a farm run (and while the Slayer guide leads you to your task), the teleport item the current stop uses gets that teleport as its left click, worn or in the inventory: capes (Tele to POH, a town's house portal, the Farming Guild), the Ardougne cloak, Kharedst's memoirs / Book of the dead, jewellery and others.",
 			section = FEATURES_SECTION,
 			position = 9)
 	default boolean autoCapeTeleport() {
@@ -295,6 +295,16 @@ public interface OSRSCompanionConfig extends Config {
 			position = 10)
 	default boolean farmRunPopup() {
 		return true;
+	}
+
+	@ConfigItem(
+			keyName = "slayerGuide",
+			name = "Slayer guide",
+			description = "With a slayer task: guides you to the task's best location (or the one picked on the website) with a step box, the arrow and a Slayer icon on the world map (click it for the way there). Once you are there the box shows the task's live stats instead. Also switched in the side panel's Slayer helper page.",
+			section = FEATURES_SECTION,
+			position = 11)
+	default boolean slayerGuide() {
+		return false;
 	}
 
 

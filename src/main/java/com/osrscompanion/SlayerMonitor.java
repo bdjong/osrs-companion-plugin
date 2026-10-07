@@ -126,7 +126,7 @@ public class SlayerMonitor {
 	// Loose on purpose: matches the known completion message variants ("You've
 	// completed X tasks in a row...", points and Wilderness forms). The backend
 	// treats chat as corroboration, so a miss degrades gracefully.
-	private static final java.util.regex.Pattern COMPLETION_CHAT_PATTERN =
+	static final java.util.regex.Pattern COMPLETION_CHAT_PATTERN =
 			java.util.regex.Pattern.compile("completed.{0,40}?\\d[\\d,]* tasks?",
 					java.util.regex.Pattern.CASE_INSENSITIVE);
 
@@ -822,6 +822,14 @@ public class SlayerMonitor {
 			return "completed";
 		}
 		return "unknown";
+	}
+
+	/**
+	 * The task's display name ("Abyssal demons"), or null when it can't be read; for the Slayer
+	 * helper, which reads the task varps itself. Client thread only.
+	 */
+	String taskName(int taskId, Integer bossTaskId) {
+		return resolveTaskName(taskId, bossTaskId);
 	}
 
 	/**
