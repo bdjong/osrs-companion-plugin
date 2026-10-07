@@ -5,18 +5,12 @@ import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapGoal;
-import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.GradientPaint;
-import java.awt.Graphics2D;
 import java.awt.Insets;
-import java.awt.RenderingHints;
-import java.awt.geom.RoundRectangle2D;
-import java.awt.image.BufferedImage;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -37,7 +31,6 @@ import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
-import net.runelite.client.util.AsyncBufferedImage;
 
 /**
  * The OSRS Companion side panel: a menu of four tool tiles (like the website's tool banners).
@@ -241,13 +234,7 @@ public class RoadmapPanel extends PluginPanel {
 		}), null);
 		add(p, toggle("Active in the bank", "Bank shows items during a run", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter), null);
 		add(p, toggle("Run guide", "Arrow + patch outlines", "Guide hidden", FARM, "showFarmRun", config::showFarmRun), null);
-		// A watering can in a square, as big as the tile allows.
-		FeatureTile route = FeatureTile.banner("ROUTE", "OVERVIEW", "Stops and what to bring", FARM, new Color(0x08130C), new Color(0x166534),
-			null, openWindow).iconSize(54);
-		AsyncBufferedImage can = itemManager.getImage(ItemID.WATERING_CAN_8);
-		route.setIcon(framed(can, FARM));
-		can.onLoaded(() -> SwingUtilities.invokeLater(() -> route.setIcon(framed(can, FARM))));
-		add(p, route,
+		add(p, overview("ROUTE", "OVERVIEW", "Stops and what to bring", FARM, new Color(0x08130C), new Color(0x166534), SpriteID.SKILL_FARMING, openWindow),
 			"Open or close the farm run window: stops, what to bring, start or stop the run, switch route (Escape closes it).");
 		return p;
 	}
@@ -339,57 +326,6 @@ public class RoadmapPanel extends PluginPanel {
 		FeatureTile tile = FeatureTile.banner(white, accentWord, subtitle, accent, from, to, null, action);
 		spriteManager.getSpriteAsync(spriteId, 0, img -> SwingUtilities.invokeLater(() -> tile.setIcon(img)));
 		return tile;
-	}
-
-	/**
-	 * An item picture in a rounded square with the feature's colour as its border, the item filling
-	 * most of it (its empty edges cut off). Made at twice the size it is drawn, for clean edges.
-	 */
-	private static BufferedImage framed(BufferedImage item, Color accent) {
-		int size = 96;
-		BufferedImage out = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g = out.createGraphics();
-		try {
-			g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			RoundRectangle2D square = new RoundRectangle2D.Float(3, 3, size - 6, size - 6, 20, 20);
-			g.setPaint(new GradientPaint(0, 0, new Color(0x173A22), 0, size, new Color(0x08160D)));
-			g.fill(square);
-			g.setStroke(new BasicStroke(4f));
-			g.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 220));
-			g.draw(square);
-			g.setStroke(new BasicStroke(2f));
-			g.setColor(new Color(255, 255, 255, 28));
-			g.draw(new RoundRectangle2D.Float(8, 8, size - 16, size - 16, 14, 14));
-
-			// The item's own pixels only (the picture has empty space around it).
-			int minX = item.getWidth(), minY = item.getHeight(), maxX = -1, maxY = -1;
-			for (int y = 0; y < item.getHeight(); y++) {
-				for (int x = 0; x < item.getWidth(); x++) {
-					if ((item.getRGB(x, y) >>> 24) > 0) {
-						minX = Math.min(minX, x);
-						minY = Math.min(minY, y);
-						maxX = Math.max(maxX, x);
-						maxY = Math.max(maxY, y);
-					}
-				}
-			}
-			if (maxX < 0) {
-				return out;
-			}
-			int cw = maxX - minX + 1;
-			int ch = maxY - minY + 1;
-			float scale = Math.min(78f / cw, 78f / ch);
-			int dw = Math.round(cw * scale);
-			int dh = Math.round(ch * scale);
-			int dx = (size - dw) / 2;
-			int dy = (size - dh) / 2;
-			// Game pictures are pixel art: blow them up without blurring.
-			g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-			g.drawImage(item, dx, dy, dx + dw, dy + dh, minX, minY, maxX + 1, maxY + 1, null);
-		} finally {
-			g.dispose();
-		}
-		return out;
 	}
 
 	private FeatureTile back() {
