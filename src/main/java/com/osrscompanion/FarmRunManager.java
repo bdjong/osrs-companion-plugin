@@ -8,9 +8,7 @@ import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.runelite.farming.CompostState;
 import com.osrscompanion.runelite.farming.CompostTracker;
 import com.osrscompanion.runelite.farming.CropState;
-import net.runelite.api.MenuEntry;
 import net.runelite.api.events.PostMenuSort;
-import net.runelite.client.util.Text;
 import com.osrscompanion.runelite.farming.FarmingPatch;
 import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
@@ -52,7 +50,6 @@ import net.runelite.client.Notifier;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemVariationMapping;
 import net.runelite.client.util.QuantityFormatter;
-import net.runelite.client.util.Text;
 
 /**
  * The guided farm run: the active route from the website, which stop you are on and,
@@ -180,16 +177,18 @@ public class FarmRunManager {
 	private final OSRSCompanionConfig config;
 	private final Notifier notifier;
 	private final GoalCompletionNotifier popups;
+	private final TeleportLeftClick teleports;
 
 	@Inject
 	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, OSRSCompanionConfig config, Notifier notifier,
-		GoalCompletionNotifier popups) {
+		GoalCompletionNotifier popups, TeleportLeftClick teleports) {
 		this.client = client;
 		this.apiClient = apiClient;
 		this.roadmapManager = roadmapManager;
 		this.config = config;
 		this.notifier = notifier;
 		this.popups = popups;
+		this.teleports = teleports;
 	}
 
 	/** The farming data the plugin builds at start-up. */
@@ -777,76 +776,8 @@ public class FarmRunManager {
 		return r.getStops().stream().anyMatch(s -> s.getPatches().stream().anyMatch(p -> isHerb(p) && statusOf(p) == Status.TODO && harvestable(p)));
 	}
 
-	/** Capes with teleports a route uses: Max capes, Construction capes, Farming capes, Ardougne cloaks. */
-	private static final Set<Integer> TELEPORT_CAPES = new HashSet<>(java.util.Arrays.asList(
-		13280, 13342, 9789, 9790, FARMING_CAPE, FARMING_CAPE_T, 13121, 13122, 13123, 13124));
-
 	/**
-	 * The cape options for the current stop's way there, best first: Tele to POH, the Farming Guild,
-	 * the Ardougne cloak's farm or Monastery teleport. Empty when it isn't a cape teleport.
-	 */
-	/** "Max cape (Hosidius house portal)": the cape's teleport to a town's house portal. */
-	private static final Pattern HOUSE_PORTAL = Pattern.compile("\\(([a-z' ]+) house portal\\)");
-
-	static List<String> capeOptions(FarmRoute.Travel travel) {
-		if (travel == null) {
-			return Collections.emptyList();
-		}
-		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
-		if (text.contains("tele to poh")) {
-			return Collections.singletonList("tele to poh");
-		}
-		if (HOUSE_PORTAL.matcher(text).find()) {
-			// Worn: the town is in its "POH Portals" list.
-			return Collections.singletonList("poh portals");
-		}
-		if (text.contains("farming guild") || text.contains("farming cape")) {
-			return java.util.Arrays.asList("farming guild", "other teleports", "teleport");
-		}
-		if (text.contains("ardougne cloak")) {
-			return text.contains("monastery") ? java.util.Arrays.asList("kandarin monastery", "monastery")
-				: java.util.Arrays.asList("ardougne farm", "farm");
-		}
-		return Collections.emptyList();
-	}
-
-	/**
-	 * In the inventory the Max cape keeps its teleports in the "Teleports" sub menu: the entry there for the
-	 * current stop's way (Home for Tele to POH, Farming Guild). Empty when there is none.
-	 */
-	static List<String> capeSubOptions(FarmRoute.Travel travel) {
-		if (travel == null) {
-			return Collections.emptyList();
-		}
-		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
-		if (text.contains("tele to poh")) {
-			return Collections.singletonList("home");
-		}
-		java.util.regex.Matcher portal = HOUSE_PORTAL.matcher(text);
-		if (portal.find()) {
-			return Collections.singletonList(portal.group(1));
-		}
-		if (text.contains("farming guild")) {
-			return Collections.singletonList("farming guild");
-		}
-		return Collections.emptyList();
-	}
-
-	/** The last cape menu written to the log, so a hovered cape is logged once, not every frame. */
-	private String lastCapeMenuLog;
-
-	/** Teleport capes by name (the menu's target), as worn and inventory entries don't always carry the item id. */
-	private static boolean isTeleportCape(MenuEntry m) {
-		if (TELEPORT_CAPES.contains(m.getItemId())) {
-			return true;
-		}
-		String target = Text.removeTags(m.getTarget() == null ? "" : m.getTarget()).toLowerCase();
-		return target.contains("max cape") || target.contains("construct. cape") || target.contains("construction cape")
-			|| target.contains("farming cape") || target.contains("ardougne cloak");
-	}
-
-	/**
-	 * "Auto set cape teleport": the cape's teleport to the current stop becomes its left click (worn or in the
+	 * "Auto set cape teleport": the teleport to the current stop becomes its item's left click (worn or in the
 	 * inventory). Runs after every other plugin (Menu Entry Swapper included), so its swap wins.
 	 */
 	@Subscribe(priority = -100)
@@ -855,171 +786,7 @@ public class FarmRunManager {
 		if (!config.autoCapeTeleport() || !running || stop == null || client.isMenuOpen()) {
 			return;
 		}
-		MenuEntry[] entries = client.getMenuEntries();
-		StringBuilder capes = new StringBuilder();
-		for (MenuEntry m : entries) {
-			if (isTeleportCape(m)) {
-				capes.append('\'').append(Text.removeTags(m.getOption())).append("' ");
-			}
-		}
-		if (capes.length() == 0) {
-			travelItemLeftClick(entries, travelOf(stop));
-			return;
-		}
-		FarmRoute.Travel travel = travelOf(stop);
-		List<String> wanted = capeOptions(travel);
-		int best = -1;
-		int bestRank = Integer.MAX_VALUE;
-		for (int i = 0; i < entries.length; i++) {
-			if (!isTeleportCape(entries[i])) {
-				continue;
-			}
-			String option = Text.removeTags(entries[i].getOption()).toLowerCase();
-			for (int rank = 0; rank < wanted.size() && rank < bestRank; rank++) {
-				if (option.contains(wanted.get(rank))) {
-					best = i;
-					bestRank = rank;
-				}
-			}
-		}
-		MenuEntry fromSub = null;
-		if (best < 0) {
-			// Not on the cape's own menu (the Max cape in the inventory): its "Teleports" sub menu has it.
-			List<String> subWanted = capeSubOptions(travel);
-			for (MenuEntry m : entries) {
-				if (fromSub != null || subWanted.isEmpty() || !isTeleportCape(m) || m.getSubMenu() == null) {
-					continue;
-				}
-				for (MenuEntry sub : m.getSubMenu().getMenuEntries()) {
-					String option = Text.removeTags(sub.getOption()).toLowerCase();
-					if (subWanted.stream().anyMatch(option::equals)) {
-						fromSub = sub;
-						break;
-					}
-				}
-			}
-		}
-		String line = "CAPE TELEPORT step " + (stopIndex + 1) + ", travel '" + (travel == null ? null : travel.getName()) + "' ("
-			+ (travel == null ? null : travel.getHow()) + "), looking for " + wanted + ", cape options " + capes
-			+ "-> left click " + (best >= 0 ? "'" + Text.removeTags(entries[best].getOption()) + "'"
-			: fromSub != null ? "'" + Text.removeTags(fromSub.getOption()) + "' (from the Teleports menu)" : "unchanged");
-		if (!line.equals(lastCapeMenuLog)) {
-			lastCapeMenuLog = line;
-			log.info(line);
-		}
-		if (best < 0 && fromSub != null) {
-			// A copy of the sub menu entry on top, the left click (added last), as Menu Entry Swapper does for its
-			// sub menu swaps: same action, and a low priority op raised so it isn't sorted below the others.
-			client.createMenuEntry(-1)
-				.setOption(fromSub.getOption())
-				.setTarget(fromSub.getTarget())
-				.setIdentifier(fromSub.getIdentifier())
-				.setType(fromSub.getType() == MenuAction.CC_OP_LOW_PRIORITY ? MenuAction.CC_OP : fromSub.getType())
-				.setItemId(fromSub.getItemId())
-				.setParam0(fromSub.getParam0())
-				.setParam1(fromSub.getParam1())
-				.onClick(fromSub.onClick());
-			return;
-		}
-		int last = entries.length - 1;
-		if (best < 0 || best == last) {
-			return;
-		}
-		// The last entry is the left click.
-		MenuEntry pick = entries[best];
-		System.arraycopy(entries, best + 1, entries, best, last - best);
-		entries[last] = pick;
-		client.setMenuEntries(entries);
-	}
-
-	/** Item options that never teleport: not made the left click. */
-	private static final Set<String> NOT_TELEPORTS = new HashSet<>(java.util.Arrays.asList(
-		"wear", "wield", "remove", "drop", "use", "examine", "check", "cancel", "walk here", "destroy", "read", "inspect", "features",
-		"spellbook", "check charges", "uncharge", "empty"));
-
-	/** The item name without its charges or dose, to match "Ring of dueling(5)" with "Ring of dueling(8)". */
-	private static String baseName(String name) {
-		return Text.removeTags(name == null ? "" : name).toLowerCase().replaceAll("\\s*\\(\\d+\\)$", "").trim();
-	}
-
-	/**
-	 * Any other teleport item the step uses (Kharedst's memoirs, Book of the dead, Xeric's talisman, a
-	 * necklace...): its option (or sub menu option) named in the step's travel text becomes the left click,
-	 * else its teleport option (Rub, Reminisce, Teleport...). Client thread.
-	 */
-	private void travelItemLeftClick(MenuEntry[] entries, FarmRoute.Travel travel) {
-		if (travel == null || travel.getItems().isEmpty()) {
-			return;
-		}
-		Set<String> names = new HashSet<>();
-		Set<Integer> ids = new HashSet<>();
-		for (int id : travel.getItems()) {
-			ids.add(ItemVariationMapping.map(id));
-			String n = nameOf(id);
-			if (n != null) {
-				names.add(baseName(n));
-			}
-		}
-		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
-		MenuEntry best = null;
-		boolean bestFromSub = false;
-		int bestScore = 0;
-		StringBuilder seen = new StringBuilder();
-		for (MenuEntry m : entries) {
-			boolean ours = (m.getItemId() > 0 && ids.contains(ItemVariationMapping.map(m.getItemId()))) || names.contains(baseName(m.getTarget()));
-			if (!ours) {
-				continue;
-			}
-			List<MenuEntry> options = new ArrayList<>();
-			options.add(m);
-			if (m.getSubMenu() != null) {
-				options.addAll(java.util.Arrays.asList(m.getSubMenu().getMenuEntries()));
-			}
-			for (MenuEntry o : options) {
-				String option = Text.removeTags(o.getOption()).toLowerCase().trim();
-				seen.append('\'').append(option).append("' ");
-				int score = NOT_TELEPORTS.contains(option) || option.isEmpty() ? 0
-					: text.contains(option) ? 100 + option.length()
-					: option.contains("teleport") || option.equals("rub") || option.equals("reminisce") || option.equals("commune")
-						|| option.equals("break") || option.equals("operate") ? 10 : 0;
-				if (score > bestScore) {
-					best = o;
-					bestFromSub = o != m;
-					bestScore = score;
-				}
-			}
-		}
-		if (seen.length() == 0) {
-			return;
-		}
-		String line = "TELEPORT LEFT CLICK step " + (stopIndex + 1) + ", travel '" + travel.getName() + "', item options " + seen
-			+ "-> " + (best == null ? "unchanged" : "'" + Text.removeTags(best.getOption()) + "'" + (bestFromSub ? " (from its sub menu)" : ""));
-		if (!line.equals(lastCapeMenuLog)) {
-			lastCapeMenuLog = line;
-			log.info(line);
-		}
-		if (best == null) {
-			return;
-		}
-		if (bestFromSub) {
-			client.createMenuEntry(-1)
-				.setOption(best.getOption())
-				.setTarget(best.getTarget())
-				.setIdentifier(best.getIdentifier())
-				.setType(best.getType() == MenuAction.CC_OP_LOW_PRIORITY ? MenuAction.CC_OP : best.getType())
-				.setItemId(best.getItemId())
-				.setParam0(best.getParam0())
-				.setParam1(best.getParam1())
-				.onClick(best.onClick());
-			return;
-		}
-		int idx = java.util.Arrays.asList(entries).indexOf(best);
-		int last = entries.length - 1;
-		if (idx >= 0 && idx != last) {
-			System.arraycopy(entries, idx + 1, entries, idx, last - idx);
-			entries[last] = best;
-			client.setMenuEntries(entries);
-		}
+		teleports.apply(travelOf(stop), "farm step " + (stopIndex + 1));
 	}
 
 	/** "Pick" on a herb patch the cape blocks moves below "Walk here", so a left click walks instead. */
