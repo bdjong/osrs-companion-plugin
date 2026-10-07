@@ -173,6 +173,10 @@ public class BossGear {
 		@SerializedName("alt_for")
 		private String altFor;
 
+		/** Why this item and nothing weaker (a boss mechanic), or why a slot brings it (crystal armour with the Bow of Faerdhinen). */
+		@SerializedName("need")
+		private String need;
+
 		public int getItem() {
 			return item;
 		}
@@ -212,6 +216,11 @@ public class BossGear {
 
 		public String getAltFor() {
 			return altForOr("the wiki's item");
+		}
+
+		/** The mechanic or rule behind the item, null when there is none. */
+		public String getNeed() {
+			return need == null || need.isEmpty() ? null : need;
 		}
 
 		protected String altForOr(String fallback) {

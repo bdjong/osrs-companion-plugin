@@ -245,6 +245,9 @@ public class BossGearManager {
 		} else if (it.isAlternative()) {
 			tip.append(" - Instead of ").append(it.getAltFor()).append(" (not owned)");
 		}
+		if (it.getNeed() != null) {
+			tip.append(" - ").append(it.getNeed());
+		}
 		tip.append(" - carrying ").append(carried);
 		if (carried < want) {
 			tip.append(it.isOwned() ? ", in your bank or storage" : synced ? ", not in your bank" : "");

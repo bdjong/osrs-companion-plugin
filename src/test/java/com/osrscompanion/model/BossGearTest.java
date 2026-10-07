@@ -89,6 +89,17 @@ public class BossGearTest {
 	}
 
 	@Test
+	public void parsesMechanicNeeds() {
+		BossGear.Item antifire = new Gson().fromJson("{\"item\":22209,\"name\":\"Extended super antifire(4)\",\"owned\":false,"
+			+ "\"need\":\"Needed against dragonfire\"}", BossGear.Item.class);
+		assertEquals("Needed against dragonfire", antifire.getNeed());
+		assertNull(new Gson().fromJson("{\"item\":385,\"need\":\"\"}", BossGear.Item.class).getNeed());
+		BossGear.Slot body = new Gson().fromJson("{\"slot\":\"body\",\"item\":23975,\"status\":\"missing\","
+			+ "\"need\":\"Worn with the Bow of Faerdhinen\"}", BossGear.Slot.class);
+		assertEquals("Worn with the Bow of Faerdhinen", body.getNeed());
+	}
+
+	@Test
 	public void noActiveSet() {
 		BossGear.Response r = new Gson().fromJson("{\"set\":null,\"sets\":[]}", BossGear.Response.class);
 		assertNull(r.getSet());
