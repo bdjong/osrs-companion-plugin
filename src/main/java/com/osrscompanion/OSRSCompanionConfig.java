@@ -387,7 +387,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "suppliesCheck",
 			name = "Supplies check in the bank",
-			description = "With the bank open, show how many trips your bank supports for the active boss setup (and how many runs for the farm route), and which supply runs out first.",
+			description = "With the bank open, show how many trips your bank supports for the active boss setup (when its Bank layout is on) and how many runs for the farm route (when Active in the bank is on), and which supply runs out first.",
 			section = TRIPS_SECTION,
 			position = 1)
 	default boolean suppliesCheck() {
