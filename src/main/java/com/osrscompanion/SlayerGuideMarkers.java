@@ -24,8 +24,8 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 /**
  * Points the way to the slayer location while the guide is on and you are not there yet: the
  * yellow hint arrow on the location's tile once it is in the loaded scene, and the Slayer skill
- * icon on the world map (hover: the location and the teleport; click: the map centres on it and
- * the way there pops up, see {@link SlayerHelperManager#onMenuOptionClicked}). A running farm run
+ * icon on the world map (hover: the location and the teleport; click: the map centres on it; the
+ * way there is in the guide's box in the game). A running farm run
  * keeps the arrow. Client thread.
  */
 @Singleton
