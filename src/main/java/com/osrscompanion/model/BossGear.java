@@ -6,10 +6,44 @@ import java.util.List;
 
 /**
  * The active boss gear set as returned by GET /api/runelite/boss-gear/: per worn slot the item to
- * bring (the best one owned, else the best in slot), the wiki's 28 inventory slots and rune pouch,
- * plus every saved set to switch between.
+ * bring (picked by the gear mode), the wiki's 28 inventory slots and rune pouch, plus every saved set
+ * to switch between. Besides the worn slots, "special" is the special attack weapon and "switch" /
+ * "switch_shield" the Alternate weapon and its off-hand; with a two-handed weapon there is no "shield".
  */
 public class BossGear {
+	/** Gear modes of wiki presets: always the best in slot, the best owned from the wiki's list, or that plus owned alternatives. */
+	public static final String MODE_BIS = "bis";
+	public static final String MODE_OWNED = "owned";
+	public static final String MODE_ALTERNATIVES = "alternatives";
+	public static final String[] MODES = {MODE_BIS, MODE_OWNED, MODE_ALTERNATIVES};
+
+	/** A gear mode's name as the website shows it. */
+	public static String modeLabel(String mode) {
+		return MODE_BIS.equals(mode) ? "Best in slot" : MODE_ALTERNATIVES.equals(mode) ? "Owned alternatives" : "Best owned";
+	}
+
+	/** A short name for narrow places. */
+	public static String modeShortLabel(String mode) {
+		return MODE_BIS.equals(mode) ? "BiS" : MODE_ALTERNATIVES.equals(mode) ? "Alts" : "Owned";
+	}
+
+	/** What a gear mode does, in one line. */
+	public static String modeDescription(String mode) {
+		return MODE_BIS.equals(mode) ? "Every slot shows the wiki's best in slot, owned or not."
+			: MODE_ALTERNATIVES.equals(mode) ? "Best owned from the wiki's list; where you own none, your best item of the setup's style (marked A)."
+			: "The best item you own from the slot's wiki list; red when you own none.";
+	}
+
+	/** The mode after this one (bis, owned, alternatives, bis, ...). */
+	public static String nextMode(String mode) {
+		for (int i = 0; i < MODES.length; i++) {
+			if (MODES[i].equals(mode)) {
+				return MODES[(i + 1) % MODES.length];
+			}
+		}
+		return MODE_OWNED;
+	}
+
 	@SerializedName("id")
 	private int id;
 
@@ -32,6 +66,14 @@ public class BossGear {
 	/** Whether the bank was ever synced: without it "owned" says nothing. */
 	@SerializedName("synced")
 	private boolean synced;
+
+	/** The boss's strategy page on the OSRS Wiki (Go to wiki). */
+	@SerializedName("url")
+	private String url;
+
+	/** The weapon brought is two-handed: the shield slot stays empty. */
+	@SerializedName("two_handed")
+	private boolean twoHanded;
 
 	@SerializedName("equipment")
 	private List<Slot> equipment;
@@ -69,6 +111,14 @@ public class BossGear {
 
 	public boolean isSynced() {
 		return synced;
+	}
+
+	public String getUrl() {
+		return url;
+	}
+
+	public boolean isTwoHanded() {
+		return twoHanded;
 	}
 
 	public List<Slot> getEquipment() {
@@ -152,7 +202,7 @@ public class BossGear {
 		@SerializedName("rank")
 		private Integer rank;
 
-		/** Status "alt" (owned alternatives on): the best-in-slot item(s) this owned item stands in for. */
+		/** Status "alt" (owned alternatives mode): the best-in-slot item(s) this owned item stands in for. */
 		@SerializedName("alt_for")
 		private String altFor;
 
@@ -261,7 +311,11 @@ public class BossGear {
 		@SerializedName("catalog")
 		private List<CatalogBoss> catalog;
 
-		/** "Use owned alternatives" (wiki presets): shared with the website's Boss Gear page. */
+		/** The gear mode of wiki presets (bis | owned | alternatives): shared with the website's Boss Gear page. */
+		@SerializedName("mode")
+		private String mode;
+
+		/** From before the gear modes: true meant the alternatives mode. */
 		@SerializedName("alternatives")
 		private boolean alternatives;
 
@@ -277,8 +331,14 @@ public class BossGear {
 			return catalog == null ? Collections.emptyList() : catalog;
 		}
 
-		public boolean isAlternatives() {
-			return alternatives;
+		/** The gear mode, "owned" when the website says none. */
+		public String getMode() {
+			for (String m : MODES) {
+				if (m.equals(mode)) {
+					return m;
+				}
+			}
+			return alternatives ? MODE_ALTERNATIVES : MODE_OWNED;
 		}
 	}
 }

@@ -36,18 +36,37 @@ public class BossGearTest {
 
 	@Test
 	public void parsesOwnedAlternatives() {
-		String json = "{\"alternatives\":true,\"sets\":[],\"set\":{\"id\":4,\"equipment\":["
+		String json = "{\"mode\":\"alternatives\",\"alternatives\":true,\"sets\":[],\"set\":{\"id\":4,\"equipment\":["
 			+ "{\"slot\":\"neck\",\"item\":6585,\"name\":\"Amulet of fury\",\"ids\":[6585],\"owned\":true,\"status\":\"alt\",\"rank\":null,\"bis\":false,"
 			+ "\"alt_for\":\"Salve amulet(ei)\"},"
 			+ "{\"slot\":\"head\",\"item\":3749,\"name\":\"Archer helm\",\"owned\":true,\"status\":\"partial\",\"rank\":5}]}}";
 		BossGear.Response r = new Gson().fromJson(json, BossGear.Response.class);
-		assertTrue(r.isAlternatives());
+		assertEquals(BossGear.MODE_ALTERNATIVES, r.getMode());
 		BossGear.Slot neck = r.getSet().slot("neck");
 		assertTrue(neck.isAlternative());
 		assertEquals("Salve amulet(ei)", neck.getAltFor());
 		assertNull(neck.getRank());
 		assertFalse(r.getSet().slot("head").isAlternative());
-		assertFalse(new Gson().fromJson("{\"set\":null}", BossGear.Response.class).isAlternatives());
+		assertEquals(BossGear.MODE_OWNED, new Gson().fromJson("{\"set\":null}", BossGear.Response.class).getMode());
+	}
+
+	@Test
+	public void parsesGearModesSwitchWeaponAndWikiLink() {
+		String json = "{\"mode\":\"bis\",\"set\":{\"id\":5,\"url\":\"https://oldschool.runescape.wiki/w/The_Leviathan/Strategies\",\"two_handed\":true,"
+			+ "\"equipment\":[{\"slot\":\"weapon\",\"item\":20997,\"name\":\"Twisted bow\",\"owned\":true,\"status\":\"missing\",\"rank\":1},"
+			+ "{\"slot\":\"switch\",\"item\":12926,\"name\":\"Toxic blowpipe\",\"owned\":true,\"status\":\"bis\",\"rank\":1}]}}";
+		BossGear.Response r = new Gson().fromJson(json, BossGear.Response.class);
+		assertEquals(BossGear.MODE_BIS, r.getMode());
+		assertEquals("https://oldschool.runescape.wiki/w/The_Leviathan/Strategies", r.getSet().getUrl());
+		assertTrue(r.getSet().isTwoHanded());
+		assertNull(r.getSet().slot("shield"));
+		assertEquals("Toxic blowpipe", r.getSet().slot("switch").getName());
+		// Older websites: the alternatives switch, else the default mode.
+		assertEquals(BossGear.MODE_ALTERNATIVES, new Gson().fromJson("{\"alternatives\":true}", BossGear.Response.class).getMode());
+		assertEquals(BossGear.MODE_OWNED, new Gson().fromJson("{\"mode\":\"what\"}", BossGear.Response.class).getMode());
+		assertEquals(BossGear.MODE_OWNED, BossGear.nextMode(BossGear.MODE_BIS));
+		assertEquals(BossGear.MODE_BIS, BossGear.nextMode(BossGear.MODE_ALTERNATIVES));
+		assertEquals("Best owned", BossGear.modeLabel(BossGear.MODE_OWNED));
 	}
 
 	@Test

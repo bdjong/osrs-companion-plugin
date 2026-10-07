@@ -6,6 +6,7 @@ import com.osrscompanion.model.BossGear;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -30,11 +31,13 @@ import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
+import net.runelite.client.util.LinkBrowser;
 
 /**
  * The boss gear window, drawn over the game like the farm run window: the active set's boss and
- * style (with a switcher), the worn equipment in the game's layout, the 28 inventory slots and the
- * rune pouch, each slot coloured by whether you carry it, have it stored, or miss it.
+ * style (with a switcher), the worn equipment in the game's layout with the special attack weapon and
+ * the alternate weapon under it, the 28 inventory slots and the rune pouch, each slot coloured by
+ * whether you carry it, have it stored, or miss it; the gear mode chips and Go to wiki on the right.
  */
 @Singleton
 public class BossGearWindow extends Overlay implements MouseListener, MouseWheelListener, KeyListener {
@@ -51,7 +54,9 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	private static final Color STORED = new Color(0xFF981F);
 	/** The "A" on slots filled with an owned alternative. */
 	static final Color ALT = new Color(0x93B4FF);
-	private static final int ALT_ROW = 24;
+	/** The gear mode's label and chips above the buttons. */
+	private static final int MODE_ROW = 40;
+	private static final int CHIP_HEIGHT = 18;
 
 	/** Worn-equipment layout as in the game: 3 columns, null = no slot there. */
 	static final String[][] EQUIPMENT = {
@@ -187,15 +192,38 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 			for (int c = 0; c < 3; c++) {
 				String name = EQUIPMENT[r][c];
 				if (name != null) {
-					drawSlot(g, new Rectangle(ex + c * cell, ey + r * cell, slot, slot), set.slot(name), 0, set.isSynced(), newHits);
+					Rectangle area = new Rectangle(ex + c * cell, ey + r * cell, slot, slot);
+					drawSlot(g, area, set.slot(name), 0, set.isSynced(), newHits);
+					if ("shield".equals(name) && set.isTwoHanded() && set.slot(name) == null) {
+						// Nothing in the off-hand with a two-handed weapon.
+						g.setFont(FontManager.getRunescapeSmallFont());
+						centred(g, "2H", area.x + area.width / 2, area.y + area.height / 2 + 4, GREY);
+						newHits.add(new Hit(area, () -> { }, "Shield: empty, the weapon is two-handed"));
+					}
 				}
 			}
 		}
+		// Under the doll: the special attack weapon, and the alternate weapon (with its off-hand) beside it.
 		BossGear.Slot special = set.slot("special");
-		if (special != null && ey + 5 * cell + 18 + slot <= worn.y + worn.height) {
+		BossGear.Slot alternate = set.slot("switch");
+		BossGear.Slot alternateShield = set.slot("switch_shield");
+		int extraY = ey + 5 * cell + 16;
+		if ((special != null || alternate != null) && extraY + slot <= worn.y + worn.height) {
 			g.setFont(FontManager.getRunescapeSmallFont());
-			text(g, "Special attack", ex, ey + 5 * cell + 12, BEIGE);
-			drawSlot(g, new Rectangle(ex + cell, ey + 5 * cell + 16, slot, slot), special, 0, set.isSynced(), newHits);
+			if (alternate == null) {
+				text(g, "Special attack", ex, extraY - 4, BEIGE);
+				drawSlot(g, new Rectangle(ex + cell, extraY, slot, slot), special, 0, set.isSynced(), newHits);
+			} else {
+				if (special != null) {
+					centred(g, "Spec", ex + slot / 2, extraY - 4, BEIGE);
+					drawSlot(g, new Rectangle(ex, extraY, slot, slot), special, 0, set.isSynced(), newHits);
+				}
+				text(g, "Alt weapon", ex + cell, extraY - 4, BEIGE);
+				drawSlot(g, new Rectangle(ex + cell, extraY, slot, slot), alternate, 0, set.isSynced(), newHits);
+				if (alternateShield != null) {
+					drawSlot(g, new Rectangle(ex + 2 * cell, extraY, slot, slot), alternateShield, 0, set.isSynced(), newHits);
+				}
+			}
 		}
 
 		// Inventory: 4 x 7.
@@ -335,42 +363,58 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		String hint = manager.isSetActive() ? "Open your bank with this window open: it shows only these items, laid out like your gear and inventory."
 			: "Inactive: the bank is left alone. Press Set active to lay it out.";
 		for (String line : wrap(hint, g.getFontMetrics(), textW)) {
-			if (ly > area.y + area.height - BUTTON_HEIGHT - 16 - ALT_ROW) {
+			if (ly > area.y + area.height - BUTTON_HEIGHT - 16 - MODE_ROW) {
 				break;
 			}
 			text(g, line, lx, ly, GREY);
 			ly += 13;
 		}
-		Rectangle refresh = new Rectangle(area.x + (area.width - BUTTON_WIDTH) / 2, area.y + area.height - BUTTON_HEIGHT - 10, BUTTON_WIDTH, BUTTON_HEIGHT);
-		altCheckbox(g, set, new Rectangle(area.x + 10, refresh.y - ALT_ROW, area.width - 20, 18), newHits);
+		// Go to wiki and Refresh side by side at the bottom, the gear mode above them.
+		int bw = Math.min(BUTTON_WIDTH, (area.width - 26) / 2);
+		int by = area.y + area.height - BUTTON_HEIGHT - 10;
+		int bx = area.x + (area.width - 2 * bw - 6) / 2;
+		Rectangle wiki = new Rectangle(bx, by, bw, BUTTON_HEIGHT);
+		Rectangle refresh = new Rectangle(bx + bw + 6, by, bw, BUTTON_HEIGHT);
+		modeChips(g, set, new Rectangle(area.x + 10, by - MODE_ROW, area.width - 20, MODE_ROW - 6), newHits);
+		String url = set.getUrl();
+		button(g, wiki, "Go to wiki", url == null);
+		if (url != null) {
+			newHits.add(new Hit(wiki, () -> LinkBrowser.browse(url), "Open the " + set.getBossName() + " strategy guide on the OSRS Wiki in your browser"));
+		}
 		button(g, refresh, manager.isLoading() ? "Loading..." : "Refresh", manager.isLoading());
 		newHits.add(new Hit(refresh, manager::refresh, "Reload your builds from the website"));
 	}
 
 	/**
-	 * The "Owned alternatives" checkbox (stored on the website, like the Boss Gear page's switch): wiki
-	 * presets bring the best owned item of the setup's style where you own none of the wiki's items.
+	 * The gear mode of wiki presets as three chips (stored on the website, like the Boss Gear page's
+	 * choice): Best in slot, Best owned (from the wiki's list) or Owned alternatives. Clicking one sets it.
 	 */
-	private void altCheckbox(Graphics2D g, BossGear set, Rectangle row, List<Hit> newHits) {
-		boolean on = manager.isAlternatives();
+	private void modeChips(Graphics2D g, BossGear set, Rectangle area, List<Hit> newHits) {
+		String mode = manager.getMode();
 		BossGear.SetSummary inUse = inUse(set);
 		boolean custom = inUse != null && inUse.isCustom();
-		Rectangle check = new Rectangle(row.x, row.y + 3, 12, 12);
-		box(g, check, SLOT, PANEL_EDGE, SLOT_INNER);
-		if (on) {
-			g.setColor(GREEN);
-			g.setStroke(new BasicStroke(2));
-			g.drawLine(check.x + 3, check.y + 6, check.x + 5, check.y + 9);
-			g.drawLine(check.x + 5, check.y + 9, check.x + 9, check.y + 3);
-			g.setStroke(new BasicStroke(1));
-		}
 		g.setFont(FontManager.getRunescapeSmallFont());
-		String label = "Owned alternatives" + (custom ? " (wiki presets)" : "");
-		text(g, truncate(label, g.getFontMetrics(), row.width - 18), check.x + 17, row.y + 13, custom ? GREY : on ? ALT : BEIGE);
-		String tip = (on ? "On: where you own none of the wiki's items for a slot, the best item you own of the setup's style is used (marked A)."
-			: "Off: wiki gear only. Turn on to use the best item you own of the setup's style where you own none of the wiki's items.")
-			+ (custom ? " Custom builds are unchanged." : "") + " Synced with the website's Boss Gear page.";
-		newHits.add(new Hit(row, () -> manager.setAlternatives(!on), tip));
+		FontMetrics fm = g.getFontMetrics();
+		text(g, truncate(custom ? "Gear mode (wiki presets only)" : "Gear mode", fm, area.width), area.x, area.y + 11, custom ? GREY : BEIGE);
+		int gap = 3;
+		int cw = (area.width - 2 * gap) / 3;
+		// Full names when they fit, else short ones.
+		boolean full = true;
+		for (String m : BossGear.MODES) {
+			full &= fm.stringWidth(BossGear.modeLabel(m)) + 8 <= cw;
+		}
+		int cy = area.y + area.height - CHIP_HEIGHT;
+		for (int i = 0; i < BossGear.MODES.length; i++) {
+			String m = BossGear.MODES[i];
+			boolean on = m.equals(mode);
+			Rectangle chip = new Rectangle(area.x + i * (cw + gap), cy, cw, CHIP_HEIGHT);
+			box(g, chip, on ? TAB_ON : SLOT, PANEL_EDGE, on ? BUTTON_INNER : SLOT_INNER);
+			Color tone = on ? (BossGear.MODE_ALTERNATIVES.equals(m) ? ALT : ORANGE) : GREY;
+			centred(g, truncate(full ? BossGear.modeLabel(m) : BossGear.modeShortLabel(m), fm, cw - 4), chip.x + chip.width / 2, chip.y + 13, tone);
+			String tip = BossGear.modeLabel(m) + (on ? " (in use)" : "") + ": " + BossGear.modeDescription(m)
+				+ (custom ? " Custom builds are unchanged." : "") + " Synced with the website's Boss Gear page.";
+			newHits.add(new Hit(chip, () -> manager.setMode(m), tip));
+		}
 	}
 
 	/** One line of the switcher: a heading, a build, a boss (unfolds) or one of its setups. */

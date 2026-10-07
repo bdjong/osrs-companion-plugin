@@ -49,6 +49,20 @@ public class BankLayoutsTest {
 	}
 
 	@Test
+	public void alternateWeaponSitsNextToTheSpecialAttackWeapon() {
+		Map<String, Integer> worn = new HashMap<>();
+		worn.put("weapon", 20997);
+		worn.put("switch", 12926);
+		worn.put("switch_shield", 21000);
+		int[] out = BankLayouts.build(worn, Collections.emptyList(), Collections.emptyList(), 26374);
+		assertEquals(26374, out[BankLayouts.SPECIAL_POS]);
+		assertEquals(12926, out[3]);
+		assertEquals(21000, out[11]);
+		assertEquals(20997, out[16]);
+		assertEquals(-1, out[18]);
+	}
+
+	@Test
 	public void trailingEmptyRowsAreTrimmedAndExtrasRunBelow() {
 		int[] small = BankLayouts.build(Collections.singletonMap("head", 10), Collections.emptyList(), Collections.emptyList(), -1);
 		assertEquals(8, small.length);

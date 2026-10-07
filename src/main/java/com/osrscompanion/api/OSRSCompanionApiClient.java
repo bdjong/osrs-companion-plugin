@@ -542,13 +542,13 @@ public class OSRSCompanionApiClient
 			BossGear.Response.class, callback);
 	}
 
-	/** Turns "Use owned alternatives" (wiki presets) on or off, on the website too, and returns the reloaded set. */
-	public void setBossGearAlternatives(boolean enabled, String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	/** Sets the gear mode of wiki presets (bis | owned | alternatives), on the website too, and returns the reloaded set. */
+	public void setBossGearMode(String mode, String playerUsername, RoadmapCallback<BossGear.Response> callback)
 	{
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("player", playerUsername);
-		body.put("enabled", enabled);
-		postForResult(BOSS_GEAR_ENDPOINT + "alternatives/", gson.toJson(body), "boss-gear-alternatives",
+		body.put("mode", mode);
+		postForResult(BOSS_GEAR_ENDPOINT + "mode/", gson.toJson(body), "boss-gear-mode",
 			BossGear.Response.class, callback);
 	}
 

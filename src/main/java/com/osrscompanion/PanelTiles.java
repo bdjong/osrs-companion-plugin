@@ -118,6 +118,136 @@ final class PanelTiles {
 	}
 
 	/**
+	 * A rounded tile with a title, a row of chips of which one is picked (clicking another picks it), and
+	 * a line saying what the picked one does: the boss page's gear mode.
+	 */
+	static final class Choice extends JComponent {
+		private static final int CHIP_Y = 25;
+		private static final int CHIP_H = 18;
+		private final String title;
+		private final String[] values;
+		private final java.util.function.Function<String, String> label;
+		private final java.util.function.Function<String, String> shortLabel;
+		private final java.util.function.Function<String, String> describe;
+		private final Color accent;
+		private final Supplier<String> state;
+		private final java.util.function.Consumer<String> pick;
+		/** Replaces the description while it says something; null: none. */
+		private Supplier<String> override = () -> null;
+		private int hover = -1;
+
+		Choice(String title, String[] values, java.util.function.Function<String, String> label, java.util.function.Function<String, String> shortLabel,
+				java.util.function.Function<String, String> describe, Color accent, Supplier<String> state, java.util.function.Consumer<String> pick) {
+			this.title = title;
+			this.values = values.clone();
+			this.label = label;
+			this.shortLabel = shortLabel;
+			this.describe = describe;
+			this.accent = accent;
+			this.state = state;
+			this.pick = pick;
+			setPreferredSize(new Dimension(200, 64));
+			setMinimumSize(new Dimension(120, 64));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, 64));
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			MouseAdapter mouse = new MouseAdapter() {
+				@Override
+				public void mouseMoved(MouseEvent e) {
+					int at = chipAt(e.getX(), e.getY());
+					if (at != hover) {
+						hover = at;
+						repaint();
+					}
+				}
+
+				@Override
+				public void mouseExited(MouseEvent e) {
+					hover = -1;
+					repaint();
+				}
+
+				@Override
+				public void mouseReleased(MouseEvent e) {
+					int at = chipAt(e.getX(), e.getY());
+					if (at >= 0) {
+						pick.accept(Choice.this.values[at]);
+						repaint();
+					}
+				}
+			};
+			addMouseListener(mouse);
+			addMouseMotionListener(mouse);
+		}
+
+		private int chipWidth() {
+			return (getWidth() - 24 - 2 * 4) / values.length;
+		}
+
+		private int chipAt(int x, int y) {
+			if (y < CHIP_Y || y > CHIP_Y + CHIP_H || x < 12) {
+				return -1;
+			}
+			int i = (x - 12) / (chipWidth() + 4);
+			return i < values.length ? i : -1;
+		}
+
+		/** Each chip says what it does. */
+		@Override
+		public String getToolTipText(MouseEvent e) {
+			int at = chipAt(e.getX(), e.getY());
+			return at < 0 ? super.getToolTipText(e) : label.apply(values[at]) + ": " + describe.apply(values[at]);
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			try {
+				smooth(g);
+				int w = getWidth();
+				int h = getHeight();
+				String on = state.get();
+				RoundRectangle2D card = new RoundRectangle2D.Float(0.5f, 0.5f, w - 1.5f, h - 1.5f, ARC, ARC);
+				g.setPaint(new GradientPaint(0, 0, FROM, w, 0, mix(TO, accent, 0.2f)));
+				g.fill(card);
+				g.setColor(alpha(accent, 150));
+				g.draw(card);
+
+				g.setFont(FontManager.getRunescapeBoldFont());
+				shadow(g, fit(title, g.getFontMetrics(), w - 24), 12, 18, Color.WHITE);
+
+				g.setFont(FontManager.getRunescapeSmallFont());
+				FontMetrics fm = g.getFontMetrics();
+				int cw = chipWidth();
+				boolean full = true;
+				for (String v : values) {
+					full &= fm.stringWidth(label.apply(v)) + 8 <= cw;
+				}
+				for (int i = 0; i < values.length; i++) {
+					boolean picked = values[i].equals(on);
+					int x = 12 + i * (cw + 4);
+					RoundRectangle2D chip = new RoundRectangle2D.Float(x, CHIP_Y, cw, CHIP_H, CHIP_H, CHIP_H);
+					g.setColor(picked ? mix(TO, accent, 0.55f) : i == hover ? new Color(0x2C3548) : new Color(0x1B2130));
+					g.fill(chip);
+					g.setColor(picked ? accent : new Color(0x4A5670));
+					g.draw(chip);
+					String text = fit(full ? label.apply(values[i]) : shortLabel.apply(values[i]), fm, cw - 6);
+					shadow(g, text, x + (cw - fm.stringWidth(text)) / 2, CHIP_Y + 13, picked ? Color.WHITE : new Color(0xAEB6C4));
+				}
+				String why = override.get();
+				shadow(g, fit(why != null ? why : on == null ? "" : describe.apply(on), fm, w - 24), 12, CHIP_Y + CHIP_H + 15, new Color(0xAEB6C4));
+			} finally {
+				g.dispose();
+			}
+		}
+
+		/** Shows this line instead of the description while it returns something. */
+		Choice withNote(Supplier<String> note) {
+			override = note;
+			return this;
+		}
+	}
+
+	/**
 	 * A card like {@link Info} with a picture on the right (same size and place, never dimmed), plus an
 	 * Active / Inactive switch on its bottom row: the boss page's setup, the farm page's route.
 	 */
