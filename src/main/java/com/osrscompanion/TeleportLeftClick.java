@@ -72,20 +72,7 @@ public class TeleportLeftClick {
 			return;
 		}
 		List<String> wanted = capeOptions(travel);
-		int best = -1;
-		int bestRank = Integer.MAX_VALUE;
-		for (int i = 0; i < entries.length; i++) {
-			if (!isTeleportCape(entries[i])) {
-				continue;
-			}
-			String option = Text.removeTags(entries[i].getOption()).toLowerCase();
-			for (int rank = 0; rank < wanted.size() && rank < bestRank; rank++) {
-				if (option.contains(wanted.get(rank))) {
-					best = i;
-					bestRank = rank;
-				}
-			}
-		}
+		int best = capeEntry(entries, wanted);
 		MenuEntry fromSub = null;
 		if (best < 0) {
 			// Not on the cape's own menu (the Max cape in the inventory): its "Teleports" sub menu has it.
@@ -102,6 +89,10 @@ public class TeleportLeftClick {
 					}
 				}
 			}
+		}
+		if (best < 0 && fromSub == null) {
+			// Only then a generic option that opens the cape's teleport list (the Farming cape's Teleport).
+			best = capeEntry(entries, capeFallbackOptions(travel));
 		}
 		logOnce("CAPE TELEPORT " + where + ", travel '" + travel.getName() + "' (" + travel.getHow() + "), looking for " + wanted
 			+ ", cape options " + capes + "-> left click " + (best >= 0 ? "'" + Text.removeTags(entries[best].getOption()) + "'"
@@ -187,6 +178,25 @@ public class TeleportLeftClick {
 			|| option.equals("break") || option.equals("operate") ? 10 : 0;
 	}
 
+	/** The cape entry whose option contains the best-ranked of {@code wanted}, -1 when none does. */
+	private static int capeEntry(MenuEntry[] entries, List<String> wanted) {
+		int best = -1;
+		int bestRank = Integer.MAX_VALUE;
+		for (int i = 0; i < entries.length; i++) {
+			if (!isTeleportCape(entries[i])) {
+				continue;
+			}
+			String option = Text.removeTags(entries[i].getOption()).toLowerCase();
+			for (int rank = 0; rank < wanted.size() && rank < bestRank; rank++) {
+				if (option.contains(wanted.get(rank))) {
+					best = i;
+					bestRank = rank;
+				}
+			}
+		}
+		return best;
+	}
+
 	/** The last entry is the left click: moves this one there. */
 	private void moveToLeftClick(MenuEntry[] entries, int index) {
 		int last = entries.length - 1;
@@ -229,6 +239,7 @@ public class TeleportLeftClick {
 	/**
 	 * The cape options for a way there, best first: Tele to POH, a town's POH Portals, the Farming
 	 * Guild, the Ardougne cloak's farm or Monastery teleport. Empty when it isn't a cape teleport.
+	 * Only options that teleport straight there: a generic one is {@link #capeFallbackOptions}.
 	 */
 	static List<String> capeOptions(FarmRoute.Travel travel) {
 		if (travel == null) {
@@ -243,13 +254,24 @@ public class TeleportLeftClick {
 			return Collections.singletonList("poh portals");
 		}
 		if (text.contains("farming guild") || text.contains("farming cape")) {
-			return Arrays.asList("farming guild", "other teleports", "teleport");
+			return Collections.singletonList("farming guild");
 		}
 		if (text.contains("ardougne cloak")) {
 			return text.contains("monastery") ? Arrays.asList("kandarin monastery", "monastery")
 				: Arrays.asList("ardougne farm", "farm");
 		}
 		return Collections.emptyList();
+	}
+
+	/**
+	 * When neither the cape's menu nor a sub menu has the teleport itself: the option that opens its
+	 * teleport list or teleports there by default (the Farming cape's "Teleport", the Max cape's "Other
+	 * Teleports"). Never before the sub menus, or the inventory Max cape's "Teleports" would win.
+	 */
+	static List<String> capeFallbackOptions(FarmRoute.Travel travel) {
+		String text = travel == null ? "" : travelText(travel);
+		return text.contains("farming guild") || text.contains("farming cape")
+			? Arrays.asList("other teleports", "teleport") : Collections.emptyList();
 	}
 
 	/**
