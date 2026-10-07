@@ -2,12 +2,10 @@ package com.osrscompanion;
 
 import com.osrscompanion.FarmPatchProgress.Status;
 import com.osrscompanion.model.FarmRoute;
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Polygon;
-import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,7 +25,9 @@ import net.runelite.api.Tile;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -51,6 +51,7 @@ public class FarmRunSceneOverlay extends Overlay {
 	private final FarmRunManager manager;
 	private final ModelOutlineRenderer outlines;
 	private final WorldMapPointManager worldMap;
+	private final ItemManager itemManager;
 
 	private volatile List<Found> found = Collections.emptyList();
 	private WorldMapPoint mapPoint;
@@ -73,11 +74,13 @@ public class FarmRunSceneOverlay extends Overlay {
 	}
 
 	@Inject
-	public FarmRunSceneOverlay(Client client, FarmRunManager manager, ModelOutlineRenderer outlines, WorldMapPointManager worldMap) {
+	public FarmRunSceneOverlay(Client client, FarmRunManager manager, ModelOutlineRenderer outlines, WorldMapPointManager worldMap,
+		ItemManager itemManager) {
 		this.client = client;
 		this.manager = manager;
 		this.outlines = outlines;
 		this.worldMap = worldMap;
+		this.itemManager = itemManager;
 		setPosition(OverlayPosition.DYNAMIC);
 		setLayer(OverlayLayer.ABOVE_SCENE);
 	}
@@ -325,24 +328,12 @@ public class FarmRunSceneOverlay extends Overlay {
 		return null;
 	}
 
-	private static BufferedImage pinImage;
+	private BufferedImage pinImage;
 
-	/** A small orange map pin. */
-	private static BufferedImage pin() {
+	/** The stop's mark on the world map: a watering can (the item picture, a bit bigger than a map icon; it fills in once loaded). */
+	private BufferedImage pin() {
 		if (pinImage == null) {
-			BufferedImage img = new BufferedImage(18, 24, BufferedImage.TYPE_INT_ARGB);
-			Graphics2D g = img.createGraphics();
-			g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			g.setColor(FarmRunOverlay.TITLE_COLOR);
-			g.fillOval(1, 1, 16, 16);
-			g.fillPolygon(new int[]{3, 15, 9}, new int[]{12, 12, 23}, 3);
-			g.setColor(Color.BLACK);
-			g.setStroke(new BasicStroke(1.2f));
-			g.drawOval(1, 1, 16, 16);
-			g.setColor(Color.WHITE);
-			g.fillOval(6, 6, 6, 6);
-			g.dispose();
-			pinImage = img;
+			pinImage = itemManager.getImage(ItemID.WATERING_CAN_8);
 		}
 		return pinImage;
 	}
