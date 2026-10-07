@@ -234,7 +234,7 @@ public class RoadmapPanel extends PluginPanel {
 		}), null);
 		add(p, toggle("Active in the bank", "Bank shows items during a run", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter), null);
 		add(p, toggle("Run guide", "Arrow + patch outlines", "Guide hidden", FARM, "showFarmRun", config::showFarmRun), null);
-		add(p, overview("ROUTE", "OVERVIEW", "Stops and what to bring", FARM, new Color(0x08130C), new Color(0x166534), SpriteID.SKILL_FARMING, openWindow),
+		add(p, overview("ROUTE", "OVERVIEW", "Stops and what to bring", FARM, new Color(0x08130C), new Color(0x166534), SpriteID.MINIMAP_ORB_WORLD_MAP_PLANET, openWindow),
 			"Open or close the farm run window: stops, what to bring, start or stop the run, switch route (Escape closes it).");
 		return p;
 	}
