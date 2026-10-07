@@ -172,6 +172,14 @@ public class FarmRunManager {
 	/** Farming XP when the run started, and the tick it was first complete (-1: not yet). */
 	private int startXp;
 	private int completedTick = -1;
+	/** For the Run history: when the run started, ticks it was going while logged in, the last Farming XP seen. */
+	private volatile long startedAtMs;
+	private volatile int runTicks;
+	private volatile int lastXp;
+	/** The run started on a special world (Leagues, DMM...): not recorded. */
+	private volatile boolean specialMode;
+	/** Who started the run (a run stopped after logging out is still theirs). */
+	private volatile String runPlayer;
 
 	/** The in-game farm run window, and the stop shown in its details (-1: the current one). */
 	private volatile boolean open;
@@ -246,6 +254,11 @@ public class FarmRunManager {
 				loading = false;
 				// A different route (or one edited on the website) restarts the progress.
 				if (old == null || route == null || old.getId() != route.getId()) {
+					// A run going on the old route ends here (stopped part way).
+					if (running && old != null) {
+						running = false;
+						recordRun(old, false);
+					}
 					running = false;
 					stopIndex = 0;
 					status.clear();
@@ -280,6 +293,11 @@ public class FarmRunManager {
 		previousStop = -1;
 		completedTick = -1;
 		startXp = client.getSkillExperience(Skill.FARMING);
+		lastXp = startXp;
+		startedAtMs = System.currentTimeMillis();
+		runTicks = 0;
+		specialMode = GameModeUtil.isSpecialGameMode(client);
+		runPlayer = roadmapManager.getPlayerUsername();
 		for (FarmRoute.Stop stop : r.getStops()) {
 			for (FarmRoute.Patch p : stop.getPatches()) {
 				Snapshot s = snapshot(p);
@@ -310,7 +328,16 @@ public class FarmRunManager {
 
 	public void stop() {
 		log.debug("Farm run: stopped");
-		running = false;
+		boolean completed = isComplete();
+		FarmRoute r = route;
+		boolean was;
+		synchronized (this) {
+			was = running;
+			running = false;
+		}
+		if (was) {
+			recordRun(r, completed);
+		}
 		needCompost = Collections.emptySet();
 		completedTick = -1;
 	}
@@ -362,6 +389,11 @@ public class FarmRunManager {
 		}
 		if (!running || route == null) {
 			return;
+		}
+		runTicks++;
+		int xp = client.getSkillExperience(Skill.FARMING);
+		if (xp >= startXp) {
+			lastXp = xp;
 		}
 		if (updateStatuses()) {
 			advance();
@@ -422,6 +454,24 @@ public class FarmRunManager {
 			}
 		}
 		return new int[]{planted, (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, gp))};
+	}
+
+	/**
+	 * Sends the run that just ended to the website's Run history (when that setting is on): only
+	 * when at least one patch was done (see {@link FarmRunRecord}). Reads no game state, so it can
+	 * run on any thread.
+	 */
+	private void recordRun(FarmRoute r, boolean completed) {
+		String player = runPlayer;
+		if (!config.syncFarmRuns() || specialMode || player == null || !SyncGuard.hasAppKey(config)) {
+			return;
+		}
+		Map<String, Object> body = FarmRunRecord.build(player, r, new HashMap<>(status), startedAtMs, System.currentTimeMillis(), runTicks,
+			lastXp - startXp, completed);
+		if (body != null) {
+			log.debug("Farm run: recorded '{}' ({} / {} patches, {} XP)", r.getName(), body.get("patches_done"), body.get("patches_total"), body.get("xp_gained"));
+			apiClient.sendFarmRun(body);
+		}
 	}
 
 	/** The summary popup (when that setting is on) and a notification: patches done and Farming XP gained. */
