@@ -11,6 +11,7 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
@@ -75,6 +76,9 @@ public class BankLayoutPrep {
 	/** The "Bank Tag Layouts" hub plugin's config: a tag's layout is under "layout_" + tag, "DISABLED" = leave the tag alone. */
 	private static final String HUB_LAYOUTS_GROUP = "banktaglayouts";
 	private static final String HUB_LAYOUT_DISABLED = "DISABLED";
+
+	/** Whether the "turn Bank Tags on" hint was shown this session (once is enough). */
+	private boolean bankTagsHintShown;
 
 	/** What was put in the open bank ("boss:..." / "farm:..."), so it is redone only when that changes. Client thread. */
 	private String applied;
@@ -365,6 +369,11 @@ public class BankLayoutPrep {
 		if (!bankTagsOn()) {
 			// The layout goes through Bank Tags; without it the bank is left alone (no typing into the bank search).
 			log.debug("Bank layout: the Bank Tags plugin is off, the bank is left alone");
+			if (!bankTagsHintShown) {
+				bankTagsHintShown = true;
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff9040>OSRS Companion: turn on RuneLite's Bank Tags plugin to have your "
+					+ (d == Driver.BOSS ? "boss gear" : "farm run") + " laid out in the bank.</col>", null);
+			}
 			return;
 		}
 		keepHubLayoutsOff(tag);
