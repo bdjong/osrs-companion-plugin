@@ -250,7 +250,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "farmRunBankFilter",
 			name = "Farm run active in the bank",
-			description = "While a farm run is going (started in the farm run window and not complete), the bank shows only what your route needs, laid out like the worn gear and the inventory (see Exact bank layout). Without a run going the bank is left alone. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear bank layout off.",
+			description = "While a farm run is going (started in the farm run window and not complete), the bank shows only what your route needs, laid out like the worn gear and the inventory (see Exact bank layout). Without a run going the bank is left alone. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Slayer gear bank layouts off.",
 			section = FEATURES_SECTION,
 			position = 8)
 	default boolean farmRunBankFilter() {
@@ -317,11 +317,21 @@ public interface OSRSCompanionConfig extends Config {
 		return false;
 	}
 
+	@ConfigItem(
+			keyName = "slayerGearBankLayout",
+			name = "Slayer gear bank layout",
+			description = "With a slayer task, when you open the bank, it shows only the worn gear of the setup picked in the Slayer gear window (the best until you pick one), laid out like the worn equipment (see Exact bank layout). Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Farm run bank layouts off.",
+			section = FEATURES_SECTION,
+			position = 11)
+	default boolean slayerGearBankLayout() {
+		return false;
+	}
+
 
 	@ConfigItem(
 			keyName = "bossGearBankLayout",
 			name = "Boss gear bank layout",
-			description = "While the setup is Active, when you open the bank, it shows only your boss setup's items, laid out like the worn gear and the inventory (see Exact bank layout), with or without the window open. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Farm run bank layout off.",
+			description = "While the setup is Active, when you open the bank, it shows only your boss setup's items, laid out like the worn gear and the inventory (see Exact bank layout), with or without the window open. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Farm run and Slayer gear bank layouts off.",
 			section = FEATURES_SECTION,
 			position = 12)
 	default boolean bossGearBankLayout() {
@@ -331,7 +341,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "bankLayoutPositions",
 			name = "Exact bank layout",
-			description = "For the boss gear and farm run bank layouts: put each item where it goes (gear in the equipment doll's shape, the inventory as 4 x 7, the rune pouch under the doll), like Inventory Setups. Needs the Bank Tags plugin; off only filters the bank (no positions).",
+			description = "For the boss gear, farm run and slayer gear bank layouts: put each item where it goes (gear in the equipment doll's shape, the inventory as 4 x 7, the rune pouch under the doll), like Inventory Setups. Needs the Bank Tags plugin; off only filters the bank (no positions).",
 			section = FEATURES_SECTION,
 			position = 13)
 	default boolean bankLayoutPositions() {

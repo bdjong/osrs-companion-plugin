@@ -86,7 +86,7 @@ public class RoadmapPanel extends PluginPanel {
 	/** Keeps the live cards (current roadmap, route, setup) and switches up to date while the panel is open. */
 	private final Timer refresh = new Timer(1000, e -> tick());
 
-	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear,
+	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear, Runnable openSlayerGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
 			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression,
 			SlayerHelperManager slayer, ClientThread clientThread, DailiesManager dailies) {
@@ -112,7 +112,7 @@ public class RoadmapPanel extends PluginPanel {
 		deck.add(farmPage(openFarmRun), "farm");
 		deck.add(bossPage(openBossGear), "boss");
 		deck.add(dailiesPage(), "dailies");
-		deck.add(slayerPage(), "slayer");
+		deck.add(slayerPage(openSlayerGear), "slayer");
 		// The boss page's gear display is tall: the pages scroll.
 		JPanel top = new JPanel(new BorderLayout());
 		top.add(deck, BorderLayout.NORTH);
@@ -350,7 +350,7 @@ public class RoadmapPanel extends PluginPanel {
 		return p;
 	}
 
-	private JPanel slayerPage() {
+	private JPanel slayerPage(Runnable openGearWindow) {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
 		// The task, with the switch that turns the guide to its location on (Active) or off.
@@ -370,7 +370,11 @@ public class RoadmapPanel extends PluginPanel {
 			SlayerGuide.Location l = slayer.getLocation();
 			return l == null || l.getRequirements().isEmpty() ? null : "Needs: " + String.join(", ", l.getRequirements());
 		}), null);
-		// The best setups against the task's monster (the website's Gear & DPS), Next goes through them.
+		add(p, toggle("Bank layout", "Bank shows this setup", "Bank left alone", SLAYER, "slayerGearBankLayout", config::slayerGearBankLayout),
+			"Only one bank layout is active at a time: turning this on turns the other bank layouts off.");
+		add(p, overview("GEAR", "OVERVIEW", "Pick a DPS setup", SLAYER, new Color(0x1F0A0A), new Color(0x991B1B), SpriteID.TAB_EQUIPMENT, openGearWindow),
+			"Open or close the slayer gear window: the website's DPS setups against the task's monster; pick the one to use (Escape closes it).");
+		// The setup picked in the window (the best until one is picked), against the task's monster.
 		slayerGear = new SlayerGearPanelView(slayer, itemManager);
 		add(p, slayerGear, null);
 		spriteManager.getSpriteAsync(SpriteID.SKILL_SLAYER, 0, img -> {

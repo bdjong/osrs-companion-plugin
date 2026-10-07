@@ -2,14 +2,12 @@ package com.osrscompanion;
 
 import com.osrscompanion.model.SlayerGear;
 import java.awt.Color;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
@@ -24,8 +22,8 @@ import net.runelite.client.ui.FontManager;
 /**
  * The Slayer helper page's gear: the website's Gear &amp; DPS calculator's best owned setups against
  * the task's monster, one at a time in the game's equipment layout (carried green, in the bank
- * orange), with what else it counts on (potion, prayer, style or spell, darts) and a Next button
- * that goes through the setups (best first).
+ * orange), with what else it counts on (potion, prayer, style or spell, darts). It shows the setup
+ * picked in the Slayer gear window (the best until one is picked there).
  */
 class SlayerGearPanelView extends JComponent {
 	private static final int SLOT = 36;
@@ -45,8 +43,6 @@ class SlayerGearPanelView extends JComponent {
 	private final ItemManager itemManager;
 	/** Each drawn slot's area and tooltip, from the last paint. */
 	private volatile List<Tip> tips = Collections.emptyList();
-	/** The Next button, from the last paint (null: hidden). */
-	private volatile Rectangle next;
 
 	private static final class Tip {
 		final Rectangle area;
@@ -63,23 +59,6 @@ class SlayerGearPanelView extends JComponent {
 		this.itemManager = itemManager;
 		setMinimumSize(new Dimension(120, 54));
 		setToolTipText("");
-		addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseReleased(MouseEvent e) {
-				Rectangle r = next;
-				if (r != null && r.contains(e.getPoint())) {
-					manager.nextGearSet();
-					repaint();
-				}
-			}
-		});
-		addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
-			@Override
-			public void mouseMoved(MouseEvent e) {
-				Rectangle r = next;
-				setCursor(Cursor.getPredefinedCursor(r != null && r.contains(e.getPoint()) ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
-			}
-		});
 	}
 
 	/** Two lines of text without setups, else the doll and a line per extra. */
@@ -100,10 +79,6 @@ class SlayerGearPanelView extends JComponent {
 
 	@Override
 	public String getToolTipText(MouseEvent e) {
-		Rectangle r = next;
-		if (r != null && r.contains(e.getPoint())) {
-			return "Show the next setup (best first): the website's Gear & DPS calculator, from the gear you own.";
-		}
 		for (Tip t : tips) {
 			if (t.area.contains(e.getPoint())) {
 				return t.text;
@@ -132,7 +107,6 @@ class SlayerGearPanelView extends JComponent {
 			SlayerGear.Set set = manager.getGearSet();
 			List<Tip> newTips = new ArrayList<>();
 			if (set == null) {
-				next = null;
 				g.setFont(FontManager.getRunescapeFont());
 				shadow(g, fit(gear == null ? "Loading..." : "No setups for this task", g.getFontMetrics(), w - 24), 12, 32, Color.WHITE);
 				g.setFont(FontManager.getRunescapeSmallFont());
@@ -141,20 +115,11 @@ class SlayerGearPanelView extends JComponent {
 				return;
 			}
 
-			// The Next button (top right), with which setup this is of how many.
+			// How many setups there are to pick from in the window (top right).
 			int count = gear.getSets().size();
-			String label = "Next (" + (Math.min(manager.getGearIndex(), count - 1) + 1) + "/" + count + ")";
-			int bw = g.getFontMetrics().stringWidth(label) + 12;
-			Rectangle button = new Rectangle(w - 10 - bw, 5, bw, 16);
 			if (count > 1) {
-				g.setColor(new Color(0x3A1414));
-				g.fillRoundRect(button.x, button.y, button.width, button.height, 8, 8);
-				g.setColor(ACCENT);
-				g.drawRoundRect(button.x, button.y, button.width - 1, button.height - 1, 8, 8);
-				shadow(g, label, button.x + 6, button.y + 12, Color.WHITE);
-				next = button;
-			} else {
-				next = null;
+				String of = (manager.getGearIndex() + 1) + " of " + count;
+				shadow(g, of, w - 12 - g.getFontMetrics().stringWidth(of), 16, HEADING);
 			}
 
 			// Which setup, best first, and its numbers.
