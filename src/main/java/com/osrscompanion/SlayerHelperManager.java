@@ -21,7 +21,6 @@ import net.runelite.api.Client;
 import net.runelite.api.Skill;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.GameState;
-import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
@@ -31,7 +30,6 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.InteractingChanged;
-import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.PostMenuSort;
 import net.runelite.api.gameval.VarPlayerID;
@@ -86,7 +84,6 @@ public class SlayerHelperManager {
 	static final String UNSENT_KEY = "slayerHelperUnsent";
 	static final String TITLE_COLOUR = "f28c28";
 	/** The "Focus on" option RuneLite adds for a clickable world map point. */
-	static final String FOCUS_ON = "Focus on";
 
 	/** The slayer task as the varps have it (and its name from the game's tables). */
 	static final class Task {
@@ -208,7 +205,6 @@ public class SlayerHelperManager {
 	private boolean closeCompleted;
 	private long fetchAtMs;
 	private int retriesLeft;
-	private volatile boolean popupOnLoad;
 
 	@Inject
 	public SlayerHelperManager(Client client, ClientThread clientThread, OSRSCompanionConfig config, ConfigManager configManager,
@@ -447,11 +443,6 @@ public class SlayerHelperManager {
 			fetchAtMs = System.currentTimeMillis() + GUIDE_RETRY_MS;
 		}
 		updateLocation();
-		SlayerGuide.Location l = location;
-		if (popupOnLoad && l != null && config.slayerGuide() && here == null) {
-			popupOnLoad = false;
-			showInstructions();
-		}
 	}
 
 	/** Whether the guide is about this task (same task id); a guide without a task never is. */
@@ -996,63 +987,21 @@ public class SlayerHelperManager {
 		}
 	}
 
-	// ---- The guide: popup, map click, teleport left click ------------------------------------------
+	// ---- The guide: map point name, teleport left click ------------------------------------------
 
-	/** The instructions popup for the guide's location: how to get there and the steps. Any thread. */
-	public void showInstructions() {
-		SlayerGuide.Location l = location;
-		if (l == null) {
-			return;
-		}
-		popups.showMessage("<col=" + TITLE_COLOUR + ">Slayer: " + Text.removeTags(l.getName()) + "</col>", instructionsBody(l));
-	}
-
-	/** The popup body: the way there in white, then the steps. */
-	static String instructionsBody(SlayerGuide.Location l) {
-		StringBuilder sb = new StringBuilder();
-		FarmRoute.Travel t = l.getTravel();
-		if (t != null) {
-			String how = t.getHow().isEmpty() ? t.getName() : t.getHow();
-			sb.append("<col=ffffff>").append(Text.removeTags(how)).append("</col>");
-		}
-		for (String step : l.getSteps()) {
-			sb.append(sb.length() == 0 ? "" : "<br>").append("<col=c6c6c6>").append(Text.removeTags(step)).append("</col>");
-		}
-		return sb.length() == 0 ? "<col=ffffff>" + Text.removeTags(l.getName()) + "</col>" : sb.toString();
-	}
-
-	/** The world map point's name (RuneLite shows it in its "Focus on" option). */
 	static String mapPointName(SlayerGuide.Location l) {
 		return "Slayer: " + l.getName();
 	}
 
-	/** The guide was switched on: show the way there (once the guide is loaded). */
+	/**
+	 * The guide was switched on: load its location if it isn't yet. No popup: the guide's box in the game
+	 * shows the way there (popups are for accomplishments, like a completed task).
+	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged e) {
-		if (!OSRSCompanionConfig.CONFIG_GROUP.equals(e.getGroup()) || !"slayerGuide".equals(e.getKey())) {
-			return;
-		}
-		if ("true".equals(e.getNewValue())) {
-			if (location != null && here == null) {
-				showInstructions();
-			} else if (location == null) {
-				popupOnLoad = true;
-				refreshIfStale();
-			}
-		} else {
-			popupOnLoad = false;
-		}
-	}
-
-	/** Clicking the Slayer icon on the world map ("Focus on Slayer: ...") also shows the way there. */
-	@Subscribe
-	public void onMenuOptionClicked(MenuOptionClicked e) {
-		SlayerGuide.Location l = location;
-		if (l == null || !isGuiding() || e.getMenuAction() != MenuAction.RUNELITE || !FOCUS_ON.equals(Text.removeTags(e.getMenuOption()))) {
-			return;
-		}
-		if (mapPointName(l).equals(Text.removeTags(e.getMenuTarget()))) {
-			showInstructions();
+		if (OSRSCompanionConfig.CONFIG_GROUP.equals(e.getGroup()) && "slayerGuide".equals(e.getKey())
+			&& "true".equals(e.getNewValue()) && location == null) {
+			refreshIfStale();
 		}
 	}
 
