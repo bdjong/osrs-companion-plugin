@@ -98,6 +98,7 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_REWARDS_ENDPOINT = "/api/runelite/slayer/rewards/";
 	private static final String DAILIES_ENDPOINT = "/api/runelite/dailies/";
 	private static final String SLAYER_GUIDE_ENDPOINT = "/api/runelite/slayer/guide/";
+	private static final String SLAYER_GEAR_ENDPOINT = "/api/runelite/slayer/gear/";
 	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
 
 	private static final int HTTP_OK_MIN = 200;
@@ -320,6 +321,12 @@ public class OSRSCompanionApiClient
 	}
 
 	/** Fetches the current slayer task and its locations, best first (see the Slayer helper contract). */
+	/** The DPS calculator's best owned setups against the current slayer task's monster. */
+	public void getSlayerGear(String playerUsername, RoadmapCallback<com.osrscompanion.model.SlayerGear> callback)
+	{
+		getAsync(SLAYER_GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "slayer-gear", com.osrscompanion.model.SlayerGear.class, callback);
+	}
+
 	public void getSlayerGuide(String playerUsername, RoadmapCallback<SlayerGuide> callback)
 	{
 		getAsync(SLAYER_GUIDE_ENDPOINT + "?player=" + urlEncode(playerUsername), "slayer-guide", SlayerGuide.class, callback);

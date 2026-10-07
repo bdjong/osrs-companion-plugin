@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.FarmRoute;
+import com.osrscompanion.model.SlayerGear;
 import com.osrscompanion.model.SlayerGuide;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -251,6 +252,7 @@ public class SlayerHelperManager {
 				loading = false;
 				error = null;
 				guide = result;
+				loadGear(name);
 				log.debug("Slayer guide: task {}, {} locations", result.getTask() == null ? null : result.getTask().getTaskName(),
 					result.getLocations().size());
 				clientThread.invokeLater(() -> onGuide(result));
@@ -262,6 +264,62 @@ public class SlayerHelperManager {
 				error = "Could not load the slayer guide (" + message + ").";
 			}
 		});
+	}
+
+	// ---- Slayer gear (the website's DPS calculator) ---------------------------------------------
+
+	private volatile SlayerGear gear;
+	/** The setup on show in the side panel (0: the best). */
+	private volatile int gearIndex;
+
+	/** Reads the best setups for the task's monster, with the guide. */
+	private void loadGear(String name) {
+		apiClient.getSlayerGear(name, new OSRSCompanionApiClient.RoadmapCallback<SlayerGear>() {
+			@Override
+			public void onSuccess(SlayerGear result) {
+				SlayerGear before = gear;
+				gear = result;
+				// A new task (or monster) starts on its best setup.
+				if (before == null || !java.util.Objects.equals(before.getMonster(), result.getMonster())) {
+					gearIndex = 0;
+				}
+			}
+
+			@Override
+			public void onError(String message) {
+				log.debug("Slayer gear: {}", message);
+			}
+		});
+	}
+
+	public SlayerGear getGear() {
+		return gear;
+	}
+
+	/** The setup on show, or null when there is none. */
+	public SlayerGear.Set getGearSet() {
+		SlayerGear g = gear;
+		if (g == null || g.getSets().isEmpty()) {
+			return null;
+		}
+		return g.getSets().get(Math.min(gearIndex, g.getSets().size() - 1));
+	}
+
+	public int getGearIndex() {
+		return gearIndex;
+	}
+
+	/** Shows the next setup (Melee, Ranged, Magic, Burst...), round. */
+	public void nextGearSet() {
+		SlayerGear g = gear;
+		if (g != null && !g.getSets().isEmpty()) {
+			gearIndex = (gearIndex + 1) % g.getSets().size();
+		}
+	}
+
+	/** How many of the item you carry (inventory, worn, rune pouch), for the slot colours. */
+	public int carried(int itemId) {
+		return farmRun.carried(itemId);
 	}
 
 	/** A guide arrived: pick the location; a guide for an older task is read again shortly. Client thread. */
