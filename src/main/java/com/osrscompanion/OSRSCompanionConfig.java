@@ -337,4 +337,22 @@ public interface OSRSCompanionConfig extends Config {
 	default boolean bossGearActive() {
 		return true;
 	}
+
+	// --- Farm run history ---
+
+	@ConfigSection(
+			name = "Farm Run History",
+			description = "Guided farm runs recorded for the website's Run history.",
+			position = 3)
+	String FARM_RUN_HISTORY_SECTION = "farmRunHistorySection";
+
+	@ConfigItem(
+			keyName = "syncFarmRuns",
+			name = "Farm runs",
+			description = "When a guided farm run ends (complete, or stopped after at least one patch), send it to OSRS Companion: route, time, patches done, Farming XP gained and the seeds planted. Its harvests are matched by time.",
+			section = FARM_RUN_HISTORY_SECTION,
+			position = 0)
+	default boolean syncFarmRuns() {
+		return true;
+	}
 }
