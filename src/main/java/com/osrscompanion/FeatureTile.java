@@ -38,6 +38,8 @@ class FeatureTile extends JComponent {
 	private final Runnable action;
 	private final boolean compact;
 	private volatile BufferedImage icon;
+	/** The picture's square on the right, in pixels. */
+	private int iconBox = 40;
 	/** The picture's drop shadow, made once the picture has loaded. */
 	private BufferedImage shadow;
 	private boolean hover;
@@ -152,9 +154,8 @@ class FeatureTile extends JComponent {
 				return;
 			}
 
-			// The item picture, a little larger, with a soft shadow.
-			int iconBox = 40;
-			int ix = w - iconBox - 10;
+			// The item picture, a little larger, with a soft shadow (centred where a 40 pixel one would be).
+			int ix = w - 50 + (40 - iconBox) / 2;
 			int iy = (h - iconBox) / 2 + dy;
 			BufferedImage img = icon;
 			if (img != null && img.getWidth() > 0) {
@@ -211,6 +212,13 @@ class FeatureTile extends JComponent {
 			t = t.substring(0, t.length() - 1);
 		}
 		return t + "...";
+	}
+
+	/** A smaller (or bigger) picture than the usual 40 pixels. */
+	FeatureTile iconSize(int px) {
+		iconBox = px;
+		repaint();
+		return this;
 	}
 
 	/** Sets (or replaces) the picture, e.g. an interface sprite once it has loaded. */
