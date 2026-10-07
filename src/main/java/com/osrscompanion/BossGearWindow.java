@@ -52,7 +52,7 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	private static final int BUTTON_WIDTH = 110;
 	private static final int BUTTON_HEIGHT = 20;
 	private static final Color STORED = new Color(0xFF981F);
-	/** The "A" on slots filled with an owned alternative. */
+	/** The "A" on slots and inventory items filled with an owned alternative. */
 	static final Color ALT = new Color(0x93B4FF);
 	/** The gear mode's label and chips above the buttons. */
 	private static final int MODE_ROW = 40;
@@ -667,7 +667,7 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		if (it.isNoted()) {
 			text(g, "N", r.x + 2, r.y + r.height - 3, YELLOW);
 		}
-		if (it instanceof BossGear.Slot && ((BossGear.Slot) it).isAlternative()) {
+		if (it.isAlternative()) {
 			text(g, "A", r.x + 2, r.y + 10, ALT);
 		}
 		newHits.add(new Hit(r, () -> { }, manager.slotTooltip(it, need, synced)));

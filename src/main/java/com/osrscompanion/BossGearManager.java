@@ -242,6 +242,8 @@ public class BossGearManager {
 			tip.append(s.isAlternative() ? " - Alternative for " + s.getAltFor() + " (not owned)"
 				: "bis".equals(s.getStatus()) ? " - best in slot" : "partial".equals(s.getStatus()) ? " - best you own (rank " + s.getRank() + ")"
 				: "missing".equals(s.getStatus()) ? " - best in slot, not owned" : "");
+		} else if (it.isAlternative()) {
+			tip.append(" - Instead of ").append(it.getAltFor()).append(" (not owned)");
 		}
 		tip.append(" - carrying ").append(carried);
 		if (carried < want) {
