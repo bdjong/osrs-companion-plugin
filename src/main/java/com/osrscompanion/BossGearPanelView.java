@@ -169,8 +169,15 @@ class BossGearPanelView extends JComponent {
 			Map<Integer, Integer> needs = manager.inventoryNeeds();
 			for (int i = 0; i < 28; i++) {
 				BossGear.Item it = i < inv.size() ? inv.get(i) : null;
-				slot(g, new Rectangle(x0 + (i % 4) * CELL, 268 + (i / 4) * CELL, SLOT, SLOT), it,
-					it == null ? 0 : needs.getOrDefault(it.getItem(), it.getQty()), set.isSynced(), newTips);
+				Rectangle r = new Rectangle(x0 + (i % 4) * CELL, 268 + (i / 4) * CELL, SLOT, SLOT);
+				slot(g, r, it, it == null ? 0 : needs.getOrDefault(it.getItem(), it.getQty()), set.isSynced(), newTips);
+				BossGear.Item wornHere = it == null ? set.wornAt(i) : null;
+				if (wornHere != null) {
+					// The best for this switch is already worn: empty, marked.
+					g.setFont(FontManager.getRunescapeSmallFont());
+					shadow(g, "W", r.x + r.width / 2 - 3, r.y + r.height / 2 + 4, GREEN);
+					newTips.add(new Tip(r, BossGearManager.wornTooltip(wornHere)));
+				}
 			}
 			if (inv.isEmpty()) {
 				g.setFont(FontManager.getRunescapeSmallFont());
