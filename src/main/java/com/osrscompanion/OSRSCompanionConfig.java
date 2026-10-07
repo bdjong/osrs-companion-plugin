@@ -337,4 +337,42 @@ public interface OSRSCompanionConfig extends Config {
 	default boolean bossGearActive() {
 		return true;
 	}
+
+	// --- Dailies ---
+
+	@ConfigSection(
+			name = "Dailies",
+			description = "Daily and weekly tasks (battlestaves, essence, sand...): tracking and the guided run.",
+			position = 3)
+	String DAILIES_SECTION = "dailiesSection";
+
+	@ConfigItem(
+			keyName = "syncDailies",
+			name = "Sync dailies",
+			description = "Send which dailies are done, open or locked to OSRS Companion (Tools > Dailies). Reads on login and when you collect one.",
+			section = DAILIES_SECTION,
+			position = 0)
+	default boolean syncDailies() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "showDailiesGuide",
+			name = "Show dailies guide",
+			description = "While a dailies run is started from the side panel: the step box (teleport, where to go, who to talk to), the arrow to the NPC and its mark on the world map.",
+			section = DAILIES_SECTION,
+			position = 1)
+	default boolean showDailiesGuide() {
+		return true;
+	}
+
+	/** Dailies ticked by hand today: "<UTC day>:id,id" (set from the side panel). */
+	@ConfigItem(
+			keyName = "dailiesTicked",
+			name = "Dailies ticked by hand",
+			description = "Dailies you ticked off yourself today.",
+			hidden = true)
+	default String dailiesTicked() {
+		return "";
+	}
 }
