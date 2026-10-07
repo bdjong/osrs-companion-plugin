@@ -139,12 +139,55 @@ public class SlayerMonitor {
 			VarPlayerID.SLAYER_REWARDS_UNLOCKS1,
 			VarPlayerID.SLAYER_REWARDS_UNLOCKS2,
 			VarPlayerID.SLAYER_REWARDS_BLOCKED);
-	private static final Set<Integer> WATCHED_VARBITS = Set.of(
-			VarbitID.SLAYER_MASTER,
-			VarbitID.SLAYER_POINTS,
-			VarbitID.SLAYER_TASKS_COMPLETED,
-			VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED,
-			VarbitID.SLAYER_TARGET_BOSSID);
+	/**
+	 * Each slayer master's own block list: one varbit per slot holding a task id (six slots and the
+	 * Lumbridge & Draynor elite diary slot; Mortimer two). Turael's list is shared with Spria and Aya.
+	 */
+	static final Map<String, int[]> MASTER_BLOCK_VARBITS = new LinkedHashMap<>();
+	static {
+		MASTER_BLOCK_VARBITS.put("Turael", new int[] {VarbitID.SLAYER_BLOCKED_TURAEL_1, VarbitID.SLAYER_BLOCKED_TURAEL_2,
+				VarbitID.SLAYER_BLOCKED_TURAEL_3, VarbitID.SLAYER_BLOCKED_TURAEL_4, VarbitID.SLAYER_BLOCKED_TURAEL_5,
+				VarbitID.SLAYER_BLOCKED_TURAEL_6, VarbitID.SLAYER_BLOCKED_TURAEL_DIARY});
+		MASTER_BLOCK_VARBITS.put("Mazchna", new int[] {VarbitID.SLAYER_BLOCKED_MAZCHNA_1, VarbitID.SLAYER_BLOCKED_MAZCHNA_2,
+				VarbitID.SLAYER_BLOCKED_MAZCHNA_3, VarbitID.SLAYER_BLOCKED_MAZCHNA_4, VarbitID.SLAYER_BLOCKED_MAZCHNA_5,
+				VarbitID.SLAYER_BLOCKED_MAZCHNA_6, VarbitID.SLAYER_BLOCKED_MAZCHNA_DIARY});
+		MASTER_BLOCK_VARBITS.put("Vannaka", new int[] {VarbitID.SLAYER_BLOCKED_VANNAKA_1, VarbitID.SLAYER_BLOCKED_VANNAKA_2,
+				VarbitID.SLAYER_BLOCKED_VANNAKA_3, VarbitID.SLAYER_BLOCKED_VANNAKA_4, VarbitID.SLAYER_BLOCKED_VANNAKA_5,
+				VarbitID.SLAYER_BLOCKED_VANNAKA_6, VarbitID.SLAYER_BLOCKED_VANNAKA_DIARY});
+		MASTER_BLOCK_VARBITS.put("Chaeldar", new int[] {VarbitID.SLAYER_BLOCKED_CHAELDAR_1, VarbitID.SLAYER_BLOCKED_CHAELDAR_2,
+				VarbitID.SLAYER_BLOCKED_CHAELDAR_3, VarbitID.SLAYER_BLOCKED_CHAELDAR_4, VarbitID.SLAYER_BLOCKED_CHAELDAR_5,
+				VarbitID.SLAYER_BLOCKED_CHAELDAR_6, VarbitID.SLAYER_BLOCKED_CHAELDAR_DIARY});
+		MASTER_BLOCK_VARBITS.put("Konar", new int[] {VarbitID.SLAYER_BLOCKED_KONAR_1, VarbitID.SLAYER_BLOCKED_KONAR_2,
+				VarbitID.SLAYER_BLOCKED_KONAR_3, VarbitID.SLAYER_BLOCKED_KONAR_4, VarbitID.SLAYER_BLOCKED_KONAR_5,
+				VarbitID.SLAYER_BLOCKED_KONAR_6, VarbitID.SLAYER_BLOCKED_KONAR_DIARY});
+		MASTER_BLOCK_VARBITS.put("Nieve", new int[] {VarbitID.SLAYER_BLOCKED_NIEVE_1, VarbitID.SLAYER_BLOCKED_NIEVE_2,
+				VarbitID.SLAYER_BLOCKED_NIEVE_3, VarbitID.SLAYER_BLOCKED_NIEVE_4, VarbitID.SLAYER_BLOCKED_NIEVE_5,
+				VarbitID.SLAYER_BLOCKED_NIEVE_6, VarbitID.SLAYER_BLOCKED_NIEVE_DIARY});
+		MASTER_BLOCK_VARBITS.put("Duradel", new int[] {VarbitID.SLAYER_BLOCKED_DURADEL_1, VarbitID.SLAYER_BLOCKED_DURADEL_2,
+				VarbitID.SLAYER_BLOCKED_DURADEL_3, VarbitID.SLAYER_BLOCKED_DURADEL_4, VarbitID.SLAYER_BLOCKED_DURADEL_5,
+				VarbitID.SLAYER_BLOCKED_DURADEL_6, VarbitID.SLAYER_BLOCKED_DURADEL_DIARY});
+		MASTER_BLOCK_VARBITS.put("Krystilia", new int[] {VarbitID.SLAYER_BLOCKED_KRYSTILIA_1, VarbitID.SLAYER_BLOCKED_KRYSTILIA_2,
+				VarbitID.SLAYER_BLOCKED_KRYSTILIA_3, VarbitID.SLAYER_BLOCKED_KRYSTILIA_4, VarbitID.SLAYER_BLOCKED_KRYSTILIA_5,
+				VarbitID.SLAYER_BLOCKED_KRYSTILIA_6, VarbitID.SLAYER_BLOCKED_KRYSTILIA_DIARY});
+		MASTER_BLOCK_VARBITS.put("Mortimer", new int[] {VarbitID.SLAYER_BLOCKED_MORTIMER_1, VarbitID.SLAYER_BLOCKED_MORTIMER_2});
+	}
+
+	private static final Set<Integer> WATCHED_VARBITS = watchedVarbits();
+
+	private static Set<Integer> watchedVarbits() {
+		Set<Integer> out = new java.util.HashSet<>(Set.of(
+				VarbitID.SLAYER_MASTER,
+				VarbitID.SLAYER_POINTS,
+				VarbitID.SLAYER_TASKS_COMPLETED,
+				VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED,
+				VarbitID.SLAYER_TARGET_BOSSID));
+		for (int[] ids : MASTER_BLOCK_VARBITS.values()) {
+			for (int id : ids) {
+				out.add(id);
+			}
+		}
+		return java.util.Collections.unmodifiableSet(out);
+	}
 
 	// Ordered block list varps: the shared 15 slots (1 + 12 + 2 diary).
 	private static final int[] BLOCK_LIST_VARPS = {
@@ -177,6 +220,8 @@ public class SlayerMonitor {
 		int streak;
 		int wildernessStreak;
 		List<Integer> blockList = new ArrayList<>();
+		/** Each master's block list (task ids), from the per-master varbits. */
+		Map<String, List<Integer>> blockedByMaster = new LinkedHashMap<>();
 		Map<String, Integer> unlockBitfields = new LinkedHashMap<>();
 		Integer slayerLevel;
 		Long slayerXp;
@@ -201,6 +246,9 @@ public class SlayerMonitor {
 						ids.add(id);
 					}
 				}
+			}
+			for (List<Integer> list : blockedByMaster.values()) {
+				ids.addAll(list);
 			}
 			return ids;
 		}
@@ -675,6 +723,16 @@ public class SlayerMonitor {
 		for (int varp : BLOCK_LIST_VARPS) {
 			s.blockList.add(client.getVarpValue(varp));
 		}
+		for (Map.Entry<String, int[]> e : MASTER_BLOCK_VARBITS.entrySet()) {
+			List<Integer> ids = new ArrayList<>();
+			for (int varbit : e.getValue()) {
+				int id = client.getVarbitValue(varbit);
+				if (id != 0) {
+					ids.add(id);
+				}
+			}
+			s.blockedByMaster.put(e.getKey(), ids);
+		}
 		s.unlockBitfields.put(String.valueOf(VarPlayerID.SLAYER_REWARDS_UNLOCKS),
 				client.getVarpValue(VarPlayerID.SLAYER_REWARDS_UNLOCKS));
 		s.unlockBitfields.put(String.valueOf(VarPlayerID.SLAYER_REWARDS_UNLOCKS1),
@@ -1138,7 +1196,7 @@ public class SlayerMonitor {
 				s.wildernessStreak,
 				s.blockList,
 				s.unlockBitfields,
-				buildExtra(),
+				buildExtra(s),
 				s.slayerLevel,
 				s.slayerXp,
 				isoOrNull(firstKillMs),
@@ -1148,9 +1206,10 @@ public class SlayerMonitor {
 		return new SlayerSyncPayload(playerUsername, state, new ArrayList<>(pendingEvents));
 	}
 
-	/** Assembles the state extra map: stored task + any recent task offers. */
-	private Map<String, Object> buildExtra() {
+	/** Assembles the state extra map: stored task, each master's block list and any recent task offers. */
+	private Map<String, Object> buildExtra(Snapshot s) {
 		Map<String, Object> extra = storedTaskExtra(storedTask);
+		extra.put("blocked_by_master", s.blockedByMaster);
 		if (!pendingOffers.isEmpty()
 				&& System.currentTimeMillis() - offersCapturedMs <= OFFER_RETENTION_MS) {
 			extra.put("task_offers", pendingOffers);
