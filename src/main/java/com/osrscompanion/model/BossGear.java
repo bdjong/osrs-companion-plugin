@@ -125,8 +125,22 @@ public class BossGear {
 		return equipment == null ? Collections.emptyList() : equipment;
 	}
 
+	/** The 28 inventory slots (null: empty); a switch already worn ({@link #wornAt}) counts as empty. */
 	public List<Item> getInventory() {
-		return inventory == null ? Collections.emptyList() : inventory;
+		if (inventory == null) {
+			return Collections.emptyList();
+		}
+		List<Item> out = new java.util.ArrayList<>(inventory.size());
+		for (Item it : inventory) {
+			out.add(it != null && it.isWorn() ? null : it);
+		}
+		return out;
+	}
+
+	/** The switch in inventory slot {@code i} that the setup already wears (nothing to bring), or null. */
+	public Item wornAt(int i) {
+		Item it = inventory != null && i < inventory.size() ? inventory.get(i) : null;
+		return it != null && it.isWorn() ? it : null;
 	}
 
 	public List<Item> getPouch() {
@@ -216,6 +230,11 @@ public class BossGear {
 
 		public String getAltFor() {
 			return altForOr("the wiki's item");
+		}
+
+		/** An inventory switch whose best owned item is already worn: its slot stays empty. */
+		public boolean isWorn() {
+			return "worn".equals(status);
 		}
 
 		/** The mechanic or rule behind the item, null when there is none. */

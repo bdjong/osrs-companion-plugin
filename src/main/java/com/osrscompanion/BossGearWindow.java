@@ -237,6 +237,13 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 			Rectangle r = new Rectangle(invArea.x + 10 + (i % 4) * cell, invArea.y + 26 + (i / 4) * cell, slot, slot);
 			BossGear.Item it = i < inv.size() ? inv.get(i) : null;
 			drawSlot(g, r, it, it == null ? 0 : needs.getOrDefault(it.getItem(), it.getQty()), set.isSynced(), newHits);
+			BossGear.Item wornHere = it == null ? set.wornAt(i) : null;
+			if (wornHere != null) {
+				// The best for this switch is already worn: empty, marked.
+				g.setFont(FontManager.getRunescapeSmallFont());
+				text(g, "W", r.x + r.width / 2 - 3, r.y + r.height / 2 + 4, GREEN);
+				newHits.add(new Hit(r, () -> { }, BossGearManager.wornTooltip(wornHere)));
+			}
 		}
 		if (inv.isEmpty()) {
 			g.setFont(FontManager.getRunescapeSmallFont());

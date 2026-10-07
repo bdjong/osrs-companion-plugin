@@ -255,6 +255,11 @@ public class BossGearManager {
 		return tip.toString();
 	}
 
+	/** The tooltip of an empty inventory slot whose switch is already worn. */
+	static String wornTooltip(BossGear.Item it) {
+		return "Empty: you already wear " + it.getName() + ", the best for this switch (instead of " + it.getAltFor() + ")";
+	}
+
 	/** How many of the item you carry (inventory, worn, rune pouch), counting any of its versions. */
 	public int carried(BossGear.Item item) {
 		int best = 0;

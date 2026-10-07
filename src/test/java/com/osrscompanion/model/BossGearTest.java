@@ -100,6 +100,18 @@ public class BossGearTest {
 	}
 
 	@Test
+	public void wornSwitchIsAnEmptySlot() {
+		String json = "{\"mode\":\"alternatives\",\"set\":{\"id\":7,\"equipment\":[],"
+			+ "\"inventory\":[{\"item\":23979,\"name\":\"Crystal legs\",\"owned\":true,\"status\":\"worn\",\"alt_for\":\"Masori chaps (f)\"},"
+			+ "{\"item\":385,\"name\":\"Shark\",\"owned\":true}]}}";
+		BossGear s = new Gson().fromJson(json, BossGear.Response.class).getSet();
+		assertNull(s.getInventory().get(0));
+		assertEquals("Crystal legs", s.wornAt(0).getName());
+		assertNull(s.wornAt(1));
+		assertEquals(385, s.getInventory().get(1).getItem());
+	}
+
+	@Test
 	public void noActiveSet() {
 		BossGear.Response r = new Gson().fromJson("{\"set\":null,\"sets\":[]}", BossGear.Response.class);
 		assertNull(r.getSet());
