@@ -25,6 +25,7 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemVariationMapping;
@@ -48,6 +49,10 @@ import net.runelite.client.plugins.banktags.tabs.LayoutManager;
  * {@link BankTagsService#openBankTag}. When the Bank Tags plugin is off, the bank is left alone.
  *
  * <p>Only one drives the bank at a time: the Boss gear window first, then the farm run.
+ *
+ * <p>The old "Bank Tag Layouts" hub plugin lays out any open tag itself when its "Enable layout by
+ * default" is on: right after Bank Tags draws our layout it packs every item from the top again (and
+ * saves that as its own layout for the tag). Its per-tag "DISABLED" marker keeps it off our two tags.
  */
 @Slf4j
 @Singleton
@@ -65,6 +70,11 @@ public class BankLayoutPrep {
 	private final TagManager tagManager;
 	private final LayoutManager layoutManager;
 	private final PluginManager pluginManager;
+	private final ConfigManager configManager;
+
+	/** The "Bank Tag Layouts" hub plugin's config: a tag's layout is under "layout_" + tag, "DISABLED" = leave the tag alone. */
+	private static final String HUB_LAYOUTS_GROUP = "banktaglayouts";
+	private static final String HUB_LAYOUT_DISABLED = "DISABLED";
 
 	/** What was put in the open bank ("boss:..." / "farm:..."), so it is redone only when that changes. Client thread. */
 	private String applied;
@@ -76,7 +86,7 @@ public class BankLayoutPrep {
 	@Inject
 	public BankLayoutPrep(Client client, ClientThread clientThread, ItemManager itemManager, FarmRunManager farmRun,
 		BossGearManager bossGear, OSRSCompanionConfig config, BankTagsService bankTags, TagManager tagManager, LayoutManager layoutManager,
-		PluginManager pluginManager) {
+		PluginManager pluginManager, ConfigManager configManager) {
 		this.client = client;
 		this.clientThread = clientThread;
 		this.itemManager = itemManager;
@@ -87,6 +97,7 @@ public class BankLayoutPrep {
 		this.tagManager = tagManager;
 		this.layoutManager = layoutManager;
 		this.pluginManager = pluginManager;
+		this.configManager = configManager;
 	}
 
 	/** Registers the two tags; their items follow the active set / route live. */
@@ -96,6 +107,17 @@ public class BankLayoutPrep {
 			tagManager.registerTag(BOSS_TAG, bossGear::needs);
 			tagManager.registerTag(FARM_TAG, farmRun::needs);
 		});
+		keepHubLayoutsOff(BOSS_TAG);
+		keepHubLayoutsOff(FARM_TAG);
+	}
+
+	/** Keeps the "Bank Tag Layouts" hub plugin from laying out (packing) our tag over the Bank Tags layout. */
+	private void keepHubLayoutsOff(String tag) {
+		String key = "layout_" + tag;
+		if (!HUB_LAYOUT_DISABLED.equals(configManager.getConfiguration(HUB_LAYOUTS_GROUP, key))) {
+			log.debug("Bank layout: turning the Bank Tag Layouts hub plugin's own layout off for '{}'", tag);
+			configManager.setConfiguration(HUB_LAYOUTS_GROUP, key, HUB_LAYOUT_DISABLED);
+		}
 	}
 
 	public void shutDown() {
@@ -345,6 +367,7 @@ public class BankLayoutPrep {
 			log.debug("Bank layout: the Bank Tags plugin is off, the bank is left alone");
 			return;
 		}
+		keepHubLayoutsOff(tag);
 		BankItems bank = new BankItems();
 		int[] positions = d == Driver.BOSS ? bossLayout(bossGear.getSet(), bank) : farmLayout(bank);
 		layoutManager.saveLayout(new Layout(tag, positions));
