@@ -264,7 +264,8 @@ public class RoadmapPanel extends PluginPanel {
 			});
 			deck.repaint();
 		}), null);
-		add(p, toggle("Active in the bank", "Bank shows items during a run", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter), null);
+		add(p, toggle("Active in the bank", "Bank shows items during a run", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter),
+			"Only one bank layout is active at a time: turning this on turns the other bank layouts off.");
 		add(p, toggle("Run guide", "Arrow + patch outlines", "Guide hidden", FARM, "showFarmRun", config::showFarmRun), null);
 		add(p, overview("ROUTE", "OVERVIEW", "Stops and what to bring", FARM, new Color(0x08130C), new Color(0x166534), SpriteID.MINIMAP_ORB_WORLD_MAP_PLANET, openWindow).iconSize(28),
 			"Open or close the farm run window: stops, what to bring, start or stop the run, switch route (Escape closes it).");
@@ -290,7 +291,8 @@ public class RoadmapPanel extends PluginPanel {
 			deck.repaint();
 		}), null);
 		add(p, toggle("Bank layout", "Bank shows this setup", "Bank left alone", BOSS, "bossGearBankLayout", config::bossGearBankLayout)
-			.withNote(() -> bossGear.getSet() != null && !bossGear.isSetActive() && config.bossGearBankLayout() ? "Paused while Inactive" : null), null);
+			.withNote(() -> bossGear.getSet() != null && !bossGear.isSetActive() && config.bossGearBankLayout() ? "Paused while Inactive" : null),
+			"Only one bank layout is active at a time: turning this on turns the other bank layouts off.");
 		add(p, toggle("Gear display", "Shown below", "Hidden", BOSS, "bossGearPanelDisplay", config::bossGearPanelDisplay)
 			.withNote(() -> bossGear.getSet() != null && !bossGear.isSetActive() && config.bossGearPanelDisplay() ? "Hidden while Inactive" : null),
 			"Show the active setup's worn gear, inventory and rune pouch in this panel.");

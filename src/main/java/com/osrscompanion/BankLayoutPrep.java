@@ -19,6 +19,7 @@ import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.ScriptID;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
@@ -28,6 +29,7 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemVariationMapping;
 import net.runelite.client.plugins.Plugin;
@@ -37,6 +39,7 @@ import net.runelite.client.plugins.banktags.BankTagsService;
 import net.runelite.client.plugins.banktags.TagManager;
 import net.runelite.client.plugins.banktags.tabs.Layout;
 import net.runelite.client.plugins.banktags.tabs.LayoutManager;
+import net.runelite.client.util.Text;
 
 /**
  * Gets the bank ready for the Boss gear window or the farm run: while the bank is open with the Boss
@@ -87,6 +90,19 @@ public class BankLayoutPrep {
 		BOSS, FARM
 	}
 
+	/**
+	 * The "active in the bank" settings: only one may be on at a time, turning one on turns the others
+	 * off. The first wins when more than one is on at start up. Add a new bank layout's key here.
+	 */
+	private final Map<String, java.util.function.BooleanSupplier> bankLayoutSettings = new LinkedHashMap<>();
+
+	/**
+	 * Set when the player clicks another bank tab / view (a vanilla tab, View all items, a Bank Tags tag
+	 * tab, the search, the potion store) while the bank is open: the bank is then left alone, no layout
+	 * or retry, until it is closed and opened again. Client thread.
+	 */
+	private boolean userLeft;
+
 	@Inject
 	public BankLayoutPrep(Client client, ClientThread clientThread, ItemManager itemManager, FarmRunManager farmRun,
 		BossGearManager bossGear, OSRSCompanionConfig config, BankTagsService bankTags, TagManager tagManager, LayoutManager layoutManager,
@@ -102,6 +118,8 @@ public class BankLayoutPrep {
 		this.layoutManager = layoutManager;
 		this.pluginManager = pluginManager;
 		this.configManager = configManager;
+		bankLayoutSettings.put("bossGearBankLayout", config::bossGearBankLayout);
+		bankLayoutSettings.put("farmRunBankFilter", config::farmRunBankFilter);
 	}
 
 	/** Registers the two tags; their items follow the active set / route live. */
@@ -113,6 +131,50 @@ public class BankLayoutPrep {
 		});
 		keepHubLayoutsOff(BOSS_TAG);
 		keepHubLayoutsOff(FARM_TAG);
+		// Both used to be on by default: keep only the first one that is on.
+		String first = null;
+		for (Map.Entry<String, java.util.function.BooleanSupplier> e : bankLayoutSettings.entrySet()) {
+			if (e.getValue().getAsBoolean()) {
+				if (first == null) {
+					first = e.getKey();
+				} else {
+					log.debug("Bank layout: '{}' and '{}' are both on, only one may be: turning '{}' off", first, e.getKey(), e.getKey());
+					configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, e.getKey(), false);
+				}
+			}
+		}
+	}
+
+	/** Turning one bank layout setting on (side panel or config panel) turns the others off. */
+	@Subscribe
+	public void onConfigChanged(ConfigChanged event) {
+		if (!OSRSCompanionConfig.CONFIG_GROUP.equals(event.getGroup()) || !bankLayoutSettings.containsKey(event.getKey())
+				|| !"true".equals(event.getNewValue())) {
+			return;
+		}
+		for (Map.Entry<String, java.util.function.BooleanSupplier> e : bankLayoutSettings.entrySet()) {
+			if (!e.getKey().equals(event.getKey()) && e.getValue().getAsBoolean()) {
+				log.debug("Bank layout: '{}' turned on, turning '{}' off (only one bank layout at a time)", event.getKey(), e.getKey());
+				configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, e.getKey(), false);
+			}
+		}
+	}
+
+	/** A click on another bank tab / view: the bank is left as the player chose until it is reopened. */
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked event) {
+		if (userLeft || (event.getParam1() >>> 16) != InterfaceID.BANKMAIN || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
+			return;
+		}
+		String option = event.getMenuOption() == null ? "" : Text.removeTags(event.getMenuOption());
+		boolean tabClick = option.startsWith("View tab") || option.equals("View all items") || option.startsWith("View tag tab")
+			|| event.getParam1() == InterfaceID.Bankmain.SEARCH || event.getParam1() == InterfaceID.Bankmain.POTIONSTORE_BUTTON;
+		if (tabClick) {
+			userLeft = true;
+			waitingForBuild = false;
+			log.debug("Bank layout: you clicked '{}' in the bank, leaving the bank alone until it is reopened (our layout applied: {})",
+				option, applied != null);
+		}
 	}
 
 	/** Keeps the "Bank Tag Layouts" hub plugin from laying out (packing) our tag over the Bank Tags layout. */
@@ -135,6 +197,7 @@ public class BankLayoutPrep {
 			layoutManager.removeLayout(BOSS_TAG);
 			layoutManager.removeLayout(FARM_TAG);
 			applied = null;
+			userLeft = false;
 		});
 	}
 
@@ -144,8 +207,8 @@ public class BankLayoutPrep {
 	 * Opening our tag right as the bank opens does not always stick: Bank Tags and the server's tab
 	 * sync can still put the whole bank back while our tag counts as open. So for a few ticks after the
 	 * bank opens (and after each apply) we check what the bank actually shows, and when it shows items
-	 * the set / route does not need, close and open our layout again, a few times at most. After that,
-	 * another bank tab the player clicks is left alone.
+	 * the set / route does not need, close and open our layout again, a few times at most. A bank tab /
+	 * view the player clicks (see {@link #userLeft}) stops all of this until the bank is reopened.
 	 */
 	private static final int VERIFY_TICKS = 5;
 	private static final int MAX_RETRIES = 4;
@@ -171,6 +234,7 @@ public class BankLayoutPrep {
 		if (event.getGroupId() == InterfaceID.BANKMAIN) {
 			applied = null;
 			retries = 0;
+			userLeft = false;
 			log.debug("Bank layout: bank opened. {}", state());
 			// An active setup / route lays the bank out even with its window closed: make sure it is loaded and current.
 			long now = System.currentTimeMillis();
@@ -193,7 +257,7 @@ public class BankLayoutPrep {
 
 	@Subscribe
 	public void onScriptPostFired(ScriptPostFired event) {
-		if (event.getScriptId() == ScriptID.BANKMAIN_BUILD && waitingForBuild) {
+		if (event.getScriptId() == ScriptID.BANKMAIN_BUILD && waitingForBuild && !userLeft) {
 			waitingForBuild = false;
 			log.debug("Bank layout: bank built, laying it out");
 			clientThread.invokeLater(this::update);
@@ -204,6 +268,10 @@ public class BankLayoutPrep {
 	public void onWidgetClosed(WidgetClosed event) {
 		if (event.getGroupId() == InterfaceID.BANKMAIN) {
 			applied = null;
+			if (userLeft) {
+				log.debug("Bank layout: bank closed, the next bank open is laid out again");
+			}
+			userLeft = false;
 		}
 	}
 
@@ -211,7 +279,7 @@ public class BankLayoutPrep {
 	@Subscribe
 	public void onGameTick(GameTick tick) {
 		preloadBossGear();
-		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
+		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null || userLeft) {
 			return;
 		}
 		if (waitingForBuild) {
@@ -328,6 +396,10 @@ public class BankLayoutPrep {
 
 	private void update() {
 		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
+			return;
+		}
+		if (userLeft) {
+			// A reload (new set / route object) or a setting change must not take the bank back from the tab the player picked.
 			return;
 		}
 		Driver d = driver();

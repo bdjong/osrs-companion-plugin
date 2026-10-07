@@ -250,7 +250,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "farmRunBankFilter",
 			name = "Farm run active in the bank",
-			description = "While a farm run is going (started in the farm run window and not complete), the bank shows only what your route needs, laid out like the worn gear and the inventory (see Exact bank layout). Without a run going the bank is left alone. Click another bank tab to see everything.",
+			description = "While a farm run is going (started in the farm run window and not complete), the bank shows only what your route needs, laid out like the worn gear and the inventory (see Exact bank layout). Without a run going the bank is left alone. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear bank layout off.",
 			section = FEATURES_SECTION,
 			position = 8)
 	default boolean farmRunBankFilter() {
@@ -311,7 +311,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "bossGearBankLayout",
 			name = "Boss gear bank layout",
-			description = "While the setup is Active, when you open the bank, it shows only your boss setup's items, laid out like the worn gear and the inventory (see Exact bank layout), with or without the window open. Click another bank tab to see everything.",
+			description = "While the setup is Active, when you open the bank, it shows only your boss setup's items, laid out like the worn gear and the inventory (see Exact bank layout), with or without the window open. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Farm run bank layout off.",
 			section = FEATURES_SECTION,
 			position = 12)
 	default boolean bossGearBankLayout() {
