@@ -102,7 +102,7 @@ public class SlayerSessionTest {
 		Map<String, Object> body = s.payload("Zezima");
 		List<String> keys = Arrays.asList("player", "session_uuid", "task_id", "task_name", "area_id", "master", "location_key",
 			"amount_original", "amount_at_start", "amount_remaining", "started_at", "ended_at", "completed", "time_in_area_sec",
-			"trip_count", "kills", "avg_kill_ms", "kills_per_hour", "loot_gp", "avg_loot_gp", "kill_times_ms");
+			"trip_count", "kills", "avg_kill_ms", "kills_per_hour", "loot_gp", "avg_loot_gp", "slayer_xp", "kill_times_ms");
 		assertEquals(keys, new ArrayList<>(body.keySet()));
 
 		JsonObject json = new Gson().newBuilder().serializeNulls().create().toJsonTree(body).getAsJsonObject();
