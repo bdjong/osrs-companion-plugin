@@ -28,4 +28,16 @@ public class TeleportLeftClickTest {
 		assertEquals(Collections.singletonList("home"), TeleportLeftClick.capeSubOptions(home));
 		assertEquals(Collections.emptyList(), TeleportLeftClick.capeFallbackOptions(home));
 	}
+
+	@Test
+	public void jewelleryBoxWayTeleportsHomeFirst() {
+		// The Slayer guide's "then the jewellery box": the cape's left click is Tele to POH, a house tab's Break.
+		FarmRoute.Travel box = travel("Construction cape (Tele to POH), then the jewellery box (Amulet of glory)",
+			"Use your Construction cape (Tele to POH), then use the Ornate jewellery box in your POH (Amulet of glory teleports). Edgeville, then the trapdoor south of the bank.");
+		assertEquals(Collections.singletonList("tele to poh"), TeleportLeftClick.capeOptions(box));
+		assertEquals(Collections.singletonList("home"), TeleportLeftClick.capeSubOptions(box));
+		FarmRoute.Travel tab = travel("House teleport tab, then the jewellery box (Amulet of glory)", "Use your House teleport tab, then use the Ornate jewellery box in your POH.");
+		assertEquals(Collections.emptyList(), TeleportLeftClick.capeOptions(tab));
+		assertEquals(10, TeleportLeftClick.optionScore("break", "house teleport tab, then the jewellery box"));
+	}
 }

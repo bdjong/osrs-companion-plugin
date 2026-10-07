@@ -201,6 +201,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private SlayerGuideMarkers slayerGuideMarkers;
 
 	@Inject
+	private SlayerGuideHouseOverlay slayerGuideHouseOverlay;
+
+	@Inject
 	private BossGearManager bossGearManager;
 
 	@Inject
@@ -298,6 +301,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(farmRunSceneOverlay);
 		eventBus.register(slayerHelperManager);
 		eventBus.register(slayerGuideMarkers);
+		eventBus.register(slayerGuideHouseOverlay);
 		eventBus.register(sessionMonitor);
 		eventBus.register(bossTripTracker);
 		eventBus.register(suppliesCheck);
@@ -387,6 +391,8 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		// Slayer helper: the guide's box (stats at the location); the arrow and map icon come from the markers.
 		overlayManager.add(slayerHelperOverlay);
+		// In your house on the way: the jewellery box (portal, nexus...) the way there uses, outlined.
+		overlayManager.add(slayerGuideHouseOverlay);
 
 		// Boss gear: the window (side-panel button); the bank lays the set out while it is open.
 		overlayManager.add(bossGearWindow);
@@ -482,6 +488,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(farmRunSceneOverlay);
 		eventBus.unregister(slayerHelperManager);
 		eventBus.unregister(slayerGuideMarkers);
+		eventBus.unregister(slayerGuideHouseOverlay);
 		eventBus.unregister(sessionMonitor);
 		sessionMonitor.stop();
 		eventBus.unregister(bossTripTracker);
@@ -579,9 +586,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		overlayManager.remove(farmRunItemOverlay);
 		clientThread.invoke(farmRunSceneOverlay::clearPointers);
 		overlayManager.remove(slayerHelperOverlay);
+		overlayManager.remove(slayerGuideHouseOverlay);
 		// The open slayer session is stored and sent before it is forgotten.
 		clientThread.invoke(() -> {
 			slayerGuideMarkers.clear();
+			slayerGuideHouseOverlay.clear();
 			slayerHelperManager.shutDown();
 		});
 		farmRunManager.clear();

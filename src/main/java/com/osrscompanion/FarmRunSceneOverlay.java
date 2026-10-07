@@ -60,7 +60,7 @@ public class FarmRunSceneOverlay extends Overlay {
 	/** In your house on the way to the stop: the portal, nexus, fairy ring... the travel uses, and its name. */
 	private volatile GameObject houseObject;
 	private volatile String houseObjectName;
-	private static final Color HOUSE_COLOR = new Color(0x22, 0xD3, 0xEE);
+	static final Color HOUSE_COLOR = new Color(0x22, 0xD3, 0xEE);
 	private static final Pattern PORTAL = Pattern.compile("the ([a-z' ()-]+?) portal");
 
 	private static final class Found {
@@ -111,14 +111,20 @@ public class FarmRunSceneOverlay extends Overlay {
 	/**
 	 * What to use in your house for this way to the stop, as names to look for: the named portal
 	 * ("then the Troll Stronghold portal"), the Portal Nexus, a fairy ring, spirit tree or jewellery box.
+	 * Shared with the Slayer guide ({@link SlayerGuideHouseOverlay}).
 	 */
 	static List<String> houseObjectNames(FarmRoute.Travel travel) {
 		if (travel == null) {
 			return Collections.emptyList();
 		}
-		String text = ((travel.getName() == null ? "" : travel.getName()) + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
+		String name = travel.getName() == null ? "" : travel.getName().toLowerCase();
+		String text = (name + " " + (travel.getHow() == null ? "" : travel.getHow())).toLowerCase();
 		if (!text.contains("poh") && !text.contains("house")) {
 			return Collections.emptyList();
+		}
+		if (name.contains("jewellery box")) {
+			// "House teleport tab, then the jewellery box (Amulet of glory)": the box only, whatever the run after mentions.
+			return Collections.singletonList("jewellery box");
 		}
 		List<String> out = new ArrayList<>();
 		if (text.contains("nexus")) {
@@ -141,12 +147,29 @@ public class FarmRunSceneOverlay extends Overlay {
 
 	/** In your house (an instance): finds the object the way there uses, for the outline and the arrow. Client thread. */
 	private void findHouseObject(FarmRoute.Travel travel) {
-		houseObject = null;
-		houseObjectName = null;
+		GameObject object = findHouseObject(client, travel);
+		houseObject = object;
+		houseObjectName = object == null ? null : objectName(client, object);
+	}
+
+	/** The object's name, through its impostor (a built hotspot's furniture). Client thread. */
+	static String objectName(Client client, GameObject object) {
+		ObjectComposition comp = client.getObjectDefinition(object.getId());
+		if (comp != null && comp.getImpostorIds() != null && comp.getImpostor() != null) {
+			comp = comp.getImpostor();
+		}
+		return comp == null ? null : comp.getName();
+	}
+
+	/**
+	 * In your house (an instance): the object the way there uses (see {@link #houseObjectNames}), null when
+	 * you are not in a house or it has none. Client thread.
+	 */
+	static GameObject findHouseObject(Client client, FarmRoute.Travel travel) {
 		WorldView view = client.getTopLevelWorldView();
 		List<String> names = houseObjectNames(travel);
 		if (view == null || !view.isInstance() || names.isEmpty()) {
-			return;
+			return null;
 		}
 		Tile[][] tiles = view.getScene().getTiles()[view.getPlane()];
 		for (Tile[] column : tiles) {
@@ -158,25 +181,21 @@ public class FarmRunSceneOverlay extends Overlay {
 					if (object == null) {
 						continue;
 					}
-					ObjectComposition comp = client.getObjectDefinition(object.getId());
-					if (comp != null && comp.getImpostorIds() != null && comp.getImpostor() != null) {
-						comp = comp.getImpostor();
-					}
-					String name = comp == null || comp.getName() == null ? "" : comp.getName().toLowerCase();
+					String objectName = objectName(client, object);
+					String name = objectName == null ? "" : objectName.toLowerCase();
 					for (String wanted : names) {
 						// A destination portal is named after the place ("Troll Stronghold Portal"); the nexus,
 						// fairy ring and others by what they are (a spiritual fairy tree is a fairy ring too).
 						boolean match = wanted.equals("fairy ring") ? name.contains("fairy ring") || name.contains("spiritual fairy tree")
 							: name.contains(wanted);
 						if (match && !name.equals("portal")) {
-							houseObject = object;
-							houseObjectName = comp.getName();
-							return;
+							return object;
 						}
 					}
 				}
 			}
 		}
+		return null;
 	}
 
 	/** Finds the stop's patch objects in the loaded scene (the patch object's varbit is the patch's). */
