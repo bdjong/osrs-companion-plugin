@@ -5,6 +5,7 @@ import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapGoal;
+import com.osrscompanion.model.SlayerGuide;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -33,7 +34,7 @@ import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 
 /**
- * The OSRS Companion side panel: a menu of four tool tiles (like the website's tool banners).
+ * The OSRS Companion side panel: a menu of five tool tiles (like the website's tool banners).
  * Each opens its own page with a Back tile, what is active, its on/off settings (e.g. whether the
  * bank lays out the boss setup or farm route) and a tile to open its window over the game.
  */
@@ -42,6 +43,7 @@ public class RoadmapPanel extends PluginPanel {
 	private static final Color GEAR = new Color(0xFB923C);
 	private static final Color FARM = new Color(0x4ADE80);
 	private static final Color BOSS = new Color(0xA78BFA);
+	private static final Color SLAYER = new Color(0xF87171);
 
 	private final ItemManager itemManager;
 	private final SpriteManager spriteManager;
@@ -52,6 +54,7 @@ public class RoadmapPanel extends PluginPanel {
 	private final FarmRunManager farmRun;
 	private final BossGearManager bossGear;
 	private final GearProgressionManager gearProgression;
+	private final SlayerHelperManager slayer;
 	private final ClientThread clientThread;
 
 	private final CardLayout cards = new CardLayout();
@@ -72,13 +75,18 @@ public class RoadmapPanel extends PluginPanel {
 	/** The boss page's gear display and the gap under the tile above it, shown while its setting is on. */
 	private BossGearPanelView gearView;
 	private Component gearViewGap;
+	/** The slayer page's session numbers and the gap under them, shown while a session is going. */
+	private JComponent slayerStats;
+	private Component slayerStatsGap;
+	/** The Slayer skill icon, loaded in the background (the task card's picture). */
+	private volatile java.awt.image.BufferedImage slayerIcon;
 	/** Keeps the live cards (current roadmap, route, setup) and switches up to date while the panel is open. */
 	private final Timer refresh = new Timer(1000, e -> tick());
 
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
 			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression,
-			ClientThread clientThread) {
+			SlayerHelperManager slayer, ClientThread clientThread) {
 		super(false);
 		this.itemManager = itemManager;
 		this.spriteManager = spriteManager;
@@ -89,6 +97,7 @@ public class RoadmapPanel extends PluginPanel {
 		this.farmRun = farmRun;
 		this.bossGear = bossGear;
 		this.gearProgression = gearProgression;
+		this.slayer = slayer;
 		this.clientThread = clientThread;
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -98,6 +107,7 @@ public class RoadmapPanel extends PluginPanel {
 		deck.add(gearPage(openGearProgression), "gear");
 		deck.add(farmPage(openFarmRun), "farm");
 		deck.add(bossPage(openBossGear), "boss");
+		deck.add(slayerPage(), "slayer");
 		// The boss page's gear display is tall: the pages scroll.
 		JPanel top = new JPanel(new BorderLayout());
 		top.add(deck, BorderLayout.NORTH);
@@ -138,6 +148,14 @@ public class RoadmapPanel extends PluginPanel {
 				bossGear.refresh();
 			}
 		}
+		if (slayerStats != null) {
+			boolean showStats = slayer.getStats() != null;
+			if (slayerStats.isVisible() != showStats) {
+				slayerStats.setVisible(showStats);
+				slayerStatsGap.setVisible(showStats);
+				deck.revalidate();
+			}
+		}
 		deck.repaint();
 	}
 
@@ -165,6 +183,7 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, gearTile(() -> show("gear")), "Gear progression: settings and the gear progression window.");
 		add(p, farmTile(() -> show("farm")), "Farm run: your route, bank layout and the farm run window.");
 		add(p, bossTile(() -> show("boss")), "Boss gear: your build, bank layout, gear display and the boss gear window.");
+		add(p, slayerTile(() -> show("slayer")), "Slayer helper: your task, the best place to do it, a guide there and your kill stats.");
 		return p;
 	}
 
@@ -272,6 +291,85 @@ public class RoadmapPanel extends PluginPanel {
 		return p;
 	}
 
+	private JPanel slayerPage() {
+		JPanel p = page();
+		add(p, back(), "Back to all tools");
+		// The task, with the switch that turns the guide to its location on (Active) or off.
+		add(p, new PanelTiles.SetupCard("TASK - GUIDE ON", "SLAYER TASK",
+			"Active: the guide leads you to the location (step box, arrow, Slayer icon on the world map). Click to turn it off.",
+			"Inactive: no guide. Click to be guided to the task's location.", SLAYER, this::slayerTaskLines,
+			() -> slayerIcon, () -> true, config::slayerGuide, () -> {
+				configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, "slayerGuide", !config.slayerGuide());
+				deck.repaint();
+			}).withSwitchLabel("Guide"), null);
+		slayerStats = new PanelTiles.Stats("AT THE LOCATION", SLAYER, 9, this::slayerStatRows);
+		add(p, slayerStats, "This visit to the task's location: it is sent to the website, which charts it per task.");
+		slayerStatsGap = p.getComponent(p.getComponentCount() - 1);
+		slayerStats.setVisible(false);
+		slayerStatsGap.setVisible(false);
+		add(p, new PanelTiles.Lines("LOCATION", 3, this::slayerLocationLines).withTip(() -> {
+			SlayerGuide.Location l = slayer.getLocation();
+			return l == null || l.getRequirements().isEmpty() ? null : "Needs: " + String.join(", ", l.getRequirements());
+		}), null);
+		spriteManager.getSpriteAsync(SpriteID.SKILL_SLAYER, 0, img -> {
+			slayerIcon = img;
+			SwingUtilities.invokeLater(deck::repaint);
+		});
+		return p;
+	}
+
+	private String[] slayerTaskLines() {
+		SlayerHelperManager.Task t = slayer.getTask();
+		if (t == null) {
+			return new String[]{"No slayer task", "Get one from a slayer master"};
+		}
+		String master = slayer.getMaster();
+		return new String[]{t.displayName(), t.remaining + " left" + (t.original > 0 ? " of " + t.original : "") + (master != null ? " - " + master : "")};
+	}
+
+	private String[] slayerLocationLines() {
+		SlayerGuide.Location l = slayer.getLocation();
+		if (l != null) {
+			SlayerGuide.Location here = slayer.getHere();
+			String name = (here != null && here.getKey() != null && here.getKey().equals(l.getKey()) ? "Here: " : "") + l.getName()
+				+ (l.isMulti() ? " (multi)" : "");
+			return new String[]{name, l.getWhy(), l.getTravel() == null ? "" : "Way there: " + l.getTravel().getName()};
+		}
+		if (slayer.getTask() == null) {
+			return new String[]{"No task, no location", "", ""};
+		}
+		if (slayer.isLoading()) {
+			return new String[]{"Loading...", "", ""};
+		}
+		if (slayer.getError() != null) {
+			return new String[]{"No location loaded", slayer.getError(), ""};
+		}
+		if (!slayer.isGuideForTask()) {
+			return new String[]{"No location yet", "The website doesn't have this task yet", "(it needs Slayer sync on)"};
+		}
+		return new String[]{"No location known", "The website has no locations", "for this task yet"};
+	}
+
+	private String[][] slayerStatRows() {
+		SlayerHelperManager.Stats s = slayer.getStats();
+		SlayerHelperManager.Task t = slayer.getTask();
+		if (s == null) {
+			return new String[0][];
+		}
+		long now = System.currentTimeMillis();
+		long time = s.timeInArea(now);
+		return new String[][]{
+			{"In the area", slayer.getHere() != null ? "Yes" : "No"},
+			{"Time at location", SlayerFormat.clock(time)},
+			{"Trip timer", SlayerFormat.clock(s.total(now))},
+			{"Kills", String.valueOf(s.kills)},
+			{"Avg kill time", s.avgKillMs > 0 ? SlayerFormat.seconds(s.avgKillMs) : "-"},
+			{"Kills / hour", s.killsPerHour > 0 ? String.valueOf(Math.round(s.killsPerHour)) : "-"},
+			{"Est. time left", s.estimatedLeftMs > 0 && t != null ? SlayerFormat.clock(s.estimatedLeftMs) : "-"},
+			{"Loot", SlayerFormat.gp(s.lootGp)},
+			{"Avg loot / kill", s.kills > 0 ? SlayerFormat.gp(s.avgLootGp) : "-"}};
+	}
+
 	/** The build's name under the boss: your own name for a custom build, else the wiki setup's style. */
 	private String buildLabel(BossGear s) {
 		for (BossGear.SetSummary sum : bossGear.getSets()) {
@@ -315,6 +413,8 @@ public class RoadmapPanel extends PluginPanel {
 			farmRun.refreshIfStale();
 		} else if ("gear".equals(page) && gearProgression.getPlan() == null && !gearProgression.isLoading()) {
 			gearProgression.refresh();
+		} else if ("slayer".equals(page)) {
+			slayer.refreshIfStale();
 		}
 		cards.show(deck, page);
 		deck.revalidate();
@@ -350,6 +450,11 @@ public class RoadmapPanel extends PluginPanel {
 	private FeatureTile bossTile(Runnable action) {
 		return FeatureTile.banner("BOSS", "GEAR", "Builds + bank layout",
 			BOSS, new Color(0x120A24), new Color(0x5B21B6), itemManager.getImage(ItemID.VORKATH_HEAD), action);
+	}
+
+	private FeatureTile slayerTile(Runnable action) {
+		return FeatureTile.banner("SLAYER", "HELPER", "Task, best spot & kill stats",
+			SLAYER, new Color(0x1F0A0A), new Color(0x991B1B), itemManager.getImage(ItemID.SLAYER_HELM), action);
 	}
 
 	/** An on/off tile for a boolean setting of this plugin. */
