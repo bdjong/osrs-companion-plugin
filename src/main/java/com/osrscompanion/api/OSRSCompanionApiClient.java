@@ -9,6 +9,7 @@ import com.osrscompanion.model.HouseLocationSyncPayload;
 import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
 import com.osrscompanion.model.CombatAchievementsSyncPayload;
+import com.osrscompanion.model.Dailies;
 import com.osrscompanion.model.DeathSyncPayload;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
@@ -94,6 +95,7 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_CATALOG_ENDPOINT = "/api/runelite/slayer/catalog/";
 	private static final String SLAYER_CATALOG_STATUS_ENDPOINT = "/api/runelite/slayer/catalog/status/";
 	private static final String SLAYER_REWARDS_ENDPOINT = "/api/runelite/slayer/rewards/";
+	private static final String DAILIES_ENDPOINT = "/api/runelite/dailies/";
 
 	private static final int HTTP_OK_MIN = 200;
 	private static final int HTTP_OK_MAX = 300;
@@ -511,6 +513,19 @@ public class OSRSCompanionApiClient
 		body.put("player", playerUsername);
 		postForResult(BOSS_GEAR_ENDPOINT + "sets/" + setId + "/activate/", gson.toJson(body), "boss-gear-activate",
 			BossGear.Response.class, callback);
+	}
+
+	/** Which dailies are done, open or locked (and the ones ticked by hand); deduped like the other syncs. */
+	public void sendDailies(String json)
+	{
+		postAsync(DAILIES_ENDPOINT, json, "dailies", false, true,
+			() -> log.debug("OSRS Companion dailies synced"));
+	}
+
+	/** Fetches the dailies guide: every daily with its state, the way there and the steps. */
+	public void getDailies(String playerUsername, RoadmapCallback<Dailies> callback)
+	{
+		getAsync(DAILIES_ENDPOINT + "?player=" + urlEncode(playerUsername), "dailies", Dailies.class, callback);
 	}
 
 	private <T> void getAsync(String endpoint, String label, Class<T> type, RoadmapCallback<T> callback)
