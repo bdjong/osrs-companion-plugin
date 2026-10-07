@@ -70,6 +70,25 @@ public class BossGearTest {
 	}
 
 	@Test
+	public void parsesInventoryStandIns() {
+		String json = "{\"mode\":\"owned\",\"set\":{\"id\":6,\"equipment\":[],"
+			+ "\"inventory\":[{\"item\":12695,\"name\":\"Super combat potion(4)\",\"ids\":[12699,12695],\"owned\":true,\"status\":\"alt\","
+			+ "\"alt_for\":\"Divine super combat potion(4)\"},{\"item\":385,\"name\":\"Shark\",\"owned\":true},null],"
+			+ "\"pouch\":[{\"item\":560,\"name\":\"Death rune\",\"owned\":true,\"status\":\"alt\"}]}}";
+		BossGear s = new Gson().fromJson(json, BossGear.Response.class).getSet();
+		BossGear.Item potion = s.getInventory().get(0);
+		assertTrue(potion.isAlternative());
+		assertEquals("Divine super combat potion(4)", potion.getAltFor());
+		assertEquals(Arrays.asList(12699, 12695), potion.getIds());
+		assertFalse(s.getInventory().get(1).isAlternative());
+		assertEquals("unknown", s.getInventory().get(1).getStatus());
+		assertTrue(s.getPouch().get(0).isAlternative());
+		assertEquals("the wiki's item", s.getPouch().get(0).getAltFor());
+		BossGear.Slot slot = new Gson().fromJson("{\"slot\":\"neck\",\"status\":\"alt\"}", BossGear.Slot.class);
+		assertEquals("the best in slot", slot.getAltFor());
+	}
+
+	@Test
 	public void noActiveSet() {
 		BossGear.Response r = new Gson().fromJson("{\"set\":null,\"sets\":[]}", BossGear.Response.class);
 		assertNull(r.getSet());

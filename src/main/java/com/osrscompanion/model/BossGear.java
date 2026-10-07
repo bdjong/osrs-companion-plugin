@@ -31,7 +31,7 @@ public class BossGear {
 	public static String modeDescription(String mode) {
 		return MODE_BIS.equals(mode) ? "Every slot shows the wiki's best in slot, owned or not."
 			: MODE_ALTERNATIVES.equals(mode) ? "Best owned from the wiki's list; where you own none, your best item of the setup's style (marked A)."
-			: "The best item you own from the slot's wiki list; red when you own none.";
+			: "The best item you own from the slot's wiki list; red when you own none. Inventory items you lack become an owned one doing the same job (marked A).";
 	}
 
 	/** The mode after this one (bis, owned, alternatives, bis, ...). */
@@ -165,6 +165,14 @@ public class BossGear {
 		@SerializedName("noted")
 		private boolean noted;
 
+		/** bis | partial | missing | alt | unknown for worn slots; inventory and pouch items only say "alt". */
+		@SerializedName("status")
+		private String status;
+
+		/** Status "alt": the wiki item(s) this owned item stands in for (not owned). */
+		@SerializedName("alt_for")
+		private String altFor;
+
 		public int getItem() {
 			return item;
 		}
@@ -189,42 +197,46 @@ public class BossGear {
 		public boolean isNoted() {
 			return noted;
 		}
+
+		public String getStatus() {
+			return status == null ? "unknown" : status;
+		}
+
+		/**
+		 * An owned item brought instead of the wiki's that you don't own: an owned alternative in a worn
+		 * slot, or an inventory item that does the same job ("Best owned" / "Owned alternatives").
+		 */
+		public boolean isAlternative() {
+			return "alt".equals(status);
+		}
+
+		public String getAltFor() {
+			return altForOr("the wiki's item");
+		}
+
+		protected String altForOr(String fallback) {
+			return altFor == null || altFor.isEmpty() ? fallback : altFor;
+		}
 	}
 
 	public static class Slot extends Item {
 		@SerializedName("slot")
 		private String slot;
 
-		/** bis | partial | missing | alt | unknown, as on the website. */
-		@SerializedName("status")
-		private String status;
-
 		@SerializedName("rank")
 		private Integer rank;
 
-		/** Status "alt" (owned alternatives mode): the best-in-slot item(s) this owned item stands in for. */
-		@SerializedName("alt_for")
-		private String altFor;
-
 		public String getSlot() {
 			return slot;
-		}
-
-		public String getStatus() {
-			return status == null ? "unknown" : status;
 		}
 
 		public Integer getRank() {
 			return rank;
 		}
 
-		/** An owned item used instead of the best in slot you don't own ("Use owned alternatives"). */
-		public boolean isAlternative() {
-			return "alt".equals(status);
-		}
-
+		@Override
 		public String getAltFor() {
-			return altFor == null || altFor.isEmpty() ? "the best in slot" : altFor;
+			return altForOr("the best in slot");
 		}
 	}
 
