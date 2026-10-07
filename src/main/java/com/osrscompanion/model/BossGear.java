@@ -145,12 +145,16 @@ public class BossGear {
 		@SerializedName("slot")
 		private String slot;
 
-		/** bis | partial | missing | unknown, as on the website. */
+		/** bis | partial | missing | alt | unknown, as on the website. */
 		@SerializedName("status")
 		private String status;
 
 		@SerializedName("rank")
 		private Integer rank;
+
+		/** Status "alt" (owned alternatives on): the best-in-slot item(s) this owned item stands in for. */
+		@SerializedName("alt_for")
+		private String altFor;
 
 		public String getSlot() {
 			return slot;
@@ -162,6 +166,15 @@ public class BossGear {
 
 		public Integer getRank() {
 			return rank;
+		}
+
+		/** An owned item used instead of the best in slot you don't own ("Use owned alternatives"). */
+		public boolean isAlternative() {
+			return "alt".equals(status);
+		}
+
+		public String getAltFor() {
+			return altFor == null || altFor.isEmpty() ? "the best in slot" : altFor;
 		}
 	}
 
@@ -248,6 +261,10 @@ public class BossGear {
 		@SerializedName("catalog")
 		private List<CatalogBoss> catalog;
 
+		/** "Use owned alternatives" (wiki presets): shared with the website's Boss Gear page. */
+		@SerializedName("alternatives")
+		private boolean alternatives;
+
 		public BossGear getSet() {
 			return set;
 		}
@@ -258,6 +275,10 @@ public class BossGear {
 
 		public List<CatalogBoss> getCatalog() {
 			return catalog == null ? Collections.emptyList() : catalog;
+		}
+
+		public boolean isAlternatives() {
+			return alternatives;
 		}
 	}
 }

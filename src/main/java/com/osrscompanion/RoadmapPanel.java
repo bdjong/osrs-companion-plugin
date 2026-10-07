@@ -296,6 +296,12 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, toggle("Gear display", "Shown below", "Hidden", BOSS, "bossGearPanelDisplay", config::bossGearPanelDisplay)
 			.withNote(() -> bossGear.getSet() != null && !bossGear.isSetActive() && config.bossGearPanelDisplay() ? "Hidden while Inactive" : null),
 			"Show the active setup's worn gear, inventory and rune pouch in this panel.");
+		add(p, new PanelTiles.Toggle("Owned alternatives", "Missing items: best owned instead", "Wiki gear only", BOSS, bossGear::isAlternatives, () -> {
+			bossGear.setAlternatives(!bossGear.isAlternatives());
+			deck.repaint();
+		}).withNote(() -> bossGear.isAlternatives() && isCustomBuild(bossGear.getSet()) ? "Custom builds unchanged" : null),
+			"Wiki presets: where you own none of the items the wiki lists for a slot, use the best item you own of the setup's style "
+				+ "(melee / ranged / magic, checked with the DPS calculator), marked A. Synced with the website's Boss Gear page.");
 		add(p, overview("GEAR", "OVERVIEW", "Load a preset or build", BOSS, new Color(0x120A24), new Color(0x5B21B6), SpriteID.TAB_EQUIPMENT, openWindow),
 			"Open or close the boss gear window: the setup's gear and inventory; load a wiki preset or one of your custom builds there (Escape closes it).");
 		gearView = new BossGearPanelView(bossGear, itemManager);
@@ -434,6 +440,19 @@ public class RoadmapPanel extends PluginPanel {
 			{"Est. time left", s.estimatedLeftMs > 0 && t != null ? SlayerFormat.clock(s.estimatedLeftMs) : "-"},
 			{"Loot", SlayerFormat.gp(s.lootGp)},
 			{"Avg loot / kill", s.kills > 0 ? SlayerFormat.gp(s.avgLootGp) : "-"}};
+	}
+
+	/** Whether the loaded build is one of your custom builds (owned alternatives apply to wiki presets only). */
+	private boolean isCustomBuild(BossGear s) {
+		if (s == null) {
+			return false;
+		}
+		for (BossGear.SetSummary sum : bossGear.getSets()) {
+			if (sum.getId() == s.getId()) {
+				return sum.isCustom();
+			}
+		}
+		return false;
 	}
 
 	/** The build's name under the boss: your own name for a custom build, else the wiki setup's style. */

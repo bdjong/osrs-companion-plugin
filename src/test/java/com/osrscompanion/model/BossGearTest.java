@@ -6,6 +6,7 @@ import java.util.Collections;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -31,6 +32,22 @@ public class BossGearTest {
 		assertEquals(4, s.getInventory().get(2).getQty());
 		assertTrue(s.getInventory().get(2).isNoted());
 		assertEquals(1000, s.getPouch().get(0).getQty());
+	}
+
+	@Test
+	public void parsesOwnedAlternatives() {
+		String json = "{\"alternatives\":true,\"sets\":[],\"set\":{\"id\":4,\"equipment\":["
+			+ "{\"slot\":\"neck\",\"item\":6585,\"name\":\"Amulet of fury\",\"ids\":[6585],\"owned\":true,\"status\":\"alt\",\"rank\":null,\"bis\":false,"
+			+ "\"alt_for\":\"Salve amulet(ei)\"},"
+			+ "{\"slot\":\"head\",\"item\":3749,\"name\":\"Archer helm\",\"owned\":true,\"status\":\"partial\",\"rank\":5}]}}";
+		BossGear.Response r = new Gson().fromJson(json, BossGear.Response.class);
+		assertTrue(r.isAlternatives());
+		BossGear.Slot neck = r.getSet().slot("neck");
+		assertTrue(neck.isAlternative());
+		assertEquals("Salve amulet(ei)", neck.getAltFor());
+		assertNull(neck.getRank());
+		assertFalse(r.getSet().slot("head").isAlternative());
+		assertFalse(new Gson().fromJson("{\"set\":null}", BossGear.Response.class).isAlternatives());
 	}
 
 	@Test

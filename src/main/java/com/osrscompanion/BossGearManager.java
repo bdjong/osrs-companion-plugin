@@ -34,6 +34,8 @@ public class BossGearManager {
 	private volatile BossGear set;
 	private volatile List<BossGear.SetSummary> sets = Collections.emptyList();
 	private volatile List<BossGear.CatalogBoss> catalog = Collections.emptyList();
+	/** "Use owned alternatives" for wiki presets, as stored on the website. */
+	private volatile boolean alternatives;
 	private volatile String error;
 	private volatile boolean loading;
 	private volatile boolean loaded;
@@ -86,6 +88,39 @@ public class BossGearManager {
 		apiClient.activateBossGearPreset(boss.getKey(), setup, player, callback(boss.getName() + " - " + boss.getSetups().get(setup)));
 	}
 
+	/**
+	 * Turns "Use owned alternatives" on or off (stored on the website, the Boss Gear page shows the same
+	 * switch) and reloads the set: wiki presets then bring the best owned item of the setup's style
+	 * where you own none of the wiki's items.
+	 */
+	public void setAlternatives(boolean enabled) {
+		String player = roadmapManager.getPlayerUsername();
+		if (player == null || !roadmapManager.hasAppKey()) {
+			return;
+		}
+		// Shown straight away; the response confirms it.
+		alternatives = enabled;
+		loading = true;
+		apiClient.setBossGearAlternatives(enabled, player, new OSRSCompanionApiClient.RoadmapCallback<BossGear.Response>() {
+			@Override
+			public void onSuccess(BossGear.Response result) {
+				callback(null).onSuccess(result);
+			}
+
+			@Override
+			public void onError(String message) {
+				alternatives = !enabled;
+				error = "Could not change owned alternatives (" + message + ").";
+				loading = false;
+				log.debug("Boss gear: {}", error);
+			}
+		});
+	}
+
+	public boolean isAlternatives() {
+		return alternatives;
+	}
+
 	private OSRSCompanionApiClient.RoadmapCallback<BossGear.Response> callback(String switchedTo) {
 		return new OSRSCompanionApiClient.RoadmapCallback<BossGear.Response>() {
 			@Override
@@ -98,6 +133,7 @@ public class BossGearManager {
 				}
 				sets = result.getSets();
 				catalog = result.getCatalog();
+				alternatives = result.isAlternatives();
 				error = null;
 				loaded = true;
 				loading = false;
@@ -194,7 +230,8 @@ public class BossGearManager {
 		}
 		if (it instanceof BossGear.Slot) {
 			BossGear.Slot s = (BossGear.Slot) it;
-			tip.append("bis".equals(s.getStatus()) ? " - best in slot" : "partial".equals(s.getStatus()) ? " - best you own (rank " + s.getRank() + ")"
+			tip.append(s.isAlternative() ? " - Alternative for " + s.getAltFor() + " (not owned)"
+				: "bis".equals(s.getStatus()) ? " - best in slot" : "partial".equals(s.getStatus()) ? " - best you own (rank " + s.getRank() + ")"
 				: "missing".equals(s.getStatus()) ? " - best in slot, not owned" : "");
 		}
 		tip.append(" - carrying ").append(carried);
@@ -293,6 +330,7 @@ public class BossGearManager {
 		open = false;
 		set = null;
 		sets = Collections.emptyList();
+		alternatives = false;
 		loaded = false;
 		error = null;
 	}

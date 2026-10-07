@@ -542,6 +542,16 @@ public class OSRSCompanionApiClient
 			BossGear.Response.class, callback);
 	}
 
+	/** Turns "Use owned alternatives" (wiki presets) on or off, on the website too, and returns the reloaded set. */
+	public void setBossGearAlternatives(boolean enabled, String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("enabled", enabled);
+		postForResult(BOSS_GEAR_ENDPOINT + "alternatives/", gson.toJson(body), "boss-gear-alternatives",
+			BossGear.Response.class, callback);
+	}
+
 	/** Makes another saved boss gear set the active one and returns it. */
 	public void activateBossGear(int setId, String playerUsername, RoadmapCallback<BossGear.Response> callback)
 	{

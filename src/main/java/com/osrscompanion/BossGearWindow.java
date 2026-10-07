@@ -49,6 +49,9 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	private static final int BUTTON_WIDTH = 110;
 	private static final int BUTTON_HEIGHT = 20;
 	private static final Color STORED = new Color(0xFF981F);
+	/** The "A" on slots filled with an owned alternative. */
+	static final Color ALT = new Color(0x93B4FF);
+	private static final int ALT_ROW = 24;
 
 	/** Worn-equipment layout as in the game: 3 columns, null = no slot there. */
 	static final String[][] EQUIPMENT = {
@@ -332,15 +335,42 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		String hint = manager.isSetActive() ? "Open your bank with this window open: it shows only these items, laid out like your gear and inventory."
 			: "Inactive: the bank is left alone. Press Set active to lay it out.";
 		for (String line : wrap(hint, g.getFontMetrics(), textW)) {
-			if (ly > area.y + area.height - BUTTON_HEIGHT - 16) {
+			if (ly > area.y + area.height - BUTTON_HEIGHT - 16 - ALT_ROW) {
 				break;
 			}
 			text(g, line, lx, ly, GREY);
 			ly += 13;
 		}
 		Rectangle refresh = new Rectangle(area.x + (area.width - BUTTON_WIDTH) / 2, area.y + area.height - BUTTON_HEIGHT - 10, BUTTON_WIDTH, BUTTON_HEIGHT);
+		altCheckbox(g, set, new Rectangle(area.x + 10, refresh.y - ALT_ROW, area.width - 20, 18), newHits);
 		button(g, refresh, manager.isLoading() ? "Loading..." : "Refresh", manager.isLoading());
 		newHits.add(new Hit(refresh, manager::refresh, "Reload your builds from the website"));
+	}
+
+	/**
+	 * The "Owned alternatives" checkbox (stored on the website, like the Boss Gear page's switch): wiki
+	 * presets bring the best owned item of the setup's style where you own none of the wiki's items.
+	 */
+	private void altCheckbox(Graphics2D g, BossGear set, Rectangle row, List<Hit> newHits) {
+		boolean on = manager.isAlternatives();
+		BossGear.SetSummary inUse = inUse(set);
+		boolean custom = inUse != null && inUse.isCustom();
+		Rectangle check = new Rectangle(row.x, row.y + 3, 12, 12);
+		box(g, check, SLOT, PANEL_EDGE, SLOT_INNER);
+		if (on) {
+			g.setColor(GREEN);
+			g.setStroke(new BasicStroke(2));
+			g.drawLine(check.x + 3, check.y + 6, check.x + 5, check.y + 9);
+			g.drawLine(check.x + 5, check.y + 9, check.x + 9, check.y + 3);
+			g.setStroke(new BasicStroke(1));
+		}
+		g.setFont(FontManager.getRunescapeSmallFont());
+		String label = "Owned alternatives" + (custom ? " (wiki presets)" : "");
+		text(g, truncate(label, g.getFontMetrics(), row.width - 18), check.x + 17, row.y + 13, custom ? GREY : on ? ALT : BEIGE);
+		String tip = (on ? "On: where you own none of the wiki's items for a slot, the best item you own of the setup's style is used (marked A)."
+			: "Off: wiki gear only. Turn on to use the best item you own of the setup's style where you own none of the wiki's items.")
+			+ (custom ? " Custom builds are unchanged." : "") + " Synced with the website's Boss Gear page.";
+		newHits.add(new Hit(row, () -> manager.setAlternatives(!on), tip));
 	}
 
 	/** One line of the switcher: a heading, a build, a boss (unfolds) or one of its setups. */
@@ -592,6 +622,9 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		}
 		if (it.isNoted()) {
 			text(g, "N", r.x + 2, r.y + r.height - 3, YELLOW);
+		}
+		if (it instanceof BossGear.Slot && ((BossGear.Slot) it).isAlternative()) {
+			text(g, "A", r.x + 2, r.y + 10, ALT);
 		}
 		newHits.add(new Hit(r, () -> { }, manager.slotTooltip(it, need, synced)));
 	}

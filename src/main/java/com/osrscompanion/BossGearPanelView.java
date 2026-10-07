@@ -225,6 +225,9 @@ class BossGearPanelView extends JComponent {
 		if (it.isNoted()) {
 			shadow(g, "N", r.x + 2, r.y + r.height - 3, YELLOW);
 		}
+		if (it instanceof BossGear.Slot && ((BossGear.Slot) it).isAlternative()) {
+			shadow(g, "A", r.x + 2, r.y + 10, BossGearWindow.ALT);
+		}
 		newTips.add(new Tip(r, manager.slotTooltip(it, need, synced)));
 	}
 
