@@ -17,7 +17,7 @@ import java.util.function.Supplier;
 import javax.swing.JComponent;
 import net.runelite.client.ui.FontManager;
 
-/** Side-panel pieces in the tool tiles' style: an on/off tile and an info card. */
+/** Side-panel pieces in the tool tiles' style: an on/off tile, info cards and a stats card. */
 final class PanelTiles {
 	private static final int ARC = 14;
 	private static final Color FROM = new Color(0x161B26);
@@ -133,6 +133,8 @@ final class PanelTiles {
 		private final BooleanSupplier hasSet;
 		private final BooleanSupplier active;
 		private final Runnable flip;
+		/** Said before Active / Inactive ("Guide: Active"); null: nothing. */
+		private String switchLabel;
 
 		SetupCard(String activeHeading, String selectedHeading, String activeTip, String inactiveTip, Color accent, Supplier<String[]> lines,
 				Supplier<java.awt.image.BufferedImage> picture, BooleanSupplier hasSet, BooleanSupplier active, Runnable flip) {
@@ -167,6 +169,12 @@ final class PanelTiles {
 					setCursor(Cursor.getPredefinedCursor(over ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
 				}
 			});
+		}
+
+		/** Says what the switch is before Active / Inactive ("Guide: Active"). */
+		SetupCard withSwitchLabel(String label) {
+			switchLabel = label;
+			return this;
 		}
 
 		@Override
@@ -222,7 +230,115 @@ final class PanelTiles {
 					g.setColor(Color.WHITE);
 					g.fillOval(on ? sx + 16 : sx + 2, sy + 2, 12, 12);
 					g.setFont(FontManager.getRunescapeSmallFont());
-					shadow(g, on ? "Active" : "Inactive", 48, 62, on ? brighten(accent) : new Color(0xAEB6C4));
+					shadow(g, (switchLabel == null ? "" : switchLabel + ": ") + (on ? "Active" : "Inactive"), 48, 62,
+						on ? brighten(accent) : new Color(0xAEB6C4));
+				}
+			} finally {
+				g.dispose();
+			}
+		}
+	}
+
+	/** A card with a heading and up to a set number of lines: the first in white, the rest smaller (the slayer location). */
+	static final class Lines extends JComponent {
+		private final String heading;
+		private final int count;
+		private final Supplier<String[]> lines;
+		private Supplier<String> tip = () -> null;
+
+		Lines(String heading, int count, Supplier<String[]> lines) {
+			this.heading = heading;
+			this.count = count;
+			this.lines = lines;
+			int h = 38 + (count - 1) * 13 + 4;
+			setPreferredSize(new Dimension(200, h));
+			setMinimumSize(new Dimension(120, h));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, h));
+		}
+
+		/** A live tooltip (null: none). */
+		Lines withTip(Supplier<String> tip) {
+			this.tip = tip;
+			// Registers the card with the tooltip manager; the text comes from getToolTipText(MouseEvent).
+			setToolTipText("");
+			return this;
+		}
+
+		@Override
+		public String getToolTipText(MouseEvent e) {
+			return tip.get();
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			try {
+				smooth(g);
+				int w = getWidth();
+				int h = getHeight();
+				RoundRectangle2D card = new RoundRectangle2D.Float(0.5f, 0.5f, w - 1.5f, h - 1.5f, ARC, ARC);
+				g.setColor(new Color(0x1A1F2B));
+				g.fill(card);
+				g.setColor(new Color(0x313A4E));
+				g.draw(card);
+				g.setFont(FontManager.getRunescapeSmallFont());
+				shadow(g, heading, 12, 16, new Color(0x8C96A8));
+				String[] text = lines.get();
+				int y = 32;
+				for (int i = 0; i < text.length && i < count; i++) {
+					g.setFont(i == 0 ? FontManager.getRunescapeFont() : FontManager.getRunescapeSmallFont());
+					shadow(g, fit(text[i], g.getFontMetrics(), w - 24), 12, y, i == 0 ? Color.WHITE : new Color(0xC9D1DE));
+					y += i == 0 ? 15 : 13;
+				}
+			} finally {
+				g.dispose();
+			}
+		}
+	}
+
+	/** A card with a heading and rows of a label and its value on the right (the slayer session's numbers). */
+	static final class Stats extends JComponent {
+		private static final int ROW = 14;
+		private final String heading;
+		private final Color accent;
+		private final int count;
+		private final Supplier<String[][]> rows;
+
+		Stats(String heading, Color accent, int count, Supplier<String[][]> rows) {
+			this.heading = heading;
+			this.accent = accent;
+			this.count = count;
+			this.rows = rows;
+			int h = 24 + count * ROW + 6;
+			setPreferredSize(new Dimension(200, h));
+			setMinimumSize(new Dimension(120, h));
+			setMaximumSize(new Dimension(Integer.MAX_VALUE, h));
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			try {
+				smooth(g);
+				int w = getWidth();
+				int h = getHeight();
+				RoundRectangle2D card = new RoundRectangle2D.Float(0.5f, 0.5f, w - 1.5f, h - 1.5f, ARC, ARC);
+				g.setColor(new Color(0x1A1F2B));
+				g.fill(card);
+				g.setColor(alpha(accent, 120));
+				g.draw(card);
+				g.setFont(FontManager.getRunescapeSmallFont());
+				shadow(g, heading, 12, 16, new Color(0x8C96A8));
+				FontMetrics fm = g.getFontMetrics();
+				String[][] all = rows.get();
+				int y = 32;
+				for (int i = 0; i < all.length && i < count; i++) {
+					String label = all[i].length > 0 ? all[i][0] : "";
+					String value = all[i].length > 1 && all[i][1] != null ? all[i][1] : "-";
+					int vw = fm.stringWidth(value);
+					shadow(g, fit(label, fm, w - 36 - vw), 12, y, new Color(0xAEB6C4));
+					shadow(g, value, w - 12 - vw, y, i == 0 ? brighten(accent) : Color.WHITE);
+					y += ROW;
 				}
 			} finally {
 				g.dispose();

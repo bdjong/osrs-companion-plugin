@@ -192,6 +192,15 @@ public class OSRSCompanionPlugin extends Plugin {
 	private BankLayoutPrep bankLayoutPrep;
 
 	@Inject
+	private SlayerHelperManager slayerHelperManager;
+
+	@Inject
+	private SlayerHelperOverlay slayerHelperOverlay;
+
+	@Inject
+	private SlayerGuideMarkers slayerGuideMarkers;
+
+	@Inject
 	private BossGearManager bossGearManager;
 
 	@Inject
@@ -266,6 +275,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(bankLayoutPrep);
 		bankLayoutPrep.startUp();
 		eventBus.register(farmRunSceneOverlay);
+		eventBus.register(slayerHelperManager);
+		eventBus.register(slayerGuideMarkers);
 		eventBus.register(sessionMonitor);
 
 		timerMonitor.start();
@@ -316,7 +327,8 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		// Side-panel roadmap tab.
 		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, itemManager,
-				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager, clientThread);
+				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager,
+				slayerHelperManager, clientThread);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -347,6 +359,9 @@ public class OSRSCompanionPlugin extends Plugin {
 		overlayManager.add(farmRunOverlay);
 		overlayManager.add(farmRunSceneOverlay);
 		overlayManager.add(farmRunItemOverlay);
+
+		// Slayer helper: the guide's box (stats at the location); the arrow and map icon come from the markers.
+		overlayManager.add(slayerHelperOverlay);
 
 		// Boss gear: the window (side-panel button); the bank lays the set out while it is open.
 		overlayManager.add(bossGearWindow);
@@ -417,6 +432,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(bankLayoutPrep);
 		bankLayoutPrep.shutDown();
 		eventBus.unregister(farmRunSceneOverlay);
+		eventBus.unregister(slayerHelperManager);
+		eventBus.unregister(slayerGuideMarkers);
 		eventBus.unregister(sessionMonitor);
 		sessionMonitor.stop();
 
@@ -502,6 +519,12 @@ public class OSRSCompanionPlugin extends Plugin {
 		overlayManager.remove(farmRunSceneOverlay);
 		overlayManager.remove(farmRunItemOverlay);
 		clientThread.invoke(farmRunSceneOverlay::clearPointers);
+		overlayManager.remove(slayerHelperOverlay);
+		// The open slayer session is stored and sent before it is forgotten.
+		clientThread.invoke(() -> {
+			slayerGuideMarkers.clear();
+			slayerHelperManager.shutDown();
+		});
 		farmRunManager.clear();
 		overlayManager.remove(bossGearWindow);
 		roadmapWindow.close();
