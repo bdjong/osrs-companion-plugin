@@ -138,6 +138,9 @@ public class RoadmapPanel extends PluginPanel {
 	 * Repaints the live cards, shows or hides the boss gear display with its setting, and lays the
 	 * page out again when the display's height changed (a set loaded, switched or went Inactive).
 	 */
+	/** The Slayer helper page's gear (the website's DPS setups); laid out again when its height changes. */
+	private SlayerGearPanelView slayerGear;
+
 	private void tick() {
 		if (gearView != null) {
 			boolean showGear = config.bossGearPanelDisplay();
@@ -152,6 +155,10 @@ public class RoadmapPanel extends PluginPanel {
 			if (showGear && bossGear.getSet() == null && !bossGear.isLoading() && !bossGear.isLoaded() && bossGear.getError() == null) {
 				bossGear.refresh();
 			}
+		}
+		if (slayerGear != null && slayerGear.getHeight() != slayerGear.getPreferredSize().height) {
+			// The setups loaded or another one is on show: its height changes.
+			slayerGear.revalidate();
 		}
 		if (slayerStats != null) {
 			boolean showStats = slayer.getStats() != null;
@@ -361,6 +368,9 @@ public class RoadmapPanel extends PluginPanel {
 			SlayerGuide.Location l = slayer.getLocation();
 			return l == null || l.getRequirements().isEmpty() ? null : "Needs: " + String.join(", ", l.getRequirements());
 		}), null);
+		// The best setups against the task's monster (the website's Gear & DPS), Next goes through them.
+		slayerGear = new SlayerGearPanelView(slayer, itemManager);
+		add(p, slayerGear, null);
 		spriteManager.getSpriteAsync(SpriteID.SKILL_SLAYER, 0, img -> {
 			slayerIcon = img;
 			SwingUtilities.invokeLater(deck::repaint);
