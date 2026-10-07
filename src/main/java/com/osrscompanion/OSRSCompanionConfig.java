@@ -288,6 +288,16 @@ public interface OSRSCompanionConfig extends Config {
 	}
 
 	@ConfigItem(
+			keyName = "slayerTaskPopup",
+			name = "Slayer task complete popup",
+			description = "Show an in-game popup when you complete a slayer task: the task, its kills and the Slayer XP you gained on it.",
+			section = FEATURES_SECTION,
+			position = 10)
+	default boolean slayerTaskPopup() {
+		return true;
+	}
+
+	@ConfigItem(
 			keyName = "farmRunPopup",
 			name = "Farm run complete popup",
 			description = "Show an in-game popup (like the goal completion one) when every patch of a started farm run is done; the run then stops by itself.",

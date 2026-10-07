@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.Skill;
 import net.runelite.api.GameState;
 import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
@@ -41,6 +42,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
+import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.Text;
 
 /**
@@ -415,6 +417,9 @@ public class SlayerHelperManager {
 			// First read of this login: pick the stored session back up and load the guide.
 			taskRead = true;
 			task = now0;
+			if (now0 != null) {
+				rememberStartXp(now0);
+			}
 			restore(now0, now);
 			fetchAtMs = now;
 			retriesLeft = GUIDE_RETRIES;
@@ -425,6 +430,7 @@ public class SlayerHelperManager {
 		if (closeAtTick >= 0 && client.getTickCount() >= closeAtTick) {
 			closeSession(closeCompleted, now);
 		}
+		showFinishedPopup();
 		updateLocation();
 		if (fetchAtMs > 0 && now >= fetchAtMs && !loading) {
 			fetchAtMs = 0;
@@ -471,6 +477,7 @@ public class SlayerHelperManager {
 	private void taskChanges(Task before, Task now, long nowMs) {
 		if (before == null) {
 			if (now != null) {
+				rememberStartXp(now);
 				// A new task: load its guide once the website has it.
 				fetchAtMs = nowMs + TASK_CHANGE_FETCH_DELAY_MS;
 				retriesLeft = GUIDE_RETRIES;
@@ -492,6 +499,9 @@ public class SlayerHelperManager {
 		boolean completed = now == null && (before.remaining <= COMPLETE_FROM_LEFT || recentChat);
 		if (completed) {
 			countKills(before.remaining, nowMs);
+			// The popup a couple of ticks later, once the last kill's XP is in.
+			finished = before;
+			popupAtTick = client.getTickCount() + 2;
 		}
 		if (session != null && closeAtTick < 0) {
 			// Closed in a few ticks: the last monster's death and loot come just after the count.
@@ -504,9 +514,64 @@ public class SlayerHelperManager {
 		location = null;
 		guide = null;
 		if (now != null) {
+			rememberStartXp(now);
 			fetchAtMs = nowMs + TASK_CHANGE_FETCH_DELAY_MS;
 			retriesLeft = GUIDE_RETRIES;
 		}
+	}
+
+	// ---- Task complete popup ---------------------------------------------------------------
+
+	/** "Task key|amount|Slayer XP" when the task was given, in the RuneScape profile (survives a restart). */
+	private static final String START_XP_KEY = "slayerTaskStartXp";
+	/** The task that was just completed, and the tick its popup shows (-1: none). */
+	private Task finished;
+	private int popupAtTick = -1;
+
+	/** Notes the Slayer XP at the start of a task (once per assignment). Client thread. */
+	private void rememberStartXp(Task t) {
+		String prefix = t.key() + "|" + t.original + "|";
+		String stored = configManager.getRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, START_XP_KEY);
+		if (stored == null || !stored.startsWith(prefix)) {
+			configManager.setRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, START_XP_KEY,
+				prefix + client.getSkillExperience(Skill.SLAYER));
+		}
+	}
+
+	/** The Slayer XP gained on the task, or -1 when its start wasn't seen. Client thread. */
+	private long xpGained(Task t) {
+		String stored = configManager.getRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, START_XP_KEY);
+		String prefix = t.key() + "|" + t.original + "|";
+		if (stored == null || !stored.startsWith(prefix)) {
+			return -1;
+		}
+		try {
+			return Math.max(0, client.getSkillExperience(Skill.SLAYER) - Long.parseLong(stored.substring(prefix.length())));
+		} catch (NumberFormatException e) {
+			return -1;
+		}
+	}
+
+	/** Shows the "Slayer task complete" popup when its tick comes. Client thread. */
+	private void showFinishedPopup() {
+		if (popupAtTick < 0 || client.getTickCount() < popupAtTick) {
+			return;
+		}
+		Task t = finished;
+		popupAtTick = -1;
+		finished = null;
+		if (t == null || !config.slayerTaskPopup()) {
+			return;
+		}
+		long xp = xpGained(t);
+		log.debug("Slayer helper: task {} complete, {} Slayer XP", t.displayName(), xp);
+		popups.showMessage("<col=" + TITLE_COLOUR + ">Slayer task complete!</col>", finishedBody(t.displayName(), t.original, xp));
+	}
+
+	/** "Abyssal demons: 190 kills" and "32,456 Slayer XP" (left out when the task's start wasn't seen). */
+	static String finishedBody(String task, int kills, long xp) {
+		String body = "<col=ffffff>" + Text.removeTags(task) + ": " + kills + (kills == 1 ? " kill" : " kills") + "</col>";
+		return xp >= 0 ? body + "<br><col=ffffff>" + QuantityFormatter.formatNumber(xp) + " Slayer XP</col>" : body;
 	}
 
 	private void countKills(int n, long nowMs) {
