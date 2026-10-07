@@ -77,6 +77,10 @@ final class SlayerSession {
 	List<Long> killTimesMs = new ArrayList<>();
 	@SerializedName("loot_gp")
 	long lootGp;
+
+	/** Slayer XP gained while the session was open (the task's kills). */
+	@SerializedName("slayer_xp")
+	long slayerXp;
 	/** Inside the area on the last tick, and when that tick was (0: none yet since loading). */
 	@SerializedName("inside")
 	boolean inside;
@@ -161,6 +165,13 @@ final class SlayerSession {
 		}
 	}
 
+	void addSlayerXp(long xp, long nowMs) {
+		if (xp > 0) {
+			slayerXp += xp;
+			updatedMs = nowMs;
+		}
+	}
+
 	void setRemaining(int remaining, long nowMs) {
 		if (remaining != amountRemaining) {
 			amountRemaining = remaining;
@@ -232,6 +243,7 @@ final class SlayerSession {
 		m.put("kills_per_hour", killsPerHour());
 		m.put("loot_gp", lootGp);
 		m.put("avg_loot_gp", avgLootGp());
+		m.put("slayer_xp", slayerXp);
 		m.put("kill_times_ms", new ArrayList<>(killTimesMs));
 		return m;
 	}

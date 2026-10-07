@@ -19,6 +19,7 @@ import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
+import net.runelite.api.events.StatChanged;
 import net.runelite.api.GameState;
 import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
@@ -364,6 +365,7 @@ public class SlayerHelperManager {
 		if (s == GameState.LOGGED_IN && !loggedIn) {
 			loggedIn = true;
 			ticksLoggedIn = 0;
+			lastSlayerXp = 0;
 			taskRead = false;
 		} else if (loggedIn && (s == GameState.LOGIN_SCREEN || s == GameState.HOPPING || s == GameState.CONNECTION_LOST)) {
 			loggedOut();
@@ -855,6 +857,23 @@ public class SlayerHelperManager {
 			gp += itemManager.getItemPrice(item.getId()) * (long) item.getQuantity();
 		}
 		session.addLoot(gp, System.currentTimeMillis());
+	}
+
+	/** Slayer XP at the last stat change (0: not seen yet this login). */
+	private int lastSlayerXp;
+
+	/** Slayer XP gained while a session is open counts for it (the website shows it per task, and per hour). */
+	@Subscribe
+	public void onStatChanged(StatChanged e) {
+		if (e.getSkill() != Skill.SLAYER) {
+			return;
+		}
+		int xp = e.getXp();
+		SlayerSession s = session;
+		if (lastSlayerXp > 0 && xp > lastSlayerXp && s != null && s.isOpen()) {
+			s.addSlayerXp(xp - lastSlayerXp, System.currentTimeMillis());
+		}
+		lastSlayerXp = xp;
 	}
 
 	@Subscribe
