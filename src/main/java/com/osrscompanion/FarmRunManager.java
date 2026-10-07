@@ -1191,6 +1191,54 @@ public class FarmRunManager {
 		}
 	}
 
+	/** {@link #nextRunAt()}, worked out at most every couple of seconds (the window draws every frame). */
+	private volatile long nextRunCheckedMs;
+	private volatile long nextRunAt = -1;
+
+	/**
+	 * When the route is ready for its next run (epoch seconds): when its last growing crop is grown,
+	 * from RuneLite's farming tracker. 0 = nothing growing (ready now); -1 = not known (no patch
+	 * checked yet). Compost bins don't count.
+	 */
+	public long nextRunAt() {
+		long now = System.currentTimeMillis();
+		if (now - nextRunCheckedMs < 2000) {
+			return nextRunAt;
+		}
+		nextRunCheckedMs = now;
+		FarmRoute r = route;
+		FarmingTracker tracker = farmingTracker;
+		if (r == null || tracker == null) {
+			return nextRunAt = -1;
+		}
+		boolean known = false;
+		long latest = 0;
+		for (FarmRoute.Stop stop : r.getStops()) {
+			for (FarmRoute.Patch p : stop.getPatches()) {
+				if (p.getType() != null && p.getType().toLowerCase().contains("compost")) {
+					continue;
+				}
+				FarmingPatch patch = findPatch(p);
+				if (patch == null) {
+					continue;
+				}
+				try {
+					PatchPrediction prediction = tracker.predictPatch(patch);
+					if (prediction == null || prediction.getCropState() == null) {
+						continue;
+					}
+					known = true;
+					if (prediction.getCropState() == com.osrscompanion.runelite.farming.CropState.GROWING) {
+						latest = Math.max(latest, prediction.getDoneEstimate());
+					}
+				} catch (RuntimeException e) {
+					log.debug("Could not read patch {}", p.getKey(), e);
+				}
+			}
+		}
+		return nextRunAt = known ? latest : -1;
+	}
+
 	/** The RuneLite patch for a route patch: same region name, varbit and patch type. */
 	FarmingPatch findPatch(FarmRoute.Patch p) {
 		FarmingWorld world = farmingWorld;
