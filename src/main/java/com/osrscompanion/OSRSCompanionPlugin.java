@@ -201,6 +201,15 @@ public class OSRSCompanionPlugin extends Plugin {
 	private RoadmapWindow roadmapWindow;
 
 	@Inject
+	private BossTripTracker bossTripTracker;
+
+	@Inject
+	private SuppliesCheck suppliesCheck;
+
+	@Inject
+	private SuppliesOverlay suppliesOverlay;
+
+	@Inject
 	private ClientThread clientThread;
 
 	@Inject
@@ -267,6 +276,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		bankLayoutPrep.startUp();
 		eventBus.register(farmRunSceneOverlay);
 		eventBus.register(sessionMonitor);
+		eventBus.register(bossTripTracker);
+		eventBus.register(suppliesCheck);
 
 		timerMonitor.start();
 		sessionMonitor.start();
@@ -358,6 +369,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		mouseManager.registerMouseListener(bossGearWindow);
 		mouseManager.registerMouseWheelListener(bossGearWindow);
 		keyManager.registerKeyListener(bossGearWindow);
+		// Supplies check: beside the open bank.
+		overlayManager.add(suppliesOverlay);
 	}
 
 	/** The roadmap, farm run and boss gear windows share the middle of the screen (and the bank): one at a time. */
@@ -419,6 +432,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(farmRunSceneOverlay);
 		eventBus.unregister(sessionMonitor);
 		sessionMonitor.stop();
+		eventBus.unregister(bossTripTracker);
+		bossTripTracker.stop();
+		eventBus.unregister(suppliesCheck);
+		suppliesCheck.clear();
+		overlayManager.remove(suppliesOverlay);
 
 		roadmapManager.stopPeriodicRefresh();
 		roadmapManager.setRoadmapListener(null);

@@ -58,6 +58,7 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	private final Client client;
 	private final BossGearManager manager;
 	private final ItemManager itemManager;
+	private final SuppliesCheck supplies;
 
 	private volatile List<Hit> hits = Collections.emptyList();
 	private volatile Rectangle window;
@@ -95,10 +96,11 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	}
 
 	@Inject
-	public BossGearWindow(Client client, BossGearManager manager, ItemManager itemManager) {
+	public BossGearWindow(Client client, BossGearManager manager, ItemManager itemManager, SuppliesCheck supplies) {
 		this.client = client;
 		this.manager = manager;
 		this.itemManager = itemManager;
+		this.supplies = supplies;
 		setPosition(OverlayPosition.DYNAMIC);
 		setLayer(OverlayLayer.ABOVE_WIDGETS);
 	}
@@ -306,6 +308,17 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		if (set.getInventoryLabel() != null) {
 			for (String line : wrap("Inventory: " + set.getInventoryLabel(), g.getFontMetrics(), textW)) {
 				text(g, line, lx, ly, BEIGE);
+				ly += 13;
+			}
+			ly += 4;
+		}
+		// The supplies check from the last time the bank was open with this setup.
+		SuppliesCheck.Result check = supplies.getBoss();
+		if (check != null && check.forId == set.getId()) {
+			Color tone = check.trips < 1 ? RED : check.trips < 3 ? ORANGE : GREEN;
+			String line = check.headline() + (check.runsOut == null ? "" : " (runs out of: " + check.runsOut + ")") + ", at your last bank visit.";
+			for (String l : wrap(line, g.getFontMetrics(), textW)) {
+				text(g, l, lx, ly, tone);
 				ly += 13;
 			}
 			ly += 4;
