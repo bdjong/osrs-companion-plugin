@@ -19,6 +19,7 @@ import com.osrscompanion.model.LoadoutSyncPayload;
 import com.osrscompanion.model.LootDropPayload;
 import com.osrscompanion.model.LootSyncPayload;
 import com.osrscompanion.model.SlayerCatalogPayload;
+import com.osrscompanion.model.SlayerGuide;
 import com.osrscompanion.model.SlayerRewardsPayload;
 import com.osrscompanion.model.SlayerSyncPayload;
 import com.osrscompanion.model.PlayerSkillsSyncPayload;
@@ -92,12 +93,16 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_CATALOG_ENDPOINT = "/api/runelite/slayer/catalog/";
 	private static final String SLAYER_CATALOG_STATUS_ENDPOINT = "/api/runelite/slayer/catalog/status/";
 	private static final String SLAYER_REWARDS_ENDPOINT = "/api/runelite/slayer/rewards/";
+	private static final String SLAYER_GUIDE_ENDPOINT = "/api/runelite/slayer/guide/";
+	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
 
 	private static final int HTTP_OK_MIN = 200;
 	private static final int HTTP_OK_MAX = 300;
 
 	private final OSRSCompanionConfig config;
 	private final Gson gson;
+	/** The same Gson writing null fields too, for bodies whose contract lists every key (slayer sessions). */
+	private final Gson gsonWithNulls;
 	private final OkHttpClient okHttpClient;
 	private final OkHttpClient largeRequestClient;
 
@@ -110,6 +115,7 @@ public class OSRSCompanionApiClient
 	{
 		this.config = config;
 		this.gson = gson;
+		this.gsonWithNulls = gson.newBuilder().serializeNulls().create();
 		this.okHttpClient = withVersionHeader(okHttpClient.newBuilder())
 			.callTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 			.build();
@@ -293,6 +299,29 @@ public class OSRSCompanionApiClient
 		postAsync(SLAYER_REWARDS_ENDPOINT, payload.toJson(gson), "slayer-rewards", false, false,
 			() -> log.debug("OSRS Companion slayer rewards sync successful: {} rows for player: {}",
 				payload.getRows().size(), payload.getPlayerUsername()));
+	}
+
+	/** Fetches the current slayer task and its locations, best first (see the Slayer helper contract). */
+	public void getSlayerGuide(String playerUsername, RoadmapCallback<SlayerGuide> callback)
+	{
+		getAsync(SLAYER_GUIDE_ENDPOINT + "?player=" + urlEncode(playerUsername), "slayer-guide", SlayerGuide.class, callback);
+	}
+
+	/**
+	 * Sends one Slayer helper session (upserted by its session_uuid, so re-sending it as it grows is
+	 * fine). Never deduped: the helper only sends when something changed. The callback runs on the
+	 * OkHttp thread.
+	 */
+	public void sendSlayerSession(Map<String, Object> body, Runnable onSuccess)
+	{
+		postAsync(SLAYER_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "slayer-session", false, false,
+			() -> {
+				log.debug("OSRS Companion slayer session {} synced", body.get("session_uuid"));
+				if (onSuccess != null)
+				{
+					onSuccess.run();
+				}
+			});
 	}
 
 	public void sendLootSync(LootSyncPayload payload)
