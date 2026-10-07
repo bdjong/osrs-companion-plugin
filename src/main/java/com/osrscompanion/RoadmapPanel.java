@@ -31,9 +31,10 @@ import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.util.QuantityFormatter;
 
 /**
- * The OSRS Companion side panel: a menu of four tool tiles (like the website's tool banners).
+ * The OSRS Companion side panel: a menu of five tool tiles (like the website's tool banners).
  * Each opens its own page with a Back tile, what is active, its on/off settings (e.g. whether the
  * bank lays out the boss setup or farm route) and a tile to open its window over the game.
  */
@@ -42,6 +43,7 @@ public class RoadmapPanel extends PluginPanel {
 	private static final Color GEAR = new Color(0xFB923C);
 	private static final Color FARM = new Color(0x4ADE80);
 	private static final Color BOSS = new Color(0xA78BFA);
+	private static final Color DAILIES = new Color(0xF472B6);
 
 	private final ItemManager itemManager;
 	private final SpriteManager spriteManager;
@@ -53,6 +55,7 @@ public class RoadmapPanel extends PluginPanel {
 	private final BossGearManager bossGear;
 	private final GearProgressionManager gearProgression;
 	private final ClientThread clientThread;
+	private final DailiesManager dailies;
 
 	private final CardLayout cards = new CardLayout();
 	/** The pages; only as tall as the page on show (a card layout is as tall as its tallest page). */
@@ -78,7 +81,7 @@ public class RoadmapPanel extends PluginPanel {
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
 			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression,
-			ClientThread clientThread) {
+			ClientThread clientThread, DailiesManager dailies) {
 		super(false);
 		this.itemManager = itemManager;
 		this.spriteManager = spriteManager;
@@ -90,6 +93,7 @@ public class RoadmapPanel extends PluginPanel {
 		this.bossGear = bossGear;
 		this.gearProgression = gearProgression;
 		this.clientThread = clientThread;
+		this.dailies = dailies;
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -98,6 +102,7 @@ public class RoadmapPanel extends PluginPanel {
 		deck.add(gearPage(openGearProgression), "gear");
 		deck.add(farmPage(openFarmRun), "farm");
 		deck.add(bossPage(openBossGear), "boss");
+		deck.add(dailiesPage(), "dailies");
 		// The boss page's gear display is tall: the pages scroll.
 		JPanel top = new JPanel(new BorderLayout());
 		top.add(deck, BorderLayout.NORTH);
@@ -165,6 +170,7 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, gearTile(() -> show("gear")), "Gear progression: settings and the gear progression window.");
 		add(p, farmTile(() -> show("farm")), "Farm run: your route, bank layout and the farm run window.");
 		add(p, bossTile(() -> show("boss")), "Boss gear: your build, bank layout, gear display and the boss gear window.");
+		add(p, dailiesTile(() -> show("dailies")), "Dailies: today's open dailies and the guided run.");
 		return p;
 	}
 
@@ -272,6 +278,50 @@ public class RoadmapPanel extends PluginPanel {
 		return p;
 	}
 
+	private JPanel dailiesPage() {
+		JPanel p = page();
+		add(p, back(), "Back to all tools");
+		// The guided run, with a switch that starts it at the first open daily or stops it.
+		add(p, new PanelTiles.SetupCard("GUIDED RUN", "TODAY'S DAILIES",
+			"Active: the step box and arrow lead you to each open daily in turn. Click to stop.",
+			"Inactive: click to start the guided run at the first open daily.", DAILIES, () -> {
+			long[] open = dailies.openCountAndValue();
+			String reset = "resets in " + DailyReset.until(System.currentTimeMillis(), DailyReset.nextReset(System.currentTimeMillis()));
+			String worth = open[1] > 0 ? QuantityFormatter.quantityToStackSize(open[1]) + " GP · " : "";
+			DailiesManager.Entry cur = dailies.current();
+			if (cur != null) {
+				return new String[]{"Now: " + cur.name, open[0] + " open · " + worth + reset};
+			}
+			return new String[]{open[0] > 0 ? open[0] + " open today" : "All done for today", worth + reset};
+		}, () -> {
+			DailiesManager.Entry cur = dailies.current();
+			if (cur == null) {
+				for (DailiesManager.Entry e : dailies.entries()) {
+					if (e.state == DailyChecks.State.OPEN) {
+						cur = e;
+						break;
+					}
+				}
+			}
+			return cur == null || cur.guide == null || cur.guide.getIcon() <= 0 ? null : itemManager.getImage(cur.guide.getIcon());
+		}, () -> dailies.isRunning() || dailies.openCountAndValue()[0] > 0, dailies::isRunning, () -> {
+			if (dailies.isRunning()) {
+				dailies.stop();
+			} else {
+				dailies.start();
+			}
+			deck.repaint();
+		}), null);
+		add(p, toggle("Dailies guide", "Step box + arrow to the NPC", "Guide hidden", DAILIES, "showDailiesGuide", config::showDailiesGuide), null);
+		add(p, FeatureTile.slim("SKIP THIS DAILY", DAILIES, () -> {
+			dailies.skip();
+			deck.repaint();
+		}), "During the run: leave the current daily for later and go to the next open one.");
+		DailiesListView list = new DailiesListView(dailies, itemManager);
+		add(p, list, null);
+		return p;
+	}
+
 	/** The build's name under the boss: your own name for a custom build, else the wiki setup's style. */
 	private String buildLabel(BossGear s) {
 		for (BossGear.SetSummary sum : bossGear.getSets()) {
@@ -315,6 +365,8 @@ public class RoadmapPanel extends PluginPanel {
 			farmRun.refreshIfStale();
 		} else if ("gear".equals(page) && gearProgression.getPlan() == null && !gearProgression.isLoading()) {
 			gearProgression.refresh();
+		} else if ("dailies".equals(page)) {
+			dailies.refreshIfStale();
 		}
 		cards.show(deck, page);
 		deck.revalidate();
@@ -350,6 +402,11 @@ public class RoadmapPanel extends PluginPanel {
 	private FeatureTile bossTile(Runnable action) {
 		return FeatureTile.banner("BOSS", "GEAR", "Builds + bank layout",
 			BOSS, new Color(0x120A24), new Color(0x5B21B6), itemManager.getImage(ItemID.VORKATH_HEAD), action);
+	}
+
+	private FeatureTile dailiesTile(Runnable action) {
+		return FeatureTile.banner("DAILIES", "", "Today's dailies, guided",
+			DAILIES, new Color(0x14060D), new Color(0x831843), itemManager.getImage(ItemID.BATTLESTAFF), action);
 	}
 
 	/** An on/off tile for a boolean setting of this plugin. */

@@ -218,6 +218,15 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private KeyManager keyManager;
 
+	@Inject
+	private DailiesManager dailiesManager;
+
+	@Inject
+	private DailiesOverlay dailiesOverlay;
+
+	@Inject
+	private DailiesSceneOverlay dailiesSceneOverlay;
+
 
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
@@ -278,6 +287,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.register(sessionMonitor);
 		eventBus.register(bossTripTracker);
 		eventBus.register(suppliesCheck);
+		eventBus.register(dailiesManager);
+		eventBus.register(dailiesSceneOverlay);
 
 		timerMonitor.start();
 		sessionMonitor.start();
@@ -327,7 +338,8 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		// Side-panel roadmap tab.
 		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, itemManager,
-				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager, clientThread);
+				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager, clientThread,
+				dailiesManager);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -371,6 +383,10 @@ public class OSRSCompanionPlugin extends Plugin {
 		keyManager.registerKeyListener(bossGearWindow);
 		// Supplies check: beside the open bank.
 		overlayManager.add(suppliesOverlay);
+
+		// Dailies: the step box and the arrow / map mark of the guided run (started from the side panel).
+		overlayManager.add(dailiesOverlay);
+		overlayManager.add(dailiesSceneOverlay);
 	}
 
 	/** The roadmap, farm run and boss gear windows share the middle of the screen (and the bank): one at a time. */
@@ -437,6 +453,12 @@ public class OSRSCompanionPlugin extends Plugin {
 		eventBus.unregister(suppliesCheck);
 		suppliesCheck.clear();
 		overlayManager.remove(suppliesOverlay);
+		eventBus.unregister(dailiesManager);
+		eventBus.unregister(dailiesSceneOverlay);
+		overlayManager.remove(dailiesOverlay);
+		overlayManager.remove(dailiesSceneOverlay);
+		clientThread.invoke(dailiesSceneOverlay::clearPointers);
+		dailiesManager.clear();
 
 		roadmapManager.stopPeriodicRefresh();
 		roadmapManager.setRoadmapListener(null);
@@ -562,6 +584,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		deathMonitor.forceSync();
 		slayerMonitor.forceSync();
 		slayerCatalogMonitor.forceSync();
+		dailiesManager.forceSync();
 	}
 
 	@Subscribe
