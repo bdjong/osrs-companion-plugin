@@ -17,6 +17,7 @@ public interface OSRSCompanionConfig extends Config {
 	/** The trip planner per tool; replaced the one "suppliesCheck" switch. */
 	String TRIP_PLANNER_BOSS_KEY = "tripPlannerBoss";
 	String TRIP_PLANNER_FARM_KEY = "tripPlannerFarm";
+	String TRIP_PLANNER_RUNES_KEY = "tripPlannerRunes";
 
 	@ConfigSection(
 			name = "Data Syncing",
@@ -407,6 +408,16 @@ public interface OSRSCompanionConfig extends Config {
 			description = "With the bank open: how many runs your bank supports for the farm route and which supply runs out first (no bank layout needed).",
 			hidden = true)
 	default boolean tripPlannerFarm() {
+		return true;
+	}
+
+	/** Set from the side panel's Trip planner: whether runes count towards the trips (off: they never limit them). */
+	@ConfigItem(
+			keyName = TRIP_PLANNER_RUNES_KEY,
+			name = "Trip planner: count runes",
+			description = "Whether runes count towards how many trips / runs your bank supports.",
+			hidden = true)
+	default boolean tripPlannerRunes() {
 		return true;
 	}
 

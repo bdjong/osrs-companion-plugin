@@ -133,6 +133,14 @@ public class SuppliesCheck {
 		}
 	}
 
+	/** A trip planner switch changed: check again. */
+	@Subscribe
+	public void onConfigChanged(net.runelite.client.events.ConfigChanged event) {
+		if (OSRSCompanionConfig.CONFIG_GROUP.equals(event.getGroup()) && event.getKey().startsWith("tripPlanner")) {
+			dirty = true;
+		}
+	}
+
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
 		if (event.getGameState() == GameState.LOGIN_SCREEN) {
@@ -213,6 +221,15 @@ public class SuppliesCheck {
 	}
 
 	private Result result(int forId, String title, String unit, String source, Map<String, Double> need, Map<String, Long> have) {
+		if (!config.tripPlannerRunes()) {
+			// "Count runes" off: runes (and combination runes) don't limit the trips.
+			need = new LinkedHashMap<>(need);
+			need.keySet().removeIf(k -> {
+				SupplyCounter.Rep rep = counter.rep(k);
+				String name = rep == null ? k.substring(2) : rep.name;
+				return name != null && name.toLowerCase(java.util.Locale.ROOT).endsWith(" rune");
+			});
+		}
 		if (need.isEmpty()) {
 			return null;
 		}
