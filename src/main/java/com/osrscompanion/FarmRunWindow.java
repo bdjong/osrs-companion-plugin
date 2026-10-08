@@ -157,7 +157,7 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 
 		FarmRoute route = manager.getRoute();
 		if (route == null || route.getStops().isEmpty()) {
-			message(g, win);
+			message(g, win, newHits);
 			finish(g, win, newHits, null);
 			return new Dimension(w, h);
 		}
@@ -307,17 +307,21 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		newHits.addAll(0, optionHits);
 	}
 
-	private void message(Graphics2D g, Rectangle win) {
+	/** No route to show: why (loading, an error, none made yet), and a Refresh button to load it again. */
+	private void message(Graphics2D g, Rectangle win, List<Hit> newHits) {
 		String message = manager.isLoading() ? "Loading your farm route..."
 			: manager.getError() != null ? manager.getError()
-			: !manager.isLoaded() ? "Loading your farm route..."
-			: "No farm route yet. On the OSRS Companion website, open Tools > Farm Runs and build one for this character.";
+			: !manager.isLoaded() ? "No farm route known yet. Press Refresh to load it."
+			: "No farm route yet. On the OSRS Companion website, open Tools > Farm Runs and build one for this character, then press Refresh.";
 		g.setFont(FontManager.getRunescapeFont());
-		int lineY = win.y + win.height / 2 - 10;
+		int lineY = win.y + win.height / 2 - 24;
 		for (String line : wrap(message, g.getFontMetrics(), win.width - 80)) {
 			centred(g, line, win.x + win.width / 2, lineY, Color.WHITE);
 			lineY += 16;
 		}
+		Rectangle refresh = new Rectangle(win.x + (win.width - BUTTON_WIDTH) / 2, lineY + 8, BUTTON_WIDTH, BUTTON_HEIGHT);
+		button(g, refresh, manager.isLoading() ? "Loading..." : "Refresh", manager.isLoading());
+		newHits.add(new Hit(refresh, manager::refresh, "Load your farm route from the website"));
 	}
 
 	// ------------------------------------------------------------------ stops

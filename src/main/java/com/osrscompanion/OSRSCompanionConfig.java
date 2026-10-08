@@ -277,7 +277,7 @@ public interface OSRSCompanionConfig extends Config {
 			section = FEATURES_SECTION,
 			position = 9)
 	default FarmingCapeMode farmingCapeMode() {
-		return FarmingCapeMode.REMIND;
+		return FarmingCapeMode.FORCE;
 	}
 
 	@ConfigItem(

@@ -204,6 +204,12 @@ public class TeleportLeftClick {
 			return;
 		}
 		MenuEntry pick = entries[index];
+		// A low priority (deprioritized) entry on top makes a left click open the menu instead (the
+		// Ardougne cloak's teleports are): raise it, as Menu Entry Swapper does.
+		if (pick.getType() == MenuAction.CC_OP_LOW_PRIORITY) {
+			pick.setType(MenuAction.CC_OP);
+		}
+		pick.setDeprioritized(false);
 		System.arraycopy(entries, index + 1, entries, index, last - index);
 		entries[last] = pick;
 		client.setMenuEntries(entries);
@@ -215,6 +221,7 @@ public class TeleportLeftClick {
 	 */
 	private void copyToTop(MenuEntry from) {
 		client.createMenuEntry(-1)
+			.setDeprioritized(false)
 			.setOption(from.getOption())
 			.setTarget(from.getTarget())
 			.setIdentifier(from.getIdentifier())

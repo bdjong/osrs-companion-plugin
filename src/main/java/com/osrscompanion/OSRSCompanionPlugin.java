@@ -718,12 +718,19 @@ public class OSRSCompanionPlugin extends Plugin {
 		String force = configManager.getConfiguration(group, "forceFarmingCape");
 		if (herbs != null || force != null) {
 			if (configManager.getConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY) == null) {
-				FarmingCapeMode mode = "true".equals(force) ? FarmingCapeMode.FORCE
-						: "false".equals(herbs) ? FarmingCapeMode.OFF : FarmingCapeMode.REMIND;
+				// Force is the default now: only a switched-off reminder stays off.
+				FarmingCapeMode mode = "false".equals(herbs) && !"true".equals(force) ? FarmingCapeMode.OFF : FarmingCapeMode.FORCE;
 				configManager.setConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY, mode);
 			}
 			configManager.unsetConfiguration(group, "farmingCapeForHerbs");
 			configManager.unsetConfiguration(group, "forceFarmingCape");
+		}
+		// Once: Remind (what the first merge of the two cape settings gave) becomes the new default, Force.
+		if (configManager.getConfiguration(group, "farmingCapeForceDefault") == null) {
+			if ("REMIND".equals(configManager.getConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY))) {
+				configManager.setConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY, FarmingCapeMode.FORCE);
+			}
+			configManager.setConfiguration(group, "farmingCapeForceDefault", true);
 		}
 		String supplies = configManager.getConfiguration(group, "suppliesCheck");
 		if (supplies != null) {
