@@ -552,6 +552,22 @@ public class OSRSCompanionApiClient
 			BossGear.Response.class, callback);
 	}
 
+	/**
+	 * Saves what you wear and carry as your own set for a boss ({@code loadout}: equipment by slot name,
+	 * 28 inventory cells, the rune pouch), makes it the active set and returns it.
+	 */
+	public void saveBossGearCustom(String bossKey, int setup, String name, Map<String, Object> loadout, String playerUsername,
+		RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("boss", bossKey);
+		body.put("setup", setup);
+		body.put("name", name);
+		body.put("loadout", loadout);
+		postForResult(BOSS_GEAR_ENDPOINT + "custom/", gson.toJson(body), "boss-gear-custom", BossGear.Response.class, callback);
+	}
+
 	/** Makes another saved boss gear set the active one and returns it. */
 	public void activateBossGear(int setId, String playerUsername, RoadmapCallback<BossGear.Response> callback)
 	{

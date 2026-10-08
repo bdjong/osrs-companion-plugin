@@ -78,6 +78,85 @@ public class BossGearManager {
 		apiClient.activateBossGear(summary.getId(), player, callback(summary.getName()));
 	}
 
+	/**
+	 * Saves what you wear, carry and have in the rune pouch as your own set for the shown set's boss (named
+	 * {@code name}, on the website too) and makes it the active build. Client thread (reads the containers).
+	 */
+	public void saveCurrentGear(String name) {
+		String player = roadmapManager.getPlayerUsername();
+		BossGear shown = set;
+		if (player == null || shown == null || shown.getBoss() == null || !roadmapManager.hasAppKey()) {
+			error = "Pick a boss build first, then save your gear for it.";
+			return;
+		}
+		Map<String, Object> equipment = new java.util.LinkedHashMap<>();
+		net.runelite.api.ItemContainer worn = client.getItemContainer(net.runelite.api.gameval.InventoryID.WORN);
+		for (net.runelite.api.EquipmentInventorySlot slot : net.runelite.api.EquipmentInventorySlot.values()) {
+			String key = WORN_KEYS.get(slot);
+			net.runelite.api.Item it = worn == null ? null : worn.getItem(slot.getSlotIdx());
+			if (key != null && it != null && it.getId() > 0) {
+				equipment.put(key, it.getId());
+			}
+		}
+		java.util.List<Object> inventory = new java.util.ArrayList<>();
+		net.runelite.api.ItemContainer inv = client.getItemContainer(net.runelite.api.gameval.InventoryID.INV);
+		for (int i = 0; i < 28; i++) {
+			net.runelite.api.Item it = inv == null ? null : inv.getItem(i);
+			if (it == null || it.getId() <= 0) {
+				inventory.add(null);
+				continue;
+			}
+			Map<String, Object> cell = new java.util.LinkedHashMap<>();
+			ItemComposition comp = client.getItemDefinition(it.getId());
+			boolean noted = comp != null && comp.getNote() != -1;
+			cell.put("id", noted ? comp.getLinkedNoteId() : it.getId());
+			if (it.getQuantity() > 1) {
+				cell.put("q", it.getQuantity());
+			}
+			if (noted) {
+				cell.put("noted", true);
+			}
+			inventory.add(cell);
+		}
+		java.util.List<Object> pouch = new java.util.ArrayList<>();
+		for (Map.Entry<Integer, Integer> e : RunePouchMonitor.read(client).entrySet()) {
+			Map<String, Object> cell = new java.util.LinkedHashMap<>();
+			cell.put("id", e.getKey());
+			cell.put("q", e.getValue());
+			pouch.add(cell);
+		}
+		Map<String, Object> loadout = new java.util.LinkedHashMap<>();
+		loadout.put("equipment", equipment);
+		loadout.put("inventory", inventory);
+		loadout.put("pouch", pouch);
+		// The set it was made from: the shown set's style among the boss's setups.
+		int setup = 0;
+		for (BossGear.CatalogBoss b : catalog) {
+			if (shown.getBoss().equals(b.getKey())) {
+				setup = Math.max(0, b.getSetups().indexOf(shown.getStyle()));
+			}
+		}
+		loading = true;
+		apiClient.saveBossGearCustom(shown.getBoss(), setup, name, loadout, player, callback("your new set " + name));
+	}
+
+	/** The website's slot names for the worn slots. */
+	private static final Map<net.runelite.api.EquipmentInventorySlot, String> WORN_KEYS = new java.util.EnumMap<>(net.runelite.api.EquipmentInventorySlot.class);
+
+	static {
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.HEAD, "head");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.CAPE, "cape");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.AMULET, "neck");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.AMMO, "ammo");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.WEAPON, "weapon");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.BODY, "body");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.SHIELD, "shield");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.LEGS, "legs");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.GLOVES, "hands");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.BOOTS, "feet");
+		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.RING, "ring");
+	}
+
 	/** Switches to any boss preset (on the website too) and loads it. */
 	public void activatePreset(BossGear.CatalogBoss boss, int setup) {
 		String player = roadmapManager.getPlayerUsername();
