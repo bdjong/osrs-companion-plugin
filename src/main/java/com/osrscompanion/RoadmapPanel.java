@@ -328,28 +328,32 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, back(), "Back to all tools");
 		add(p, toggle("Boss trips", "Shown in the bank", "Hidden", TRIPS, OSRSCompanionConfig.TRIP_PLANNER_BOSS_KEY, config::tripPlannerBoss),
 			"With the bank open: how many trips your bank's supplies last for the active boss setup and which one runs out first.");
-		add(p, new PanelTiles.Info("BOSS TRIPS", () -> tripLines(supplies.getBoss(), config.tripPlannerBoss(), config.bossGearBankLayout(), "Boss gear's Bank layout"),
+		add(p, new PanelTiles.Info("BOSS TRIPS", () -> tripLines(supplies.getBoss(), config.tripPlannerBoss(), config.bossGearBankLayout(), "Needs Bank layout on", "Turn it on in Boss gear"),
 			() -> config.tripPlannerBoss() ? tripPicture(supplies.getBoss()) : null),
 			"The active boss setup: trips your bank holds, checked when you open the bank with the boss gear's Bank layout on.");
 		add(p, toggle("Farm runs", "Shown in the bank", "Hidden", TRIPS, OSRSCompanionConfig.TRIP_PLANNER_FARM_KEY, config::tripPlannerFarm),
 			"With the bank open: how many runs your bank's supplies last for the farm route and which one runs out first.");
-		add(p, new PanelTiles.Info("FARM RUNS", () -> tripLines(supplies.getFarm(), config.tripPlannerFarm(), config.farmRunBankFilter(), "Farm run's Active in the bank"),
+		add(p, new PanelTiles.Info("FARM RUNS", () -> tripLines(supplies.getFarm(), config.tripPlannerFarm(), config.farmRunBankFilter(), "Needs Active in bank", "Turn it on in Farm run"),
 			() -> config.tripPlannerFarm() ? tripPicture(supplies.getFarm()) : null),
 			"The farm route: runs your bank holds, checked when you open the bank with the farm run's Active in the bank on.");
 		return p;
 	}
 
-	private static String[] tripLines(SuppliesCheck.Result r, boolean on, boolean layoutOn, String layout) {
+	/** Two short lines that fit the card beside its picture: what your bank supplies last, and what runs out first. */
+	private static String[] tripLines(SuppliesCheck.Result r, boolean on, boolean layoutOn, String needs, String where) {
 		if (!on) {
 			return new String[]{"Hidden in the bank", "Switch it on above"};
 		}
 		if (!layoutOn) {
-			return new String[]{"Needs " + layout, "Switch it on in that page"};
+			return new String[]{needs, where};
 		}
 		if (r == null) {
 			return new String[]{"Not checked yet", "Open your bank to check"};
 		}
-		return new String[]{r.headline(), r.runsOut == null ? r.title : "Runs out of: " + r.runsOut};
+		String unit = "trip".equals(r.unit) ? "trip" : "run";
+		String count = r.trips < 1 ? "Not enough for 1 " + unit : "~" + r.trips + " " + unit + (r.trips == 1 ? "" : "s") + " from bank";
+		String out = r.runsOut == null ? "" : r.runsOut.length() > 16 ? r.runsOut : "First out: " + r.runsOut;
+		return new String[]{count, out};
 	}
 
 	/** The supply that runs out first (the check lists it first). */
@@ -598,9 +602,12 @@ public class RoadmapPanel extends PluginPanel {
 			SLAYER, new Color(0x1F0A0A), new Color(0x991B1B), itemManager.getImage(ItemID.SLAYER_HELM), action);
 	}
 
+	/** The bank chest picture: the planner counts what is in your bank, for boss trips and farm runs alike. */
 	private FeatureTile tripsTile(Runnable action) {
-		return FeatureTile.banner("TRIP", "PLANNER", "Trips your bank supplies last",
-			TRIPS, new Color(0x05171A), new Color(0x0F766E), itemManager.getImage(ItemID.SHARK), action);
+		FeatureTile tile = FeatureTile.banner("TRIP", "PLANNER", "Trips from bank supplies",
+			TRIPS, new Color(0x05171A), new Color(0x0F766E), null, action);
+		spriteManager.getSpriteAsync(SpriteID.WELCOME_SCREEN_BANK_CHEST, 0, img -> SwingUtilities.invokeLater(() -> tile.setIcon(img)));
+		return tile;
 	}
 
 	/** An on/off tile for a boolean setting of this plugin. */
