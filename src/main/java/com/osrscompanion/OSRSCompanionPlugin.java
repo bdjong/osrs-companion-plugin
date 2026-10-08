@@ -361,7 +361,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		// Side-panel roadmap tab.
 		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
 				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager,
-				slayerHelperManager, clientThread, dailiesManager, suppliesCheck);
+				slayerHelperManager, clientThread, dailiesManager);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")

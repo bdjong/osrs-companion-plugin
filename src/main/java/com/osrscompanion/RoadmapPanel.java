@@ -60,7 +60,6 @@ public class RoadmapPanel extends PluginPanel {
 	private final SlayerHelperManager slayer;
 	private final ClientThread clientThread;
 	private final DailiesManager dailies;
-	private final SuppliesCheck supplies;
 
 	private final CardLayout cards = new CardLayout();
 	/** The pages; only as tall as the page on show (a card layout is as tall as its tallest page). */
@@ -91,7 +90,7 @@ public class RoadmapPanel extends PluginPanel {
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear, Runnable openSlayerGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
 			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression,
-			SlayerHelperManager slayer, ClientThread clientThread, DailiesManager dailies, SuppliesCheck supplies) {
+			SlayerHelperManager slayer, ClientThread clientThread, DailiesManager dailies) {
 		super(false);
 		this.itemManager = itemManager;
 		this.spriteManager = spriteManager;
@@ -105,7 +104,6 @@ public class RoadmapPanel extends PluginPanel {
 		this.slayer = slayer;
 		this.clientThread = clientThread;
 		this.dailies = dailies;
-		this.supplies = supplies;
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -319,50 +317,15 @@ public class RoadmapPanel extends PluginPanel {
 		return p;
 	}
 
-	/**
-	 * The trip planner: the switch for the supplies box in the bank and the last check per tool (the
-	 * boss setup when its Bank layout is on, the farm route when Active in the bank is on).
-	 */
+	/** The trip planner: a switch per tool for the supplies box beside the bank (trips / runs your bank lasts). */
 	private JPanel tripsPage() {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
 		add(p, toggle("Boss trips", "Shown in the bank", "Hidden", TRIPS, OSRSCompanionConfig.TRIP_PLANNER_BOSS_KEY, config::tripPlannerBoss),
-			"With the bank open: how many trips your bank's supplies last for the active boss setup and which one runs out first.");
-		add(p, new PanelTiles.Info("BOSS TRIPS", () -> tripLines(supplies.getBoss(), config.tripPlannerBoss(), config.bossGearBankLayout(), "Needs Bank layout on", "Turn it on in Boss gear"),
-			() -> config.tripPlannerBoss() ? tripPicture(supplies.getBoss()) : null),
-			"The active boss setup: trips your bank holds, checked when you open the bank with the boss gear's Bank layout on.");
+			"With the bank open: how many trips your bank's supplies last for the active boss setup (when its Bank layout is on) and which one runs out first.");
 		add(p, toggle("Farm runs", "Shown in the bank", "Hidden", TRIPS, OSRSCompanionConfig.TRIP_PLANNER_FARM_KEY, config::tripPlannerFarm),
-			"With the bank open: how many runs your bank's supplies last for the farm route and which one runs out first.");
-		add(p, new PanelTiles.Info("FARM RUNS", () -> tripLines(supplies.getFarm(), config.tripPlannerFarm(), config.farmRunBankFilter(), "Needs Active in bank", "Turn it on in Farm run"),
-			() -> config.tripPlannerFarm() ? tripPicture(supplies.getFarm()) : null),
-			"The farm route: runs your bank holds, checked when you open the bank with the farm run's Active in the bank on.");
+			"With the bank open: how many runs your bank's supplies last for the farm route (when Active in the bank is on) and which one runs out first.");
 		return p;
-	}
-
-	/** Two short lines that fit the card beside its picture: what your bank supplies last, and what runs out first. */
-	private static String[] tripLines(SuppliesCheck.Result r, boolean on, boolean layoutOn, String needs, String where) {
-		if (!on) {
-			return new String[]{"Hidden in the bank", "Switch it on above"};
-		}
-		if (!layoutOn) {
-			return new String[]{needs, where};
-		}
-		if (r == null) {
-			return new String[]{"Not checked yet", "Open your bank to check"};
-		}
-		String unit = "trip".equals(r.unit) ? "trip" : "run";
-		String count = r.trips < 1 ? "Not enough for 1 " + unit : "~" + r.trips + " " + unit + (r.trips == 1 ? "" : "s") + " from bank";
-		String out = r.runsOut == null ? "" : r.runsOut.length() > 16 ? r.runsOut : "First out: " + r.runsOut;
-		return new String[]{count, out};
-	}
-
-	/** The supply that runs out first (the check lists it first). */
-	private java.awt.image.BufferedImage tripPicture(SuppliesCheck.Result r) {
-		if (r == null || r.rows.isEmpty()) {
-			return null;
-		}
-		int itemId = r.rows.get(0).itemId;
-		return itemId > 0 ? itemManager.getImage(itemId) : null;
 	}
 
 	private JPanel dailiesPage() {
