@@ -21,6 +21,48 @@ public class SlayerSessionTest {
 	}
 
 	@Test
+	public void timeAwayWithABankVisitIsABankTrip() {
+		SlayerSession s = session();
+		s.tick(true, START);
+		s.tick(true, START + 600);
+		// Leave, open a bank, come back 3 minutes after leaving: one bank trip of 3 minutes.
+		s.tick(false, START + 1_200);
+		s.bankOpened();
+		s.tick(false, START + 60_000);
+		s.tick(true, START + 1_200 + 180_000);
+		assertEquals(1, s.bankTrips);
+		assertEquals(180_000, s.bankTripMs);
+		// Leaving and coming back without a bank (a walk to a safespot) is no bank trip.
+		s.tick(false, START + 400_000);
+		s.tick(true, START + 430_000);
+		assertEquals(1, s.bankTrips);
+		// A bank visit before leaving doesn't count either.
+		s.bankOpened();
+		s.tick(false, START + 500_000);
+		s.tick(true, START + 520_000);
+		assertEquals(1, s.bankTrips);
+		// Away for longer than the limit (a break): not a bank trip.
+		s.tick(false, START + 600_000);
+		s.bankOpened();
+		s.tick(true, START + 600_000 + SlayerSession.MAX_BANK_TRIP_MS + 1);
+		assertEquals(1, s.bankTrips);
+		Map<String, Object> payload = s.payload("Zezima");
+		assertEquals(1, payload.get("bank_trips"));
+		assertEquals(180L, payload.get("bank_trip_sec"));
+	}
+
+	@Test
+	public void aRestartNeverTurnsTheTimeOfflineIntoABankTrip() {
+		SlayerSession s = session();
+		s.tick(true, START);
+		s.tick(false, START + 1_000);
+		s.bankOpened();
+		s.resumed();
+		s.tick(true, START + 120_000);
+		assertEquals(0, s.bankTrips);
+	}
+
+	@Test
 	public void timeInAreaOnlyCountsTicksInside() {
 		SlayerSession s = session();
 		assertTrue(s.tick(true, START));
@@ -102,7 +144,7 @@ public class SlayerSessionTest {
 		Map<String, Object> body = s.payload("Zezima");
 		List<String> keys = Arrays.asList("player", "session_uuid", "task_id", "task_name", "area_id", "master", "location_key",
 			"amount_original", "amount_at_start", "amount_remaining", "started_at", "ended_at", "completed", "time_in_area_sec",
-			"trip_count", "kills", "avg_kill_ms", "kills_per_hour", "loot_gp", "avg_loot_gp", "slayer_xp", "kill_times_ms");
+			"trip_count", "bank_trips", "bank_trip_sec", "kills", "avg_kill_ms", "kills_per_hour", "loot_gp", "avg_loot_gp", "slayer_xp", "kill_times_ms");
 		assertEquals(keys, new ArrayList<>(body.keySet()));
 
 		JsonObject json = new Gson().newBuilder().serializeNulls().create().toJsonTree(body).getAsJsonObject();
