@@ -10,6 +10,14 @@ import net.runelite.client.config.Range;
 public interface OSRSCompanionConfig extends Config {
 	String CONFIG_GROUP = "osrscompanion";
 	String APP_KEY = "osrsCompanionAppKey";
+	/**
+	 * Shown by RuneLite before the App Key is changed: entering it starts sending game data to a
+	 * third-party server, which the Plugin Hub requires plugins to disclose.
+	 */
+	String APP_KEY_WARNING = "With an App Key this plugin sends your account's game data (your RuneScape name, skills, bank and other"
+		+ " storage, collection log, quests, diaries, combat achievements, kill counts, loot, slayer, farming and the other items"
+		+ " switched on under Data Syncing) to the OSRS Companion website (osrs-companion-web.vercel.app). This is a third-party"
+		+ " server that is not run or checked by the RuneLite developers. Continue?";
 	/** The goal sound switch; replaced the old "goalCompleteSound" choice (In-game / Off). */
 	String GOAL_SOUND_KEY = "goalSoundOn";
 	/** The farming cape setting; replaced the "farmingCapeForHerbs" and "forceFarmingCape" switches. */
@@ -21,7 +29,7 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigSection(
 			name = "Data Syncing",
-			description = "Which game data the plugin sends to the OSRS Companion website.",
+			description = "Which game data the plugin sends to the OSRS Companion website, a third-party server not run by RuneLite. Nothing is sent without an App Key.",
 			position = 1)
 	String SYNC_SECTION = "syncSection";
 
@@ -34,7 +42,9 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = APP_KEY,
 			name = "App Key",
-			description = "API key from your account settings. Required to sync data.",
+			description = "API key from your account settings on the OSRS Companion website. Required to sync data: without it the plugin sends nothing.",
+			// The App Key is what turns sending on, so the Plugin Hub's third-party disclosure sits here.
+			warning = APP_KEY_WARNING,
 			position = 0,
 			secret = true)
 	default String osrsCompanionAppKey() {

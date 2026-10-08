@@ -38,7 +38,11 @@ import com.osrscompanion.runelite.farming.PaymentTracker;
 @Slf4j
 // Bank Tags: its public API (BankTagsService, LayoutManager, TagManager) lays out the bank for the boss gear and farm run.
 @PluginDependency(BankTagsPlugin.class)
-@PluginDescriptor(name = "OSRS Companion", description = "Syncs Farming Timers, Bank, Skills, Loadout, Loot, Collection Log, Quest, Achievement Diary, Combat Achievement, and Boss Kill Count data to the OSRS Companion website.")
+@PluginDescriptor(
+	name = "OSRS Companion",
+	description = "Syncs your game data (with an App Key) to the third-party OSRS Companion website and shows your roadmap goals, farm runs and slayer guide in game.",
+	tags = {"farming", "timetracking", "roadmap", "goals", "slayer", "sync"}
+)
 public class OSRSCompanionPlugin extends Plugin {
 	private static final String TEARS_CAVE_MESSAGE = "Your stories have entertained me. I will let you into the cave for a short time.";
 
