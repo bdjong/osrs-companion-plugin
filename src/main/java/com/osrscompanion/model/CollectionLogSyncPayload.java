@@ -19,15 +19,30 @@ public class CollectionLogSyncPayload {
 	private final List<Integer> collection_log;
 	private final int collection_log_item_count;
 	private final Map<Integer, Integer> collection_log_quantities;
+	/** True when the list is the whole log (read by searching it); false: only items unlocked since login, to add. */
+	private final boolean collection_log_full;
 
 	public CollectionLogSyncPayload(
 			String playerUsername,
 			List<Integer> obtainedItemIds,
 			Map<Integer, Integer> quantities) {
+		this(playerUsername, obtainedItemIds, quantities, false);
+	}
+
+	public CollectionLogSyncPayload(
+			String playerUsername,
+			List<Integer> obtainedItemIds,
+			Map<Integer, Integer> quantities,
+			boolean full) {
 		this.player_username = playerUsername;
 		this.collection_log = obtainedItemIds;
 		this.collection_log_item_count = obtainedItemIds.size();
 		this.collection_log_quantities = quantities;
+		this.collection_log_full = full;
+	}
+
+	public boolean isFull() {
+		return collection_log_full;
 	}
 
 	public String getPlayerUsername() {
