@@ -6,9 +6,11 @@ import com.osrscompanion.model.SlayerGear;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -535,7 +537,36 @@ public class BankLayoutPrep {
 			pouch.add(bank.resolve(it.getIds()));
 		}
 		BossGear.Slot special = set.slot("special");
-		return BankLayouts.build(worn, inv, pouch, special == null ? -1 : bank.resolve(special.getIds()));
+		int spec = special == null ? -1 : bank.resolve(special.getIds());
+		// One item is brought once: the Alternate weapon is left out when the inventory or the weapon
+		// slot has it, the special attack weapon when any of those has it (one blowpipe does all three).
+		Set<Integer> brought = new HashSet<>();
+		for (int id : inv) {
+			addBase(brought, id);
+		}
+		addBase(brought, worn.getOrDefault("weapon", -1));
+		Integer sw = worn.get("switch");
+		if (sw != null && sw > 0 && brought.contains(base(sw))) {
+			worn.remove("switch");
+			worn.remove("switch_shield");
+			sw = null;
+		}
+		addBase(brought, sw == null ? -1 : sw);
+		if (spec > 0 && brought.contains(base(spec))) {
+			spec = -1;
+		}
+		return BankLayouts.build(worn, inv, pouch, spec);
+	}
+
+	/** The item without its charges / ornament (two versions of one item count as the same). */
+	private static int base(int itemId) {
+		return ItemVariationMapping.map(itemId);
+	}
+
+	private static void addBase(Set<Integer> into, int itemId) {
+		if (itemId > 0) {
+			into.add(base(itemId));
+		}
 	}
 
 	/**
