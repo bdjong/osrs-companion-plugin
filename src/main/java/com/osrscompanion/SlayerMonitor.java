@@ -678,6 +678,8 @@ public class SlayerMonitor {
 		if (taskChanged && now.hasTask()) {
 			currentTaskAssignedAt = Instant.now().toString();
 		}
+		// A kill on the task (its count went down): sent at once, outside the amount window.
+		boolean killed = !taskChanged && previous != null && now.hasTask() && now.amountRemaining < previous.amountRemaining;
 		previous = now;
 
 		if (draft != null && !force) {
@@ -691,7 +693,7 @@ public class SlayerMonitor {
 
 		boolean amountWindowOpen =
 				System.currentTimeMillis() - lastAmountSyncMs >= AMOUNT_SYNC_MIN_INTERVAL_MS;
-		if (!force && !taskChanged && pendingEvents.isEmpty() && !amountWindowOpen
+		if (!force && !taskChanged && !killed && pendingEvents.isEmpty() && !amountWindowOpen
 				&& !storedTaskDirty) {
 			// A kill inside the window: look again on a later tick, so it goes up once the window
 			// closes instead of waiting for the next kill.
@@ -714,7 +716,7 @@ public class SlayerMonitor {
 
 		List<SlayerTaskEvent> sent = new ArrayList<>(pendingEvents);
 		log.debug("Syncing slayer state ({} events) for player: {}", sent.size(), playerUsername);
-		apiClient.sendSlayerSync(payload, () -> onEventsAcknowledged(sent));
+		apiClient.sendSlayerSync(payload, () -> onEventsAcknowledged(sent), killed);
 	}
 
 	private Snapshot readSnapshot() {
