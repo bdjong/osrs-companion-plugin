@@ -21,6 +21,7 @@ import net.runelite.api.EnumID;
 import net.runelite.api.ScriptID;
 import net.runelite.api.GameState;
 import net.runelite.api.events.ClientTick;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetClosed;
@@ -48,6 +49,8 @@ public class PotionStorageMonitor {
 
 	private Set<Integer> potionStoreVarps;
 	private boolean needsRebuild;
+	/** Re-read on every game tick up to this one (the doses can arrive a tick or two after the bank opens). */
+	private int readUntilTick = -1;
 	private GameState previousGameState = GameState.UNKNOWN;
 
 	@Inject
@@ -89,6 +92,16 @@ public class PotionStorageMonitor {
 	public void onWidgetLoaded(WidgetLoaded event) {
 		if (event.getGroupId() == InterfaceID.BANKMAIN) {
 			needsRebuild = true;
+			readUntilTick = client.getTickCount() + 3;
+		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event) {
+		if (readUntilTick >= 0 && client.getTickCount() <= readUntilTick && client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null) {
+			needsRebuild = true;
+		} else {
+			readUntilTick = -1;
 		}
 	}
 
@@ -125,23 +138,25 @@ public class PotionStorageMonitor {
 			return;
 		}
 
-		// Cache the varp triggers from the widget on first rebuild
+		// The varps that change with the storage (to re-read on a change), from its widget once the bank
+		// has built it. The storage is read either way: it needn't have been opened.
 		if (potionStoreVarps == null) {
 			Widget w = client.getWidget(InterfaceID.Bankmain.POTIONSTORE_ITEMS);
-			if (w == null) {
-				return;
+			int[] triggers = w == null ? null : w.getVarTransmitTrigger();
+			if (triggers != null) {
+				potionStoreVarps = new HashSet<>();
+				Arrays.stream(triggers).forEach(potionStoreVarps::add);
 			}
-			int[] triggers = w.getVarTransmitTrigger();
-			if (triggers == null) {
-				return;
-			}
-			potionStoreVarps = new HashSet<>();
-			Arrays.stream(triggers).forEach(potionStoreVarps::add);
 		}
 
 		Map<Integer, Integer> quantities = new LinkedHashMap<>();
 		for (BankSyncPayload.BankItem item : collectPotionItems()) {
 			quantities.merge(item.getItemId(), item.getQuantity(), Integer::sum);
+		}
+		// Nothing read before the storage's varps are known may only mean they haven't arrived yet:
+		// never clear what the website has on that.
+		if (quantities.isEmpty() && potionStoreVarps == null) {
+			return;
 		}
 		syncer.submit(quantities, false);
 	}
