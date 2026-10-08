@@ -41,14 +41,20 @@ public class SlayerSessionTest {
 		s.tick(false, START + 500_000);
 		s.tick(true, START + 520_000);
 		assertEquals(1, s.bankTrips);
-		// Away for longer than the limit (a break): not a bank trip.
-		s.tick(false, START + 600_000);
+		// A long bank trip counts at most 8 minutes.
+		s.tick(false, START + 540_000);
 		s.bankOpened();
-		s.tick(true, START + 600_000 + SlayerSession.MAX_BANK_TRIP_MS + 1);
-		assertEquals(1, s.bankTrips);
+		s.tick(true, START + 540_000 + 12 * 60_000);
+		assertEquals(2, s.bankTrips);
+		assertEquals(180_000 + SlayerSession.BANK_TRIP_CAP_MS, s.bankTripMs);
+		// Away for longer than the limit (a break): not a bank trip.
+		s.tick(false, START + 2_000_000);
+		s.bankOpened();
+		s.tick(true, START + 2_000_000 + SlayerSession.MAX_BANK_TRIP_MS + 1);
+		assertEquals(2, s.bankTrips);
 		Map<String, Object> payload = s.payload("Zezima");
-		assertEquals(1, payload.get("bank_trips"));
-		assertEquals(180L, payload.get("bank_trip_sec"));
+		assertEquals(2, payload.get("bank_trips"));
+		assertEquals(180L + 480L, payload.get("bank_trip_sec"));
 	}
 
 	@Test

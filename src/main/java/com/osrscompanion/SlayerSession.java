@@ -28,6 +28,8 @@ final class SlayerSession {
 	static final long MAX_TICK_GAP_MS = 3_000L;
 	/** A time away longer than this is not a bank trip (a break, another activity). */
 	static final long MAX_BANK_TRIP_MS = 20 * 60_000L;
+	/** A bank trip counts at most this long (lingering at the bank is not part of the task). */
+	static final long BANK_TRIP_CAP_MS = 8 * 60_000L;
 
 	@SerializedName("session_uuid")
 	String uuid;
@@ -138,7 +140,7 @@ final class SlayerSession {
 					long away = nowMs - leftMs;
 					if (away > 0 && away <= MAX_BANK_TRIP_MS) {
 						bankTrips++;
-						bankTripMs += away;
+						bankTripMs += Math.min(away, BANK_TRIP_CAP_MS);
 					}
 				}
 				leftMs = 0;
