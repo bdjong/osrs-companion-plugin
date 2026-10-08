@@ -540,12 +540,19 @@ public class BankLayoutPrep {
 
 	/**
 	 * The slayer setup's worn gear in the doll's places, and in the inventory's places its ammo / spell
-	 * options (darts, arrows or bolts, the spells' runes), best first, as many as the setting says.
+	 * options (darts, arrows or bolts, the spells' runes), best first, as many as the setting says, then
+	 * its boost (potion, heart) and what recharges its charged items (runes, scales, ether...).
 	 */
 	private int[] slayerLayout(SlayerGear.Set set, BankItems bank) {
 		List<Integer> supplies = new ArrayList<>();
 		for (int id : set.supplyItems(config.slayerGearSupplyOptions())) {
 			supplies.add(bank.resolveOne(id));
+		}
+		for (SlayerGear.Bring b : set.getBring()) {
+			int id = bank.resolve(b.getItems());
+			if (id > 0 && !supplies.contains(id)) {
+				supplies.add(id);
+			}
 		}
 		return BankLayouts.build(slayerWorn(set, bank::resolveOne), supplies, Collections.emptyList(), -1);
 	}
