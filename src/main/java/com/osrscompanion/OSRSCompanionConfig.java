@@ -331,8 +331,8 @@ public interface OSRSCompanionConfig extends Config {
 	@Range(min = 0, max = 5)
 	@ConfigItem(
 			keyName = "slayerGearSupplyOptions",
-			name = "Slayer gear: ammo / spell options",
-			description = "How many ammo or spell options the Slayer gear bank layout shows, best first: the setup's numbers use the best (e.g. dragon darts in a blowpipe), the bank also shows downgrades you own (amethyst, rune darts...), and for magic the runes of the best spells you can cast (e.g. Fire Surge, Fire Wave, Fire Blast). 0: only the worn gear.",
+			name = "Gear: ammo / spell options",
+			description = "How many ammo or spell options the Slayer gear and Boss gear bank layouts show, best first: the setup's numbers use the best (e.g. dragon darts in a blowpipe), the bank also shows downgrades you own (amethyst, rune darts...), and for magic the runes of the best spells you can cast (e.g. Fire Surge, Fire Wave, Fire Blast). 0: none.",
 			section = FEATURES_SECTION,
 			position = 11)
 	default int slayerGearSupplyOptions() {

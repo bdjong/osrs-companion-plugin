@@ -294,6 +294,19 @@ public class BossGearManager {
 			return false;
 		}
 		int base = ItemVariationMapping.map(itemId);
+		// The ammo / spell options and charge materials the bank layout adds.
+		for (int id : s.supplyItems(config.slayerGearSupplyOptions())) {
+			if (id == itemId || ItemVariationMapping.map(id) == base) {
+				return true;
+			}
+		}
+		for (com.osrscompanion.model.SlayerGear.Bring b : s.getBring()) {
+			for (int id : b.getItems()) {
+				if (id == itemId || ItemVariationMapping.map(id) == base) {
+					return true;
+				}
+			}
+		}
 		String name = null;
 		for (BossGear.Item it : items(s)) {
 			for (int id : it.getIds()) {

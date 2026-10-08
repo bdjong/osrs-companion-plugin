@@ -521,23 +521,53 @@ public class BankLayoutPrep {
 		}
 	}
 
+	/**
+	 * The boss set's worn gear, inventory and rune pouch in their places; an item you don't own (red in the
+	 * window) leaves its place empty. Below the inventory: the weapon's ammo / spell options (as many as the
+	 * setting says) and what recharges the charged items.
+	 */
 	private int[] bossLayout(BossGear set, BankItems bank) {
+		// Before your items are synced nothing counts as owned: everything shows then.
+		boolean known = set.isSynced();
 		Map<String, Integer> worn = new LinkedHashMap<>();
 		for (BossGear.Slot s : set.getEquipment()) {
-			if (!"special".equals(s.getSlot())) {
+			if (!"special".equals(s.getSlot()) && (!known || s.isOwned())) {
 				worn.put(s.getSlot(), bank.resolve(s.getIds()));
 			}
 		}
 		List<Integer> inv = new ArrayList<>();
 		for (BossGear.Item it : set.getInventory()) {
-			inv.add(it == null ? -1 : bank.resolve(it.getIds()));
+			inv.add(it == null || known && !it.isOwned() ? -1 : bank.resolve(it.getIds()));
 		}
 		List<Integer> pouch = new ArrayList<>();
 		for (BossGear.Item it : set.getPouch()) {
-			pouch.add(bank.resolve(it.getIds()));
+			pouch.add(!known || it.isOwned() ? bank.resolve(it.getIds()) : -1);
+		}
+		// The extras start on the row under the inventory.
+		while (inv.size() < 28) {
+			inv.add(-1);
+		}
+		Set<Integer> placed = new HashSet<>();
+		for (int id : inv) {
+			addBase(placed, id);
+		}
+		for (int id : worn.values()) {
+			addBase(placed, id);
+		}
+		List<Integer> extras = new ArrayList<>();
+		for (int id : set.supplyItems(config.slayerGearSupplyOptions())) {
+			extras.add(bank.resolveOne(id));
+		}
+		for (com.osrscompanion.model.SlayerGear.Bring b : set.getBring()) {
+			extras.add(bank.resolve(b.getItems()));
+		}
+		for (int id : extras) {
+			if (id > 0 && placed.add(base(id))) {
+				inv.add(id);
+			}
 		}
 		BossGear.Slot special = set.slot("special");
-		int spec = special == null ? -1 : bank.resolve(special.getIds());
+		int spec = special == null || known && !special.isOwned() ? -1 : bank.resolve(special.getIds());
 		// One item is brought once: the Alternate weapon is left out when the inventory or the weapon
 		// slot has it, the special attack weapon when any of those has it (one blowpipe does all three).
 		Set<Integer> brought = new HashSet<>();
