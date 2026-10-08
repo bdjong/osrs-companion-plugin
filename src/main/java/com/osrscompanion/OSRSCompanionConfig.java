@@ -378,20 +378,14 @@ public interface OSRSCompanionConfig extends Config {
 		return true;
 	}
 
-	// --- Boss trips ---
-
-	@ConfigSection(
-			name = "Boss Trips",
-			description = "The boss trip log (the trip planner is switched in the side panel).",
-			position = 4)
-	String TRIPS_SECTION = "tripsSection";
+	// --- Boss trips (the trip planner is switched in the side panel) ---
 
 	@ConfigItem(
 			keyName = "bossTrips",
 			name = "Boss trip log",
 			description = "Record each boss trip (from leaving the bank to the next bank, death or logout): kills, supplies used and loot, and send it to the website's Boss Gear page (Trips).",
-			section = TRIPS_SECTION,
-			position = 0)
+			section = SYNC_SECTION,
+			position = 15)
 	default boolean bossTrips() {
 		return true;
 	}
