@@ -55,10 +55,10 @@ public class RoadmapManager {
 	private volatile Consumer<Roadmap> panelListener;
 	private volatile boolean panelActive;
 
-	@Inject
 	/** How often {@link #pollWhileWaiting()} looks for a roadmap while the box has none. */
 	static final int WAITING_POLL_SECONDS = 30;
 
+	@Inject
 	public RoadmapManager(
 			Client client,
 			OSRSCompanionConfig config,
