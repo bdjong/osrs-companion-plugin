@@ -219,4 +219,20 @@ public class OSRSCompanionApiClientTest {
 	public void pluginVersionIsHeaderSafe() {
 		assertTrue(OSRSCompanionApiClient.PLUGIN_VERSION.matches("[0-9A-Za-z._-]{1,32}"));
 	}
+
+	@Test
+	public void webVersionChangeIsReportedButNotTheFirstValue() {
+		OSRSCompanionApiClient client = new OSRSCompanionApiClient(emptyKeyConfig(), new Gson(), new OkHttpClient());
+		java.util.concurrent.atomic.AtomicInteger changes = new java.util.concurrent.atomic.AtomicInteger();
+		client.setWebVersionChangedListener(changes::incrementAndGet);
+		client.observeWebVersion(4);
+		assertEquals("first value is the baseline", 0, changes.get());
+		client.observeWebVersion(4);
+		assertEquals(0, changes.get());
+		client.observeWebVersion(5);
+		assertEquals(1, changes.get());
+		client.resetWebVersion();
+		client.observeWebVersion(9);
+		assertEquals("after logout the first value is a new baseline", 1, changes.get());
+	}
 }

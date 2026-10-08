@@ -65,6 +65,7 @@ public class PlankSackMonitor {
 				() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
 				() -> SyncGuard.getPlayerUsername(client),
 				apiClient::sendBankSync);
+		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 	}
 
 	public void setSnapshotListener(BiConsumer<String, Map<Integer, Integer>> listener) {

@@ -55,8 +55,12 @@ public class RoadmapManager {
 	private volatile Consumer<Roadmap> panelListener;
 	private volatile boolean panelActive;
 
-	/** How often {@link #pollWhileWaiting()} looks for a roadmap while the box has none. */
-	static final int WAITING_POLL_SECONDS = 30;
+	/**
+	 * How often {@link #pollWhileWaiting()} looks for a roadmap while the box has none: a backstop, as
+	 * a roadmap made on the website is picked up by the web version check ({@link WebVersionWatcher}); this
+	 * also retries a load that failed at login.
+	 */
+	static final int WAITING_POLL_SECONDS = 2 * 60;
 
 	@Inject
 	public RoadmapManager(
@@ -321,6 +325,12 @@ public class RoadmapManager {
 		if (currentRoadmap != null || !config.showNextGoal() || !hasAppKey()) {
 			return;
 		}
+		listCache.invalidate();
+		refreshAllQuietly();
+	}
+
+	/** Re-reads the roadmap list and every roadmap now (the website changed something). */
+	public void refreshAllFresh() {
 		listCache.invalidate();
 		refreshAllQuietly();
 	}

@@ -71,6 +71,7 @@ public class BankMemoryMonitor {
 				() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
 				() -> SyncGuard.getPlayerUsername(client),
 				apiClient::sendBankSync);
+		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 		this.deposits = new BankDepositLedger(() -> {
 			Function<String, Map<Integer, Integer>> s = seedSupplier;
 			return s == null ? Map.of() : s.apply(BankDepositLedger.SOURCE);

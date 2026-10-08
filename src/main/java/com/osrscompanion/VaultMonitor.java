@@ -107,6 +107,7 @@ public class VaultMonitor {
 				() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
 				() -> SyncGuard.getPlayerUsername(client),
 				apiClient::sendBankSync);
+		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 	}
 
 	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */

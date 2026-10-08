@@ -74,6 +74,7 @@ public class StorageItemMonitor {
 					() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
 					() -> SyncGuard.getPlayerUsername(client),
 					apiClient::sendBankSync);
+			this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 		}
 
 		boolean carried() {

@@ -62,6 +62,7 @@ public class RunePouchMonitor {
 				() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
 				() -> SyncGuard.getPlayerUsername(client),
 				apiClient::sendBankSync);
+		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 	}
 
 	/** Receives every read (source, item id to quantity), before any sync gate. */
