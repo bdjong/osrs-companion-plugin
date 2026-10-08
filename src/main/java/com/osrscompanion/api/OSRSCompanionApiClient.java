@@ -307,10 +307,16 @@ public class OSRSCompanionApiClient
 	 */
 	public void sendSlayerSync(SlayerSyncPayload payload, Runnable onSuccess)
 	{
+		sendSlayerSync(payload, onSuccess, false);
+	}
+
+	/** @param urgent send at once (a kill: the task count went down), not with the next timed flush */
+	public void sendSlayerSync(SlayerSyncPayload payload, Runnable onSuccess, boolean urgent)
+	{
 		// The state is whole and the events are every one not yet acknowledged, so a newer payload holds
-		// the older one's; a task transition (events) goes out at once.
+		// the older one's; a task transition (events) or a kill goes out at once.
 		postAsync(SLAYER_ENDPOINT, payload.toJson(gson), "slayer", false, false, key("slayer", payload.getPlayerUsername()),
-			!payload.getEvents().isEmpty(),
+			urgent || !payload.getEvents().isEmpty(),
 			() -> {
 				log.debug("OSRS Companion slayer sync successful: {} events for player: {}",
 					payload.getEvents().size(), payload.getPlayerUsername());
@@ -363,8 +369,14 @@ public class OSRSCompanionApiClient
 	 */
 	public void sendSlayerSession(Map<String, Object> body, Runnable onSuccess)
 	{
+		sendSlayerSession(body, onSuccess, false);
+	}
+
+	/** @param urgent send at once (a kill), not with the next timed flush */
+	public void sendSlayerSession(Map<String, Object> body, Runnable onSuccess, boolean urgent)
+	{
 		postAsync(SLAYER_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "slayer-session", false, false,
-			key("slayer-session", String.valueOf(body.get("session_uuid"))), false,
+			key("slayer-session", String.valueOf(body.get("session_uuid"))), urgent,
 			() -> {
 				log.debug("OSRS Companion slayer session {} synced", body.get("session_uuid"));
 				if (onSuccess != null)

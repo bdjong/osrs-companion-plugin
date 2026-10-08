@@ -712,6 +712,8 @@ public class SlayerHelperManager {
 	private void countKills(int n, long nowMs) {
 		if (session != null && session.isOpen() && ticksSinceInside <= KILL_GRACE_TICKS) {
 			session.addKills(n, nowMs);
+			// A kill goes to the website at once (with the task count), not with the next timed sync.
+			sync(true, true);
 		}
 	}
 
@@ -815,6 +817,11 @@ public class SlayerHelperManager {
 
 	/** Sends the open session when it changed since the last send (every 20 s in the area, or now). Client thread. */
 	private void sync(boolean now) {
+		sync(now, false);
+	}
+
+	/** @param urgent send at once (a kill) instead of with the outbox's next timed flush */
+	private void sync(boolean now, boolean urgent) {
 		SlayerSession s = session;
 		String name = s == null || s.player == null ? player : s.player;
 		if (s == null || name == null || !canSync() || s.updatedMs == lastSentUpdate) {
@@ -825,7 +832,7 @@ public class SlayerHelperManager {
 		}
 		lastSyncMs = System.currentTimeMillis();
 		lastSentUpdate = s.updatedMs;
-		apiClient.sendSlayerSession(s.payload(name), null);
+		apiClient.sendSlayerSession(s.payload(name), null, urgent);
 	}
 
 	/** A finished session waits in the unsent list until the website has it. */
