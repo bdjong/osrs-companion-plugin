@@ -14,6 +14,9 @@ public interface OSRSCompanionConfig extends Config {
 	String GOAL_SOUND_KEY = "goalSoundOn";
 	/** The farming cape setting; replaced the "farmingCapeForHerbs" and "forceFarmingCape" switches. */
 	String FARMING_CAPE_KEY = "farmingCapeMode";
+	/** The trip planner per tool; replaced the one "suppliesCheck" switch. */
+	String TRIP_PLANNER_BOSS_KEY = "tripPlannerBoss";
+	String TRIP_PLANNER_FARM_KEY = "tripPlannerFarm";
 
 	@ConfigSection(
 			name = "Data Syncing",
@@ -393,12 +396,23 @@ public interface OSRSCompanionConfig extends Config {
 		return true;
 	}
 
+	/** Set from the side panel's Trip planner: the boss setup's trips in the bank. */
 	@ConfigItem(
-			keyName = "suppliesCheck",
-			name = "Trip planner",
-			description = "With the bank open, show how many trips your bank supports for the active boss setup (when its Bank layout is on) and how many runs for the farm route (when Active in the bank is on), and which supply runs out first.",
+			keyName = TRIP_PLANNER_BOSS_KEY,
+			name = "Trip planner: boss trips",
+			description = "With the bank open: how many trips your bank supports for the active boss setup (when its Bank layout is on) and which supply runs out first.",
 			hidden = true)
-	default boolean suppliesCheck() {
+	default boolean tripPlannerBoss() {
+		return true;
+	}
+
+	/** Set from the side panel's Trip planner: the farm route's runs in the bank. */
+	@ConfigItem(
+			keyName = TRIP_PLANNER_FARM_KEY,
+			name = "Trip planner: farm runs",
+			description = "With the bank open: how many runs your bank supports for the farm route (when Active in the bank is on) and which supply runs out first.",
+			hidden = true)
+	default boolean tripPlannerFarm() {
 		return true;
 	}
 

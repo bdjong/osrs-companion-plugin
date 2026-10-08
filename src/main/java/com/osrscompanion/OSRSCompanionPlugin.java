@@ -725,6 +725,16 @@ public class OSRSCompanionPlugin extends Plugin {
 			configManager.unsetConfiguration(group, "farmingCapeForHerbs");
 			configManager.unsetConfiguration(group, "forceFarmingCape");
 		}
+		String supplies = configManager.getConfiguration(group, "suppliesCheck");
+		if (supplies != null) {
+			boolean on = !"false".equals(supplies);
+			for (String key : new String[]{OSRSCompanionConfig.TRIP_PLANNER_BOSS_KEY, OSRSCompanionConfig.TRIP_PLANNER_FARM_KEY}) {
+				if (configManager.getConfiguration(group, key) == null) {
+					configManager.setConfiguration(group, key, on);
+				}
+			}
+			configManager.unsetConfiguration(group, "suppliesCheck");
+		}
 	}
 
 	@Provides

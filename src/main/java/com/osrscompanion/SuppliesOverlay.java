@@ -55,11 +55,11 @@ public class SuppliesOverlay extends Overlay {
 	private List<SuppliesCheck.Result> shown() {
 		List<SuppliesCheck.Result> out = new ArrayList<>();
 		SuppliesCheck.Result boss = check.getBoss();
-		if (boss != null && bossGear.isSetActive()) {
+		if (boss != null && config.tripPlannerBoss() && bossGear.isSetActive()) {
 			out.add(boss);
 		}
 		SuppliesCheck.Result farm = check.getFarm();
-		if (farm != null && (farmRun.isRunning() || farmRun.isOpen() || out.isEmpty())) {
+		if (farm != null && config.tripPlannerFarm() && (farmRun.isRunning() || farmRun.isOpen() || out.isEmpty())) {
 			out.add(farm);
 		}
 		return out;
@@ -67,7 +67,7 @@ public class SuppliesOverlay extends Overlay {
 
 	@Override
 	public Dimension render(Graphics2D g) {
-		if (!config.suppliesCheck()) {
+		if (!config.tripPlannerBoss() && !config.tripPlannerFarm()) {
 			return null;
 		}
 		Widget bank = client.getWidget(InterfaceID.Bankmain.UNIVERSE);
