@@ -4,6 +4,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Range;
 
 @ConfigGroup(OSRSCompanionConfig.CONFIG_GROUP)
 public interface OSRSCompanionConfig extends Config {
@@ -325,6 +326,17 @@ public interface OSRSCompanionConfig extends Config {
 			position = 11)
 	default boolean slayerGearBankLayout() {
 		return false;
+	}
+
+	@Range(min = 0, max = 5)
+	@ConfigItem(
+			keyName = "slayerGearSupplyOptions",
+			name = "Slayer gear: ammo / spell options",
+			description = "How many ammo or spell options the Slayer gear bank layout shows, best first: the setup's numbers use the best (e.g. dragon darts in a blowpipe), the bank also shows downgrades you own (amethyst, rune darts...), and for magic the runes of the best spells you can cast (e.g. Fire Surge, Fire Wave, Fire Blast). 0: only the worn gear.",
+			section = FEATURES_SECTION,
+			position = 11)
+	default int slayerGearSupplyOptions() {
+		return 3;
 	}
 
 

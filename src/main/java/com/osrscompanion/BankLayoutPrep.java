@@ -538,9 +538,16 @@ public class BankLayoutPrep {
 		return BankLayouts.build(worn, inv, pouch, special == null ? -1 : bank.resolve(special.getIds()));
 	}
 
-	/** The slayer setup's worn gear in the doll's places; the inventory stays empty. */
+	/**
+	 * The slayer setup's worn gear in the doll's places, and in the inventory's places its ammo / spell
+	 * options (darts, arrows or bolts, the spells' runes), best first, as many as the setting says.
+	 */
 	private int[] slayerLayout(SlayerGear.Set set, BankItems bank) {
-		return BankLayouts.build(slayerWorn(set, bank::resolveOne), Collections.emptyList(), Collections.emptyList(), -1);
+		List<Integer> supplies = new ArrayList<>();
+		for (int id : set.supplyItems(config.slayerGearSupplyOptions())) {
+			supplies.add(bank.resolveOne(id));
+		}
+		return BankLayouts.build(slayerWorn(set, bank::resolveOne), supplies, Collections.emptyList(), -1);
 	}
 
 	/** Worn slot name to item (resolved to the version in the bank), the first piece per slot; pieces without an item are left out. */

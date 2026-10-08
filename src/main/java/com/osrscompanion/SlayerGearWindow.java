@@ -259,6 +259,11 @@ public class SlayerGearWindow extends Overlay implements MouseListener, MouseWhe
 				}
 				ly = line(g, e.getLabel(), e.getName(), lx, ly, textW);
 			}
+			// The options the bank layout shows (the setting's number), best first.
+			String options = set.supplyText(config.slayerGearSupplyOptions());
+			if (options != null && ly <= bottom - 60) {
+				ly = line(g, "In the bank", options, lx, ly, textW);
+			}
 			ly += 6;
 		}
 		text(g, "Carried", lx, ly, GREEN);

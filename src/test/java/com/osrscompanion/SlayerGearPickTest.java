@@ -63,4 +63,17 @@ public class SlayerGearPickTest {
 	public void numbersLine() {
 		assertEquals("Max 42 · 5.31 DPS · 118 kills/h", SlayerGearWindow.numbers(gear.getSets().get(0)));
 	}
+
+	@Test
+	public void supplyOptionsBestFirstAsManyAsSet() {
+		SlayerGear.Set set = new Gson().fromJson("{\"key\":\"magic\",\"spell\":\"Fire Surge\",\"supplies\":{\"kind\":\"spell\",\"options\":["
+			+ "{\"name\":\"Fire Surge\",\"items\":[21880,556,554]},{\"name\":\"Fire Wave\",\"items\":[565,556,554]},"
+			+ "{\"name\":\"Fire Blast\",\"items\":[560,556,554]},{\"name\":\"Fire Bolt\",\"items\":[562,556,554]}]}}", SlayerGear.Set.class);
+		// Runes once each, in the order of the spells.
+		assertEquals(java.util.Arrays.asList(21880, 556, 554, 565, 560), set.supplyItems(3));
+		assertEquals("Fire Surge > Fire Wave > Fire Blast", set.supplyText(3));
+		assertEquals(java.util.Collections.emptyList(), set.supplyItems(0));
+		assertNull(set.supplyText(0));
+		assertEquals(java.util.Collections.emptyList(), gear.getSets().get(0).supplyItems(3));
+	}
 }
