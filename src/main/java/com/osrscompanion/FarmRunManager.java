@@ -209,6 +209,9 @@ public class FarmRunManager {
 
 	// ---- Loading -----------------------------------------------------------------
 
+	/** A load without an answer after this long is tried again (opening the window, Refresh). */
+	private static final long STUCK_LOAD_MS = 20_000;
+
 	public void refreshIfStale() {
 		if (!loading && System.currentTimeMillis() - fetchedAtMs > REFRESH_INTERVAL_MS) {
 			refresh();
@@ -1097,8 +1100,9 @@ public class FarmRunManager {
 		selectedStop = -1;
 		recountPending = true;
 		// Always fetch on open, so a route just made or edited on the website shows up straight
-		// away (the same route keeps its progress; see callback()).
-		if (!loading) {
+		// away (the same route keeps its progress; see callback()). A load that never answered
+		// (no reply after a while) doesn't block it.
+		if (!loading || System.currentTimeMillis() - fetchedAtMs > STUCK_LOAD_MS) {
 			refresh();
 		}
 	}
