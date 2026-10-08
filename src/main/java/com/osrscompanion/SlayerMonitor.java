@@ -65,8 +65,11 @@ import net.runelite.client.eventbus.Subscribe;
 public class SlayerMonitor {
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 5;
 	private static final int RESYNC_THROTTLE_TICKS = 3;
-	/** Minimum interval between amount-only syncs (task progress ticks down every kill). */
-	private static final long AMOUNT_SYNC_MIN_INTERVAL_MS = 60_000L;
+	/**
+	 * Minimum interval between amount-only syncs (task progress ticks down every kill). Uploads are
+	 * batched by the outbox, so this can be short; a kill inside the window is sent when it closes.
+	 */
+	private static final long AMOUNT_SYNC_MIN_INTERVAL_MS = 10_000L;
 	/** How many ticks a completion chat line stays attachable to a transition. */
 	private static final int CHAT_ATTACH_WINDOW_TICKS = 10;
 	/**
@@ -328,6 +331,8 @@ public class SlayerMonitor {
 	private int lastReadTick = -1;
 	private String lastSyncJson;
 	private long lastAmountSyncMs;
+	/** The task's kills left in the last sync (-1: none yet). */
+	private int lastSyncedAmount = -1;
 	private StoredTaskCapture storedTask;
 	private List<Map<String, Object>> pendingOffers = new ArrayList<>();
 	private List<String> pendingOfferRows;
@@ -456,6 +461,7 @@ public class SlayerMonitor {
 		lastReadTick = -1;
 		lastSyncJson = null;
 		lastAmountSyncMs = 0;
+		lastSyncedAmount = -1;
 		previous = null;
 		currentTaskAssignedAt = null;
 		lastCompletionChatText = null;
@@ -687,6 +693,11 @@ public class SlayerMonitor {
 				System.currentTimeMillis() - lastAmountSyncMs >= AMOUNT_SYNC_MIN_INTERVAL_MS;
 		if (!force && !taskChanged && pendingEvents.isEmpty() && !amountWindowOpen
 				&& !storedTaskDirty) {
+			// A kill inside the window: look again on a later tick, so it goes up once the window
+			// closes instead of waiting for the next kill.
+			if (now.amountRemaining != lastSyncedAmount) {
+				checkPending = true;
+			}
 			return;
 		}
 
@@ -699,6 +710,7 @@ public class SlayerMonitor {
 		}
 		lastSyncJson = json;
 		lastAmountSyncMs = System.currentTimeMillis();
+		lastSyncedAmount = now.amountRemaining;
 
 		List<SlayerTaskEvent> sent = new ArrayList<>(pendingEvents);
 		log.debug("Syncing slayer state ({} events) for player: {}", sent.size(), playerUsername);
