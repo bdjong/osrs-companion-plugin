@@ -394,7 +394,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = TRIP_PLANNER_BOSS_KEY,
 			name = "Trip planner: boss trips",
-			description = "With the bank open: how many trips your bank supports for the active boss setup (when its Bank layout is on) and which supply runs out first.",
+			description = "With the bank open: how many trips your bank supports for the active boss setup and which supply runs out first (no bank layout needed).",
 			hidden = true)
 	default boolean tripPlannerBoss() {
 		return true;
@@ -404,7 +404,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = TRIP_PLANNER_FARM_KEY,
 			name = "Trip planner: farm runs",
-			description = "With the bank open: how many runs your bank supports for the farm route (when Active in the bank is on) and which supply runs out first.",
+			description = "With the bank open: how many runs your bank supports for the farm route and which supply runs out first (no bank layout needed).",
 			hidden = true)
 	default boolean tripPlannerFarm() {
 		return true;

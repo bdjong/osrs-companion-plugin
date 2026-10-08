@@ -85,6 +85,14 @@ public class BossGear {
 	@SerializedName("pouch")
 	private List<Item> pouch;
 
+	/** The spellbook the rune pouch's runes are for (Standard, Ancient, Lunar, Arceuus), or null. */
+	@SerializedName("spellbook")
+	private String spellbook;
+
+	public String getSpellbook() {
+		return spellbook;
+	}
+
 	/** The ammo / spell options for the weapon, best first (the bank layout shows the setting's number of them). */
 	@SerializedName("supplies")
 	private SlayerGear.Supplies supplies;
