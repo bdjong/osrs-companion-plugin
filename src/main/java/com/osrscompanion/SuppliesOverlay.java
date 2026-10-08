@@ -51,7 +51,7 @@ public class SuppliesOverlay extends Overlay {
 		setLayer(OverlayLayer.ABOVE_WIDGETS);
 	}
 
-	/** The checks to show: the boss setup while it is active, the farm route while a run goes or its window is open (or no boss setup). */
+	/** The checks to show: the boss setup while it is active, the farm route while a run goes (only one of them is ever active). */
 	private List<SuppliesCheck.Result> shown() {
 		List<SuppliesCheck.Result> out = new ArrayList<>();
 		SuppliesCheck.Result boss = check.getBoss();
@@ -59,7 +59,7 @@ public class SuppliesOverlay extends Overlay {
 			out.add(boss);
 		}
 		SuppliesCheck.Result farm = check.getFarm();
-		if (farm != null && config.tripPlannerFarm() && (farmRun.isRunning() || farmRun.isOpen() || out.isEmpty())) {
+		if (farm != null && config.tripPlannerFarm() && farmRun.isRunning()) {
 			out.add(farm);
 		}
 		return out;

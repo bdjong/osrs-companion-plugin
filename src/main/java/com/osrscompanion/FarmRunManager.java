@@ -48,6 +48,7 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.widgets.Widget;
 import com.google.gson.Gson;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -326,6 +327,9 @@ public class FarmRunManager {
 			}
 		}
 		running = true;
+		// Only one guide is active at a time: a farm run turns the boss setup and the slayer guide off.
+		turnOff(BOSS_ACTIVE_KEY);
+		turnOff(SLAYER_GUIDE_KEY);
 		// Always step 1: going to another stop is done from the window after starting.
 		stopIndex = 0;
 		capeRemindedStop = -1;
@@ -517,6 +521,40 @@ public class FarmRunManager {
 	static String finishedBody(int patches, int xp) {
 		return "<col=ffffff>" + patches + (patches == 1 ? " patch" : " patches")
 			+ (xp > 0 ? ", " + QuantityFormatter.formatNumber(xp) + " Farming XP" : "") + "</col>";
+	}
+
+	// ---- One guide at a time -------------------------------------------------------------
+
+	/** The boss setup's Active switch and the slayer guide's switch (this plugin's settings). */
+	static final String BOSS_ACTIVE_KEY = "bossGearActive";
+	static final String SLAYER_GUIDE_KEY = "slayerGuide";
+
+	private void turnOff(String key) {
+		if (Boolean.parseBoolean(configManager.getConfiguration(OSRSCompanionConfig.CONFIG_GROUP, key))) {
+			log.debug("Farm run / boss setup / slayer guide: {} turned off", key);
+			configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, key, false);
+		}
+	}
+
+	/**
+	 * The farm run, the boss setup and the slayer guide are never active together: turning the boss setup
+	 * or the slayer guide on stops a farm run and turns the other one off (starting a run: see start()).
+	 */
+	@Subscribe
+	public void onConfigChanged(ConfigChanged e) {
+		if (!OSRSCompanionConfig.CONFIG_GROUP.equals(e.getGroup()) || !"true".equals(e.getNewValue())) {
+			return;
+		}
+		if (BOSS_ACTIVE_KEY.equals(e.getKey())) {
+			turnOff(SLAYER_GUIDE_KEY);
+		} else if (SLAYER_GUIDE_KEY.equals(e.getKey())) {
+			turnOff(BOSS_ACTIVE_KEY);
+		} else {
+			return;
+		}
+		if (running) {
+			stop();
+		}
 	}
 
 	// ---- Route ready again ----------------------------------------------------------------
