@@ -250,6 +250,7 @@ public class OSRSCompanionPlugin extends Plugin {
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
 	private java.util.concurrent.ScheduledFuture<?> roadmapWaitingPoll;
+	private java.util.concurrent.ScheduledFuture<?> farmRouteReadyPoll;
 
 	@Override
 	protected void startUp() throws Exception {
@@ -361,6 +362,14 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.startPeriodicRefresh();
 		roadmapWaitingPoll = executorService.scheduleWithFixedDelay(roadmapManager::pollWhileWaiting,
 				RoadmapManager.WAITING_POLL_SECONDS, RoadmapManager.WAITING_POLL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+		// The last farm route ready again (all its patches grown), checked logged in or not.
+		farmRouteReadyPoll = executorService.scheduleWithFixedDelay(() -> {
+			try {
+				farmRunManager.checkRouteReady();
+			} catch (RuntimeException e) {
+				log.debug("Farm route ready check failed", e);
+			}
+		}, 30, 30, java.util.concurrent.TimeUnit.SECONDS);
 
 		// Side-panel roadmap tab.
 		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
@@ -620,6 +629,10 @@ public class OSRSCompanionPlugin extends Plugin {
 		if (roadmapWaitingPoll != null) {
 			roadmapWaitingPoll.cancel(false);
 			roadmapWaitingPoll = null;
+		}
+		if (farmRouteReadyPoll != null) {
+			farmRouteReadyPoll.cancel(false);
+			farmRouteReadyPoll = null;
 		}
 		roadmapManager.clear();
 		log.debug("OSRS Companion stopped");

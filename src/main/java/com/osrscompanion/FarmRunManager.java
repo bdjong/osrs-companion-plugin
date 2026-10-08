@@ -46,7 +46,10 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.widgets.Widget;
+import com.google.gson.Gson;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.Notifier;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemVariationMapping;
 import net.runelite.client.util.QuantityFormatter;
@@ -109,6 +112,9 @@ public class FarmRunManager {
 		"You treat the .+ with (ultra|super|)compost\\.|^The .+ has been treated with (ultra|super|)compost"
 			+ "|This .+ has already been (treated|fertilised) with (ultra|super|)compost");
 	static final String FINISHED_TITLE = "<col=f28c28>Farm run complete</col>";
+	static final String READY_TITLE = "<col=f28c28>Farm route ready</col>";
+	/** Where the last run's patches are kept (per account), for the route-ready notification. */
+	static final String READY_KEY = "farmRouteReady";
 
 	private final Client client;
 	private final OSRSCompanionApiClient apiClient;
@@ -186,10 +192,19 @@ public class FarmRunManager {
 	private final Notifier notifier;
 	private final GoalCompletionNotifier popups;
 	private final TeleportLeftClick teleports;
+	private final ConfigManager configManager;
+	private final Gson gson;
+
+	/** The last run's patches, until the route is ready again (null: none). */
+	private volatile FarmRouteReady lastRun;
+	/** Load {@link #lastRun} for the account on the next tick (its profile is known once logged in). */
+	private volatile boolean loadLastRun;
+	/** The route got ready while logged out: the in-game popup waits for the next login. */
+	private volatile String readyPopupPending;
 
 	@Inject
 	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, OSRSCompanionConfig config, Notifier notifier,
-		GoalCompletionNotifier popups, TeleportLeftClick teleports) {
+		GoalCompletionNotifier popups, TeleportLeftClick teleports, ConfigManager configManager, Gson gson) {
 		this.client = client;
 		this.apiClient = apiClient;
 		this.roadmapManager = roadmapManager;
@@ -197,6 +212,8 @@ public class FarmRunManager {
 		this.notifier = notifier;
 		this.popups = popups;
 		this.teleports = teleports;
+		this.configManager = configManager;
+		this.gson = gson;
 	}
 
 	/** The farming data the plugin builds at start-up. */
@@ -381,6 +398,15 @@ public class FarmRunManager {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
+		if (loadLastRun) {
+			loadLastRun = false;
+			loadLastRun();
+		}
+		String popup = readyPopupPending;
+		if (popup != null) {
+			readyPopupPending = null;
+			popups.showMessage(READY_TITLE, "<col=ffffff>" + popup + "</col>");
+		}
 		if (recountPending) {
 			recountPending = false;
 			recount();
@@ -464,6 +490,7 @@ public class FarmRunManager {
 	 * run on any thread.
 	 */
 	private void recordRun(FarmRoute r, boolean completed) {
+		rememberRun(r);
 		String player = runPlayer;
 		if (!config.syncFarmRuns() || specialMode || player == null || !SyncGuard.hasAppKey(config)) {
 			return;
@@ -490,6 +517,115 @@ public class FarmRunManager {
 	static String finishedBody(int patches, int xp) {
 		return "<col=ffffff>" + patches + (patches == 1 ? " patch" : " patches")
 			+ (xp > 0 ? ", " + QuantityFormatter.formatNumber(xp) + " Farming XP" : "") + "</col>";
+	}
+
+	// ---- Route ready again ----------------------------------------------------------------
+
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged e) {
+		if (e.getGameState() == GameState.LOGGED_IN) {
+			loadLastRun = true;
+		}
+	}
+
+	/** The account's last run, as saved (client thread, logged in). */
+	private void loadLastRun() {
+		try {
+			String json = configManager.getRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, READY_KEY);
+			lastRun = json == null ? null : gson.fromJson(json, FarmRouteReady.class);
+		} catch (RuntimeException ex) {
+			log.debug("Could not read the last farm run", ex);
+			lastRun = null;
+		}
+	}
+
+	private void saveLastRun(FarmRouteReady run) {
+		try {
+			if (run == null) {
+				configManager.unsetRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, READY_KEY);
+			} else {
+				configManager.setRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, READY_KEY, gson.toJson(run));
+			}
+		} catch (RuntimeException ex) {
+			log.debug("Could not save the last farm run", ex);
+		}
+	}
+
+	/** A run that ended with patches planted: the route is ready again once they have all grown. */
+	private void rememberRun(FarmRoute r) {
+		if (r == null || specialMode) {
+			return;
+		}
+		List<FarmRouteReady.PatchRef> planted = new ArrayList<>();
+		long readyAt = 0;
+		for (FarmRoute.Stop s : r.getStops()) {
+			for (FarmRoute.Patch p : s.getPatches()) {
+				if (statusOf(p) != Status.DONE) {
+					continue;
+				}
+				planted.add(new FarmRouteReady.PatchRef(p.getKey(), p.getRegion(), p.getVarbit(), p.getImpl()));
+				Snapshot now = snapshot(p);
+				if (now != null) {
+					readyAt = Math.max(readyAt, now.doneEstimate);
+				}
+			}
+		}
+		if (planted.isEmpty()) {
+			return;
+		}
+		FarmRouteReady run = new FarmRouteReady(r.getName(), planted, readyAt);
+		lastRun = run;
+		saveLastRun(run);
+		log.debug("Farm run: watching {} patches of '{}' (grown at {})", planted.size(), r.getName(), readyAt);
+	}
+
+	/**
+	 * Every half minute (the plugin's executor), logged in or not: once every patch the last run
+	 * planted is grown, a notification (and an in-game popup, at once or at the next login). Once a run.
+	 */
+	public void checkRouteReady() {
+		FarmRouteReady run = lastRun;
+		if (run == null || run.isNotified() || running || !config.farmRouteReadyNotify()) {
+			return;
+		}
+		List<Boolean> growing = new ArrayList<>();
+		for (FarmRouteReady.PatchRef ref : run.getPatches()) {
+			growing.add(isGrowing(ref));
+		}
+		if (!FarmRouteReady.isReady(growing, run.getReadyAt(), System.currentTimeMillis() / 1000)) {
+			return;
+		}
+		run.markNotified();
+		saveLastRun(run);
+		String message = FarmRouteReady.message(run.getRoute(), run.getPatches().size());
+		log.debug("Farm run: {}", message);
+		notifier.notify(message);
+		if (client.getGameState() == GameState.LOGGED_IN) {
+			popups.showMessage(READY_TITLE, "<col=ffffff>" + message + "</col>");
+		} else {
+			readyPopupPending = message;
+		}
+	}
+
+	/** A remembered patch: still growing (true), not (false), or not known (null). */
+	private Boolean isGrowing(FarmRouteReady.PatchRef ref) {
+		FarmingTracker tracker = farmingTracker;
+		FarmingPatch patch = findPatch(ref.getKey(), ref.getRegion(), ref.getVarbit(), ref.getImpl());
+		if (tracker == null || patch == null) {
+			return null;
+		}
+		try {
+			PatchPrediction prediction = tracker.predictPatch(patch);
+			if (prediction == null || prediction.getCropState() == null) {
+				return null;
+			}
+			boolean grown = prediction.getStages() > 1 && prediction.getStage() >= prediction.getStages() - 1;
+			return prediction.getCropState() == CropState.GROWING && !grown
+				&& prediction.getProduce() != Produce.WEEDS && prediction.getProduce() != Produce.SCARECROW;
+		} catch (RuntimeException e) {
+			log.debug("Could not read patch {}", ref.getKey(), e);
+			return null;
+		}
 	}
 
 	// ---- Compost and the minigame teleport ---------------------------------------------
@@ -1061,19 +1197,23 @@ public class FarmRunManager {
 
 	/** The RuneLite patch for a route patch: same region name, varbit and patch type. */
 	FarmingPatch findPatch(FarmRoute.Patch p) {
+		return findPatch(p.getKey(), p.getRegion(), p.getVarbit(), p.getImpl());
+	}
+
+	private FarmingPatch findPatch(String key, String region, int varbit, String impl) {
 		FarmingWorld world = farmingWorld;
-		if (world == null || p.getKey() == null) {
+		if (world == null || key == null) {
 			return null;
 		}
-		FarmingPatch cached = patchCache.get(p.getKey());
+		FarmingPatch cached = patchCache.get(key);
 		if (cached != null) {
 			return cached;
 		}
 		for (Set<FarmingPatch> tab : world.getTabs().values()) {
 			for (FarmingPatch fp : tab) {
-				if (fp.getVarbit() == p.getVarbit() && fp.getRegion() != null && fp.getRegion().getName().equals(p.getRegion())
-					&& fp.getImplementation().name().equals(p.getImpl())) {
-					patchCache.put(p.getKey(), fp);
+				if (fp.getVarbit() == varbit && fp.getRegion() != null && fp.getRegion().getName().equals(region)
+					&& fp.getImplementation().name().equals(impl)) {
+					patchCache.put(key, fp);
 					return fp;
 				}
 			}

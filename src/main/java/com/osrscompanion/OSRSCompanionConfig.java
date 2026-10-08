@@ -322,6 +322,16 @@ public interface OSRSCompanionConfig extends Config {
 	}
 
 	@ConfigItem(
+			keyName = "farmRouteReadyNotify",
+			name = "Farm route ready notification",
+			description = "After a guided farm run, notify you (a notification, plus an in-game popup at once or at your next login) when every patch that run planted is fully grown, so the route can be run again.",
+			section = FEATURES_SECTION,
+			position = 10)
+	default boolean farmRouteReadyNotify() {
+		return true;
+	}
+
+	@ConfigItem(
 			keyName = "slayerGuide",
 			name = "Slayer guide",
 			description = "With a slayer task: guides you to the task's best location (or the one picked on the website) with a step box, the arrow and a Slayer icon on the world map (click it for the way there). Once you are there the box shows the task's live stats instead. Also switched in the side panel's Slayer helper page.",
