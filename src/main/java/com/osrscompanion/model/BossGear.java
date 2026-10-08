@@ -89,6 +89,10 @@ public class BossGear {
 	@SerializedName("supplies")
 	private SlayerGear.Supplies supplies;
 
+	/** The same for the other ranged weapons the set brings (a blowpipe's darts, a switch crossbow's bolts). */
+	@SerializedName("more_supplies")
+	private List<SlayerGear.Supplies> moreSupplies;
+
 	/** What recharges the set's charged items (runes, scales, ether...). */
 	@SerializedName("bring")
 	private List<SlayerGear.Bring> bring;
@@ -101,11 +105,21 @@ public class BossGear {
 		return bring == null ? java.util.Collections.emptyList() : bring;
 	}
 
-	/** The items of the first {@code n} ammo / spell options (runes once each), best first. */
+	/** The items of the first {@code n} ammo / spell options of each weapon (runes once each), best first. */
 	public List<Integer> supplyItems(int n) {
 		java.util.LinkedHashSet<Integer> out = new java.util.LinkedHashSet<>();
+		List<SlayerGear.Supplies> all = new java.util.ArrayList<>();
 		if (supplies != null) {
-			List<SlayerGear.Supplies.Option> options = supplies.getOptions();
+			all.add(supplies);
+		}
+		if (moreSupplies != null) {
+			all.addAll(moreSupplies);
+		}
+		for (SlayerGear.Supplies s : all) {
+			if (s == null) {
+				continue;
+			}
+			List<SlayerGear.Supplies.Option> options = s.getOptions();
 			for (SlayerGear.Supplies.Option o : options.subList(0, Math.min(Math.max(0, n), options.size()))) {
 				out.addAll(o.getItems());
 			}
