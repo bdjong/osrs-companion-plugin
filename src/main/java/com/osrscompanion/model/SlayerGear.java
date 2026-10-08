@@ -60,6 +60,10 @@ public class SlayerGear {
 		@SerializedName("supplies")
 		private Supplies supplies;
 
+		/** The boost the numbers count on (potion, heart) and what recharges the charged items. */
+		@SerializedName("bring")
+		private List<Bring> bring;
+
 		public String getKey() {
 			return key;
 		}
@@ -94,6 +98,10 @@ public class SlayerGear {
 
 		public Supplies getSupplies() {
 			return supplies;
+		}
+
+		public List<Bring> getBring() {
+			return bring == null ? Collections.emptyList() : bring;
 		}
 
 		/** The items of the first {@code n} ammo / spell options (runes once each), best first. */
@@ -170,6 +178,30 @@ public class SlayerGear {
 	}
 
 	/** Ammo or spell options: kind "darts", "ammo" or "spell" (its runes), best first. */
+	/** One thing to take along: a boost or a charge material, as candidate items (the bank shows the first it has). */
+	public static class Bring {
+		@SerializedName("kind")
+		private String kind;
+
+		@SerializedName("name")
+		private String name;
+
+		@SerializedName("items")
+		private List<Integer> items;
+
+		public String getKind() {
+			return kind == null ? "" : kind;
+		}
+
+		public String getName() {
+			return name == null ? "" : name;
+		}
+
+		public List<Integer> getItems() {
+			return items == null ? Collections.emptyList() : items;
+		}
+	}
+
 	public static class Supplies {
 		@SerializedName("kind")
 		private String kind;

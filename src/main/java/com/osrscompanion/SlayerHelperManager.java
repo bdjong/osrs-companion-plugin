@@ -391,7 +391,10 @@ public class SlayerHelperManager {
 	/** Item names (lower case) read on the client thread. */
 	private final Map<Integer, String> itemNames = new ConcurrentHashMap<>();
 
-	/** Whether the picked setup wears this item: the item, another version of it (charges) or the same name. Bank Tags, client thread. */
+	/**
+	 * Whether the picked setup uses this item: worn (the item, another version of it (charges) or the same
+	 * name), or brought along (its ammo / spell options, boost and charge materials). Bank Tags, client thread.
+	 */
 	public boolean needs(int itemId) {
 		SlayerGear.Set set = getGearSet();
 		if (set == null || itemId <= 0) {
@@ -401,6 +404,18 @@ public class SlayerHelperManager {
 		for (SlayerGear.Piece p : set.getEquipment()) {
 			if (p.getItem() == itemId || p.getItem() > 0 && net.runelite.client.game.ItemVariationMapping.map(p.getItem()) == base) {
 				return true;
+			}
+		}
+		for (int id : set.supplyItems(config.slayerGearSupplyOptions())) {
+			if (id == itemId || net.runelite.client.game.ItemVariationMapping.map(id) == base) {
+				return true;
+			}
+		}
+		for (SlayerGear.Bring b : set.getBring()) {
+			for (int id : b.getItems()) {
+				if (id == itemId || net.runelite.client.game.ItemVariationMapping.map(id) == base) {
+					return true;
+				}
 			}
 		}
 		String name = itemName(itemId);
