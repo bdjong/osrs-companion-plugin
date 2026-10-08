@@ -16,6 +16,17 @@ Load the ironman gear progression on the website (Tools > Gear progression), the
 
 The **Slayer helper** tile in the side panel shows your task (kills left, master) and the best place to do it (or the one you picked on the website). Switch the **Guide** on and a step box, the hint arrow and a Slayer icon on the world map lead you there; click the icon for the way there in a popup. Once you are in the area the box shows the task's stats instead: time at the location, average kill time (each monster timed on its own, so barraging stays valid), kills per hour, estimated time left and loot. Each visit is sent to the website (with Slayer syncing on), which charts it per task.
 
+## Data sent and privacy
+
+This plugin sends data to a **third-party server**: the OSRS Companion website at `https://osrs-companion-web.vercel.app`. It is not run or checked by the RuneLite developers.
+
+- **Nothing is sent until you enter an App Key** (from your account settings on the website). RuneLite asks you to confirm when you set it. Clear the App Key to stop all sending.
+- Every request carries your App Key (to link it to your website account) and your RuneScape name.
+- Each source under **Data Syncing** has its own switch. With the App Key set, the plugin sends: farming patches, bird houses and farming unlocks; bank, seed vault, looting bag, potion storage, boat cargo holds, rune pouch, plank sack and storage items; the collection log; worn gear and your Inventory Setups loadouts; loot drops and kill counts (with a random per-install client id that is used to deduplicate them); quests; achievement diaries; combat achievements; boss kill counts; slayer task, points, unlocks and visits; your house location; Kingdom of Miscellania; farm harvests and farm runs; dailies. Deaths are off by default.
+- With the App Key set, these are sent without a switch of their own: skill levels and XP, play sessions (login, logout and a ping while you play), and boss trips (supplies used and loot per trip).
+- The plugin also loads your roadmaps, gear plans, farm routes and slayer guide from the website, and goal images from the OSRS Wiki (`oldschool.runescape.wiki`).
+- The plugin skips syncing on Leagues, Deadman and other special game-mode worlds. It collects no data about other players.
+
 ## License
 
 BSD 2-Clause, see [LICENSE](LICENSE). This plugin includes third-party code; see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) for their copyright notices and licenses.
