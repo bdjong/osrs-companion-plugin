@@ -46,6 +46,7 @@ public class RoadmapPanel extends PluginPanel {
 	private static final Color BOSS = new Color(0xA78BFA);
 	private static final Color DAILIES = new Color(0xF472B6);
 	private static final Color SLAYER = new Color(0xF87171);
+	private static final Color TRIPS = new Color(0x2DD4BF);
 
 	private final ItemManager itemManager;
 	private final SpriteManager spriteManager;
@@ -59,6 +60,7 @@ public class RoadmapPanel extends PluginPanel {
 	private final SlayerHelperManager slayer;
 	private final ClientThread clientThread;
 	private final DailiesManager dailies;
+	private final SuppliesCheck supplies;
 
 	private final CardLayout cards = new CardLayout();
 	/** The pages; only as tall as the page on show (a card layout is as tall as its tallest page). */
@@ -89,7 +91,7 @@ public class RoadmapPanel extends PluginPanel {
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear, Runnable openSlayerGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
 			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression,
-			SlayerHelperManager slayer, ClientThread clientThread, DailiesManager dailies) {
+			SlayerHelperManager slayer, ClientThread clientThread, DailiesManager dailies, SuppliesCheck supplies) {
 		super(false);
 		this.itemManager = itemManager;
 		this.spriteManager = spriteManager;
@@ -103,6 +105,7 @@ public class RoadmapPanel extends PluginPanel {
 		this.slayer = slayer;
 		this.clientThread = clientThread;
 		this.dailies = dailies;
+		this.supplies = supplies;
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -113,6 +116,7 @@ public class RoadmapPanel extends PluginPanel {
 		deck.add(bossPage(openBossGear), "boss");
 		deck.add(dailiesPage(), "dailies");
 		deck.add(slayerPage(openSlayerGear), "slayer");
+		deck.add(tripsPage(), "trips");
 		// The boss page's gear display is tall: the pages scroll.
 		JPanel top = new JPanel(new BorderLayout());
 		top.add(deck, BorderLayout.NORTH);
@@ -197,6 +201,7 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, bossTile(() -> show("boss")), "Boss gear: your build, bank layout, gear display and the boss gear window.");
 		add(p, dailiesTile(() -> show("dailies")), "Dailies: today's open dailies and the guided run.");
 		add(p, slayerTile(() -> show("slayer")), "Slayer helper: your task, the best place to do it, a guide there and your kill stats.");
+		add(p, tripsTile(() -> show("trips")), "Trip planner: how many boss trips and farm runs the supplies in your bank last.");
 		return p;
 	}
 
@@ -206,7 +211,7 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, new PanelTiles.Info("SELECTED ROADMAP", () -> {
 			Roadmap r = roadmapManager.getCurrentRoadmap();
 			if (r == null) {
-				return new String[]{"No roadmap loaded yet", "Open Goal overview to load it"};
+				return new String[]{"No roadmap loaded yet", "Make one on the website: it shows within 30 s"};
 			}
 			RoadmapGoal next = r.firstIncompleteGoal();
 			return new String[]{r.getTitle(), next == null ? "Every goal is done!" : "Next: " + next.getName()};
@@ -312,6 +317,46 @@ public class RoadmapPanel extends PluginPanel {
 		gearViewGap = Box.createVerticalStrut(8);
 		p.add(gearViewGap);
 		return p;
+	}
+
+	/**
+	 * The trip planner: the switch for the supplies box in the bank and the last check per tool (the
+	 * boss setup when its Bank layout is on, the farm route when Active in the bank is on).
+	 */
+	private JPanel tripsPage() {
+		JPanel p = page();
+		add(p, back(), "Back to all tools");
+		add(p, toggle("Trip planner", "Trips shown in the bank", "Hidden", TRIPS, "suppliesCheck", config::suppliesCheck),
+			"With the bank open: how many trips / runs your bank's supplies last and which one runs out first.");
+		add(p, new PanelTiles.Info("BOSS TRIPS", () -> tripLines(supplies.getBoss(), config.bossGearBankLayout(), "Boss gear's Bank layout"),
+			() -> tripPicture(supplies.getBoss())),
+			"The active boss setup: trips your bank holds, checked when you open the bank with the boss gear's Bank layout on.");
+		add(p, new PanelTiles.Info("FARM RUNS", () -> tripLines(supplies.getFarm(), config.farmRunBankFilter(), "Farm run's Active in the bank"),
+			() -> tripPicture(supplies.getFarm())),
+			"The farm route: runs your bank holds, checked when you open the bank with the farm run's Active in the bank on.");
+		return p;
+	}
+
+	private String[] tripLines(SuppliesCheck.Result r, boolean layoutOn, String layout) {
+		if (!config.suppliesCheck()) {
+			return new String[]{"Trip planner is off", "Switch it on above"};
+		}
+		if (!layoutOn) {
+			return new String[]{"Needs " + layout, "Switch it on in that page"};
+		}
+		if (r == null) {
+			return new String[]{"Not checked yet", "Open your bank to check"};
+		}
+		return new String[]{r.headline(), r.runsOut == null ? r.title : "Runs out of: " + r.runsOut};
+	}
+
+	/** The supply that runs out first (the check lists it first). */
+	private java.awt.image.BufferedImage tripPicture(SuppliesCheck.Result r) {
+		if (r == null || r.rows.isEmpty() || !config.suppliesCheck()) {
+			return null;
+		}
+		int itemId = r.rows.get(0).itemId;
+		return itemId > 0 ? itemManager.getImage(itemId) : null;
 	}
 
 	private JPanel dailiesPage() {
@@ -549,6 +594,11 @@ public class RoadmapPanel extends PluginPanel {
 	private FeatureTile slayerTile(Runnable action) {
 		return FeatureTile.banner("SLAYER", "HELPER", "Task, best spot & kill stats",
 			SLAYER, new Color(0x1F0A0A), new Color(0x991B1B), itemManager.getImage(ItemID.SLAYER_HELM), action);
+	}
+
+	private FeatureTile tripsTile(Runnable action) {
+		return FeatureTile.banner("TRIP", "PLANNER", "Trips your bank supplies last",
+			TRIPS, new Color(0x05171A), new Color(0x0F766E), itemManager.getImage(ItemID.SHARK), action);
 	}
 
 	/** An on/off tile for a boolean setting of this plugin. */

@@ -245,6 +245,7 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
+	private java.util.concurrent.ScheduledFuture<?> roadmapWaitingPoll;
 
 	@Override
 	protected void startUp() throws Exception {
@@ -354,11 +355,13 @@ public class OSRSCompanionPlugin extends Plugin {
 			storageItemMonitor.syncNow();
 		});
 		roadmapManager.startPeriodicRefresh();
+		roadmapWaitingPoll = executorService.scheduleWithFixedDelay(roadmapManager::pollWhileWaiting,
+				RoadmapManager.WAITING_POLL_SECONDS, RoadmapManager.WAITING_POLL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
 
 		// Side-panel roadmap tab.
 		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
 				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager,
-				slayerHelperManager, clientThread, dailiesManager);
+				slayerHelperManager, clientThread, dailiesManager, suppliesCheck);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -610,6 +613,10 @@ public class OSRSCompanionPlugin extends Plugin {
 		mouseManager.unregisterMouseWheelListener(slayerGearWindow);
 		keyManager.unregisterKeyListener(slayerGearWindow);
 		bossGearManager.clear();
+		if (roadmapWaitingPoll != null) {
+			roadmapWaitingPoll.cancel(false);
+			roadmapWaitingPoll = null;
+		}
 		roadmapManager.clear();
 		log.debug("OSRS Companion stopped");
 	}
