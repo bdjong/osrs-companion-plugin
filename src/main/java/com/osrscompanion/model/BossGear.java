@@ -85,6 +85,34 @@ public class BossGear {
 	@SerializedName("pouch")
 	private List<Item> pouch;
 
+	/** The ammo / spell options for the weapon, best first (the bank layout shows the setting's number of them). */
+	@SerializedName("supplies")
+	private SlayerGear.Supplies supplies;
+
+	/** What recharges the set's charged items (runes, scales, ether...). */
+	@SerializedName("bring")
+	private List<SlayerGear.Bring> bring;
+
+	public SlayerGear.Supplies getSupplies() {
+		return supplies;
+	}
+
+	public List<SlayerGear.Bring> getBring() {
+		return bring == null ? java.util.Collections.emptyList() : bring;
+	}
+
+	/** The items of the first {@code n} ammo / spell options (runes once each), best first. */
+	public List<Integer> supplyItems(int n) {
+		java.util.LinkedHashSet<Integer> out = new java.util.LinkedHashSet<>();
+		if (supplies != null) {
+			List<SlayerGear.Supplies.Option> options = supplies.getOptions();
+			for (SlayerGear.Supplies.Option o : options.subList(0, Math.min(Math.max(0, n), options.size()))) {
+				out.addAll(o.getItems());
+			}
+		}
+		return new java.util.ArrayList<>(out);
+	}
+
 	public int getId() {
 		return id;
 	}
