@@ -19,7 +19,7 @@ public class TestOSRSCompanionConfig implements OSRSCompanionConfig {
 	private boolean showNextGoal = true;
 	private boolean showGoalProgress = true;
 	private boolean showGoalPopup = true;
-	private GoalCompleteSound goalCompleteSound = GoalCompleteSound.IN_GAME;
+	private boolean goalCompleteSound = true;
 
 	@Override
 	public String osrsCompanionAppKey() {
@@ -157,11 +157,11 @@ public class TestOSRSCompanionConfig implements OSRSCompanionConfig {
 	}
 
 	@Override
-	public GoalCompleteSound goalCompleteSound() {
+	public boolean goalCompleteSound() {
 		return goalCompleteSound;
 	}
 
-	public void setGoalCompleteSound(GoalCompleteSound value) {
+	public void setGoalCompleteSound(boolean value) {
 		this.goalCompleteSound = value;
 	}
 }

@@ -6,7 +6,7 @@ A RuneLite plugin that syncs your game data (farming timers, bank, skills, loado
 
 Settings are grouped into **Data Syncing** (which data the plugin sends to the app; one toggle per source) and **Plugin Features** (the in-game current goal overlay with its progress bar, the goal completion popup and its sound). Your OSRS Companion App Key sits at the top.
 
-The goal overlay updates as you play: XP, kills, drops and collection log unlocks move the bar immediately and the plugin syncs with the app in the background. For the completion sound, "Custom file" plays `~/.runelite/osrscompanion/goal-complete.wav`.
+The goal overlay updates as you play: XP, kills, drops and collection log unlocks move the bar immediately and the plugin syncs with the app in the background. The completion sound (an in-game sound effect, at your sound effect volume) can be switched off in the settings.
 
 ## Gear progression
 

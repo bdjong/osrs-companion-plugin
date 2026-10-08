@@ -58,6 +58,6 @@ public class OSRSCompanionConfigTest
 		TestOSRSCompanionConfig config = new TestOSRSCompanionConfig();
 		assertTrue(config.showGoalProgress());
 		assertTrue(config.showGoalPopup());
-		assertEquals(GoalCompleteSound.IN_GAME, config.goalCompleteSound());
+		assertTrue(config.goalCompleteSound());
 	}
 }
