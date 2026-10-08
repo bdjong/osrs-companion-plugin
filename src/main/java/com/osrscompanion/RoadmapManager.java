@@ -56,6 +56,9 @@ public class RoadmapManager {
 	private volatile boolean panelActive;
 
 	@Inject
+	/** How often {@link #pollWhileWaiting()} looks for a roadmap while the box has none. */
+	static final int WAITING_POLL_SECONDS = 30;
+
 	public RoadmapManager(
 			Client client,
 			OSRSCompanionConfig config,
@@ -210,7 +213,12 @@ public class RoadmapManager {
 		if (setListener != null) {
 			setListener.accept(ids);
 		}
-		if (getSelectedRoadmapId() == null && !summaries.isEmpty()) {
+		Integer selected = getSelectedRoadmapId();
+		if (summaries.isEmpty()) {
+			// No roadmaps (any more): the box has nothing to show.
+			setCurrentRoadmap(null);
+		} else if (selected == null || !ids.contains(selected)) {
+			// None picked yet, or the picked one was deleted on the website: show the first.
 			setSelectedRoadmapId(summaries.get(0).getCollectionId());
 		}
 		fetchEach(summaries, player, onDone);
@@ -302,6 +310,19 @@ public class RoadmapManager {
 
 	public void stopPeriodicRefresh() {
 		scheduler.stop();
+	}
+
+	/**
+	 * Called every {@link #WAITING_POLL_SECONDS}: while the roadmap box is on but has no roadmap
+	 * to show (none loaded yet, or none made on the website yet), re-reads the list fresh, so a
+	 * roadmap shows without opening the goal overview.
+	 */
+	public void pollWhileWaiting() {
+		if (currentRoadmap != null || !config.showNextGoal() || !hasAppKey()) {
+			return;
+		}
+		listCache.invalidate();
+		refreshAllQuietly();
 	}
 
 	/** Re-reads every roadmap after a short lag (debounced). */

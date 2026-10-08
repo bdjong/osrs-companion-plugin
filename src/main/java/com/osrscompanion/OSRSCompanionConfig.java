@@ -379,7 +379,7 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigSection(
 			name = "Boss Trips",
-			description = "The boss trip log and the supplies check in the bank.",
+			description = "The boss trip log (the trip planner is switched in the side panel).",
 			position = 4)
 	String TRIPS_SECTION = "tripsSection";
 
@@ -395,10 +395,9 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigItem(
 			keyName = "suppliesCheck",
-			name = "Supplies check in the bank",
+			name = "Trip planner",
 			description = "With the bank open, show how many trips your bank supports for the active boss setup (when its Bank layout is on) and how many runs for the farm route (when Active in the bank is on), and which supply runs out first.",
-			section = TRIPS_SECTION,
-			position = 1)
+			hidden = true)
 	default boolean suppliesCheck() {
 		return true;
 	}
