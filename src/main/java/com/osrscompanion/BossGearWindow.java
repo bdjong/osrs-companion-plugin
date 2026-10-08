@@ -103,12 +103,18 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		}
 	}
 
+	private final net.runelite.client.game.chatbox.ChatboxPanelManager chatbox;
+	private final net.runelite.client.callback.ClientThread clientThread;
+
 	@Inject
-	public BossGearWindow(Client client, BossGearManager manager, ItemManager itemManager, SuppliesCheck supplies) {
+	public BossGearWindow(Client client, BossGearManager manager, ItemManager itemManager, SuppliesCheck supplies,
+		net.runelite.client.game.chatbox.ChatboxPanelManager chatbox, net.runelite.client.callback.ClientThread clientThread) {
 		this.client = client;
 		this.manager = manager;
 		this.itemManager = itemManager;
 		this.supplies = supplies;
+		this.chatbox = chatbox;
+		this.clientThread = clientThread;
 		setPosition(OverlayPosition.DYNAMIC);
 		setLayer(OverlayLayer.ABOVE_WIDGETS);
 	}
@@ -282,13 +288,39 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		Rectangle switchButton = new Rectangle(right - 84, subY - 13, 84, 17);
 		button(g, switchButton, switcherOpen ? "Close" : "Change build", false);
 		newHits.add(new Hit(switchButton, this::toggleSwitcher, "Load a wiki preset or one of your custom builds", true));
+		int left = switchButton.x;
 		if (!manager.isSetActive()) {
 			Rectangle activate = new Rectangle(switchButton.x - 8 - 76, subY - 13, 76, 17);
 			button(g, activate, "Set active", false);
 			newHits.add(new Hit(activate, () -> manager.setSetActive(true), "Lay out the bank for this setup again"));
 			badge(g, "Inactive", activate.x - 6 - 54, subY, ORANGE);
+			left = activate.x - 6 - 54;
+		}
+		// Save what you wear and carry as your own set for this boss (named in the chatbox).
+		Rectangle save = new Rectangle(left - 8 - 88, subY - 13, 88, 17);
+		if (save.x > after + 70) {
+			button(g, save, "Save my gear", manager.isLoading());
+			newHits.add(new Hit(save, this::askSaveName,
+				"Save your worn gear, inventory and rune pouch as your own " + set.getBossName() + " set (also on the website)"));
 		}
 		return switchButton;
+	}
+
+	/** Asks for the new set's name in the chatbox, then saves the gear worn and carried now. */
+	private void askSaveName() {
+		BossGear set = manager.getSet();
+		if (set == null) {
+			return;
+		}
+		chatbox.openTextInput("Name your " + set.getBossName() + " set:")
+			.value(set.getStyle() + " (mine)")
+			.onDone((String name) -> clientThread.invokeLater(() -> {
+				String n = name == null ? "" : name.trim();
+				if (!n.isEmpty()) {
+					manager.saveCurrentGear(n);
+				}
+			}))
+			.build();
 	}
 
 	/** A small labelled box on the subtitle line (Wiki preset, Custom build, Inactive). Returns its right edge. */
