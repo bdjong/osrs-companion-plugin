@@ -146,9 +146,9 @@ public class SuppliesCheck {
 		if (!(config.tripPlannerBoss() || config.tripPlannerFarm()) || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
 			return;
 		}
-		// Only for the tool whose trip planner switch and bank checkbox are on (boss gear "Bank layout", farm run "Active in the bank").
-		BossGear set = config.tripPlannerBoss() && config.bossGearBankLayout() && bossGear.isSetActive() ? bossGear.getSet() : null;
-		FarmRoute route = config.tripPlannerFarm() && config.farmRunBankFilter() ? farmRun.getRoute() : null;
+		// For the tool whose trip planner switch is on (no bank layout needed): the active boss setup, the farm route.
+		BossGear set = config.tripPlannerBoss() && bossGear.isSetActive() ? bossGear.getSet() : null;
+		FarmRoute route = config.tripPlannerFarm() ? farmRun.getRoute() : null;
 		if (!dirty && set == lastSet && route == lastRoute) {
 			return;
 		}

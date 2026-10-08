@@ -322,9 +322,9 @@ public class RoadmapPanel extends PluginPanel {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
 		add(p, toggle("Boss trips", "Shown in the bank", "Hidden", TRIPS, OSRSCompanionConfig.TRIP_PLANNER_BOSS_KEY, config::tripPlannerBoss),
-			"With the bank open: how many trips your bank's supplies last for the active boss setup (when its Bank layout is on) and which one runs out first.");
+			"With the bank open: how many trips your bank's supplies last for the active boss setup and which one runs out first (no bank layout needed).");
 		add(p, toggle("Farm runs", "Shown in the bank", "Hidden", TRIPS, OSRSCompanionConfig.TRIP_PLANNER_FARM_KEY, config::tripPlannerFarm),
-			"With the bank open: how many runs your bank's supplies last for the farm route (when Active in the bank is on) and which one runs out first.");
+			"With the bank open: how many runs your bank's supplies last for the farm route and which one runs out first (no bank layout needed).");
 		return p;
 	}
 

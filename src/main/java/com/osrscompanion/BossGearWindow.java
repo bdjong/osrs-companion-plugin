@@ -340,6 +340,12 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 				px += slot + SLOT_GAP;
 			}
 			ly += slot + 26;
+			if (set.getSpellbook() != null) {
+				// The spellbook the pouch's runes are for (thralls: Arceuus, Vengeance: Lunar, barrages: Ancient).
+				g.setFont(FontManager.getRunescapeSmallFont());
+				text(g, "Spellbook: " + set.getSpellbook(), lx, ly - 4, BEIGE);
+				ly += 12;
+			}
 		}
 		g.setFont(FontManager.getRunescapeSmallFont());
 		int textW = area.width - 20;
