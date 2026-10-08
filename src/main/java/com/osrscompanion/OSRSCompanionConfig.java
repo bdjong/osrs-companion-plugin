@@ -10,6 +10,10 @@ import net.runelite.client.config.Range;
 public interface OSRSCompanionConfig extends Config {
 	String CONFIG_GROUP = "osrscompanion";
 	String APP_KEY = "osrsCompanionAppKey";
+	/** The goal sound switch; replaced the old "goalCompleteSound" choice (In-game / Off). */
+	String GOAL_SOUND_KEY = "goalSoundOn";
+	/** The farming cape setting; replaced the "farmingCapeForHerbs" and "forceFarmingCape" switches. */
+	String FARMING_CAPE_KEY = "farmingCapeMode";
 
 	@ConfigSection(
 			name = "Data Syncing",
@@ -19,7 +23,7 @@ public interface OSRSCompanionConfig extends Config {
 
 	@ConfigSection(
 			name = "Plugin Features",
-			description = "In-game overlay, goal completion popup and sound.",
+			description = "Goal sound and progress bar, the farming cape, teleport left clicks, popups and the bank layout options. The rest is switched in the side panel.",
 			position = 2)
 	String FEATURES_SECTION = "featuresSection";
 
@@ -37,7 +41,7 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "apiBaseUrl",
 			name = "API Base URL",
 			description = "Base URL of the OSRS Companion website. Use http://localhost:3000 when testing the website locally.",
-			position = 1)
+			hidden = true)
 	default String apiBaseUrl() {
 		return "https://osrs-companion-web.vercel.app";
 	}
@@ -184,14 +188,23 @@ public interface OSRSCompanionConfig extends Config {
 		return true;
 	}
 
+	@ConfigItem(
+			keyName = "syncFarmRuns",
+			name = "Farm runs",
+			description = "When a guided farm run ends (complete, or stopped after at least one patch), send it to OSRS Companion for the Run history: route, time, patches done, Farming XP gained and the seeds planted. Its harvests are matched by time.",
+			section = SYNC_SECTION,
+			position = 14)
+	default boolean syncFarmRuns() {
+		return true;
+	}
+
 	// --- Plugin Features ---
 
 	@ConfigItem(
 			keyName = "showNextGoal",
 			name = "Show roadmap box",
 			description = "Show your current (next uncompleted) goal from the selected roadmap as a box in the game window.",
-			section = FEATURES_SECTION,
-			position = 0)
+			hidden = true)
 	default boolean showNextGoal() {
 		return true;
 	}
@@ -210,28 +223,26 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "showGoalPopup",
 			name = "Goal completion popup",
 			description = "Show an in-game popup (like the collection log one) when you complete a roadmap goal.",
-			section = FEATURES_SECTION,
-			position = 3)
+			hidden = true)
 	default boolean showGoalPopup() {
 		return true;
 	}
 
 	@ConfigItem(
-			keyName = "goalCompleteSound",
+			keyName = GOAL_SOUND_KEY,
 			name = "Goal completion sound",
-			description = "Sound to play when you complete a roadmap goal.",
+			description = "Play an in-game sound when you complete a roadmap goal.",
 			section = FEATURES_SECTION,
 			position = 4)
-	default GoalCompleteSound goalCompleteSound() {
-		return GoalCompleteSound.IN_GAME;
+	default boolean goalCompleteSound() {
+		return true;
 	}
 
 	@ConfigItem(
 			keyName = "showGearProgress",
 			name = "Show gear progression box",
 			description = "Show the next step of your active gear roadmap as a box in the game window, next to the roadmap box.",
-			section = FEATURES_SECTION,
-			position = 1)
+			hidden = true)
 	default boolean showGearProgress() {
 		return true;
 	}
@@ -242,8 +253,7 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "showFarmRun",
 			name = "Show farm run guide",
 			description = "While a farm run is started from the farm run window: the step box, the arrow and outlines on the patches, and highlighted items.",
-			section = FEATURES_SECTION,
-			position = 6)
+			hidden = true)
 	default boolean showFarmRun() {
 		return true;
 	}
@@ -252,30 +262,19 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "farmRunBankFilter",
 			name = "Farm run active in the bank",
 			description = "While a farm run is going (started in the farm run window and not complete), the bank shows only what your route needs, laid out like the worn gear and the inventory (see Exact bank layout). Without a run going the bank is left alone. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Slayer gear bank layouts off.",
-			section = FEATURES_SECTION,
-			position = 8)
+			hidden = true)
 	default boolean farmRunBankFilter() {
 		return true;
 	}
 
 	@ConfigItem(
-			keyName = "farmingCapeForHerbs",
-			name = "Wear Farming cape for herbs",
-			description = "With 99 Farming: adds the Farming cape to the farm run (and the bank layout) when the route has herbs, and reminds you to put it on before you pick them, for the 5% extra herbs it gives.",
+			keyName = FARMING_CAPE_KEY,
+			name = "Farming cape for herbs",
+			description = "With 99 Farming, when the farm run has herbs. Remind: adds the Farming cape to the run (and the bank layout) and reminds you to put it on before you pick them, for the 5% extra herbs it gives. Force: as Remind, and until you wear the cape a herb patch to pick says WEAR Farming cape and a left click walks there instead of picking. Off: neither.",
 			section = FEATURES_SECTION,
 			position = 9)
-	default boolean farmingCapeForHerbs() {
-		return true;
-	}
-
-	@ConfigItem(
-			keyName = "forceFarmingCape",
-			name = "Force Farming cape",
-			description = "With 99 Farming, during a farm run: until you wear the Farming cape, a herb patch to pick says WEAR Farming cape and a left click walks there instead of picking. Once the cape is on, picking is the left click again.",
-			section = FEATURES_SECTION,
-			position = 9)
-	default boolean forceFarmingCape() {
-		return false;
+	default FarmingCapeMode farmingCapeMode() {
+		return FarmingCapeMode.REMIND;
 	}
 
 	@ConfigItem(
@@ -312,8 +311,7 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "slayerGuide",
 			name = "Slayer guide",
 			description = "With a slayer task: guides you to the task's best location (or the one picked on the website) with a step box, the arrow and a Slayer icon on the world map (click it for the way there). Once you are there the box shows the task's live stats instead. Also switched in the side panel's Slayer helper page.",
-			section = FEATURES_SECTION,
-			position = 11)
+			hidden = true)
 	default boolean slayerGuide() {
 		return false;
 	}
@@ -322,8 +320,7 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "slayerGearBankLayout",
 			name = "Slayer gear bank layout",
 			description = "With a slayer task, when you open the bank, it shows only the worn gear of the setup picked in the Slayer gear window (the best until you pick one), laid out like the worn equipment (see Exact bank layout). Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Farm run bank layouts off.",
-			section = FEATURES_SECTION,
-			position = 11)
+			hidden = true)
 	default boolean slayerGearBankLayout() {
 		return false;
 	}
@@ -344,8 +341,7 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "bossGearBankLayout",
 			name = "Boss gear bank layout",
 			description = "While the setup is Active, when you open the bank, it shows only your boss setup's items, laid out like the worn gear and the inventory (see Exact bank layout), with or without the window open. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Farm run and Slayer gear bank layouts off.",
-			section = FEATURES_SECTION,
-			position = 12)
+			hidden = true)
 	default boolean bossGearBankLayout() {
 		return true;
 	}
@@ -364,8 +360,7 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "bossGearPanelDisplay",
 			name = "Boss gear in side panel",
 			description = "Shows the active setup's worn gear, inventory and rune pouch in the side panel, coloured by what you carry.",
-			section = FEATURES_SECTION,
-			position = 14)
+			hidden = true)
 	default boolean bossGearPanelDisplay() {
 		return false;
 	}
@@ -377,24 +372,6 @@ public interface OSRSCompanionConfig extends Config {
 			description = "Off (Inactive): the setup stays selected, but the bank is left alone and no gear is shown.",
 			hidden = true)
 	default boolean bossGearActive() {
-		return true;
-	}
-
-	// --- Farm run history ---
-
-	@ConfigSection(
-			name = "Farm Run History",
-			description = "Guided farm runs recorded for the website's Run history.",
-			position = 3)
-	String FARM_RUN_HISTORY_SECTION = "farmRunHistorySection";
-
-	@ConfigItem(
-			keyName = "syncFarmRuns",
-			name = "Farm runs",
-			description = "When a guided farm run ends (complete, or stopped after at least one patch), send it to OSRS Companion: route, time, patches done, Farming XP gained and the seeds planted. Its harvests are matched by time.",
-			section = FARM_RUN_HISTORY_SECTION,
-			position = 0)
-	default boolean syncFarmRuns() {
 		return true;
 	}
 
@@ -448,8 +425,7 @@ public interface OSRSCompanionConfig extends Config {
 			keyName = "showDailiesGuide",
 			name = "Show dailies guide",
 			description = "While a dailies run is started from the side panel: the step box (teleport, where to go, who to talk to), the arrow to the NPC and its mark on the world map.",
-			section = DAILIES_SECTION,
-			position = 1)
+			hidden = true)
 	default boolean showDailiesGuide() {
 		return true;
 	}

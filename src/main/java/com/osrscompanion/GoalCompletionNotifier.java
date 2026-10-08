@@ -224,8 +224,7 @@ public class GoalCompletionNotifier {
 	}
 
 	private void playSound() {
-		GoalCompleteSound sound = config.goalCompleteSound();
-		if (sound == null || sound == GoalCompleteSound.OFF) {
+		if (!config.goalCompleteSound()) {
 			return;
 		}
 		int volume = client.getPreferences().getSoundEffectVolume();

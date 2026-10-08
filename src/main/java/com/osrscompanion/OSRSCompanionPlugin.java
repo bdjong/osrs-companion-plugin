@@ -249,6 +249,7 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Override
 	protected void startUp() throws Exception {
 		log.debug("OSRS Companion started");
+		migrateSettings();
 
 		TimeTrackingConfig timeTrackingConfig = configManager.getConfig(TimeTrackingConfig.class);
 		FarmingWorld farmingWorld = new FarmingWorld();
@@ -693,6 +694,29 @@ public class OSRSCompanionPlugin extends Plugin {
 		String msg = event.getMessage();
 		if (msg != null && msg.contains(TEARS_CAVE_MESSAGE)) {
 			timerMonitor.onTearsOfGuthixCompleted();
+		}
+	}
+
+	/** Carries settings that were merged or renamed over to their new keys, once. */
+	private void migrateSettings() {
+		String group = OSRSCompanionConfig.CONFIG_GROUP;
+		String oldSound = configManager.getConfiguration(group, "goalCompleteSound");
+		if (oldSound != null) {
+			if (configManager.getConfiguration(group, OSRSCompanionConfig.GOAL_SOUND_KEY) == null) {
+				configManager.setConfiguration(group, OSRSCompanionConfig.GOAL_SOUND_KEY, !"OFF".equals(oldSound));
+			}
+			configManager.unsetConfiguration(group, "goalCompleteSound");
+		}
+		String herbs = configManager.getConfiguration(group, "farmingCapeForHerbs");
+		String force = configManager.getConfiguration(group, "forceFarmingCape");
+		if (herbs != null || force != null) {
+			if (configManager.getConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY) == null) {
+				FarmingCapeMode mode = "true".equals(force) ? FarmingCapeMode.FORCE
+						: "false".equals(herbs) ? FarmingCapeMode.OFF : FarmingCapeMode.REMIND;
+				configManager.setConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY, mode);
+			}
+			configManager.unsetConfiguration(group, "farmingCapeForHerbs");
+			configManager.unsetConfiguration(group, "forceFarmingCape");
 		}
 	}
 
