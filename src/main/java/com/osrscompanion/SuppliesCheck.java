@@ -143,12 +143,12 @@ public class SuppliesCheck {
 	/** At most once a tick, and only while the bank is open and something changed (the bank, what you carry, the setup or route). */
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		if (!config.suppliesCheck() || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
+		if (!(config.tripPlannerBoss() || config.tripPlannerFarm()) || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
 			return;
 		}
-		// Only for the tool whose bank checkbox is on (boss gear "Bank layout", farm run "Active in the bank").
-		BossGear set = config.bossGearBankLayout() && bossGear.isSetActive() ? bossGear.getSet() : null;
-		FarmRoute route = config.farmRunBankFilter() ? farmRun.getRoute() : null;
+		// Only for the tool whose trip planner switch and bank checkbox are on (boss gear "Bank layout", farm run "Active in the bank").
+		BossGear set = config.tripPlannerBoss() && config.bossGearBankLayout() && bossGear.isSetActive() ? bossGear.getSet() : null;
+		FarmRoute route = config.tripPlannerFarm() && config.farmRunBankFilter() ? farmRun.getRoute() : null;
 		if (!dirty && set == lastSet && route == lastRoute) {
 			return;
 		}

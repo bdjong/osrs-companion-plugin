@@ -326,20 +326,22 @@ public class RoadmapPanel extends PluginPanel {
 	private JPanel tripsPage() {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
-		add(p, toggle("Trip planner", "Trips shown in the bank", "Hidden", TRIPS, "suppliesCheck", config::suppliesCheck),
-			"With the bank open: how many trips / runs your bank's supplies last and which one runs out first.");
-		add(p, new PanelTiles.Info("BOSS TRIPS", () -> tripLines(supplies.getBoss(), config.bossGearBankLayout(), "Boss gear's Bank layout"),
-			() -> tripPicture(supplies.getBoss())),
+		add(p, toggle("Boss trips", "Shown in the bank", "Hidden", TRIPS, OSRSCompanionConfig.TRIP_PLANNER_BOSS_KEY, config::tripPlannerBoss),
+			"With the bank open: how many trips your bank's supplies last for the active boss setup and which one runs out first.");
+		add(p, new PanelTiles.Info("BOSS TRIPS", () -> tripLines(supplies.getBoss(), config.tripPlannerBoss(), config.bossGearBankLayout(), "Boss gear's Bank layout"),
+			() -> config.tripPlannerBoss() ? tripPicture(supplies.getBoss()) : null),
 			"The active boss setup: trips your bank holds, checked when you open the bank with the boss gear's Bank layout on.");
-		add(p, new PanelTiles.Info("FARM RUNS", () -> tripLines(supplies.getFarm(), config.farmRunBankFilter(), "Farm run's Active in the bank"),
-			() -> tripPicture(supplies.getFarm())),
+		add(p, toggle("Farm runs", "Shown in the bank", "Hidden", TRIPS, OSRSCompanionConfig.TRIP_PLANNER_FARM_KEY, config::tripPlannerFarm),
+			"With the bank open: how many runs your bank's supplies last for the farm route and which one runs out first.");
+		add(p, new PanelTiles.Info("FARM RUNS", () -> tripLines(supplies.getFarm(), config.tripPlannerFarm(), config.farmRunBankFilter(), "Farm run's Active in the bank"),
+			() -> config.tripPlannerFarm() ? tripPicture(supplies.getFarm()) : null),
 			"The farm route: runs your bank holds, checked when you open the bank with the farm run's Active in the bank on.");
 		return p;
 	}
 
-	private String[] tripLines(SuppliesCheck.Result r, boolean layoutOn, String layout) {
-		if (!config.suppliesCheck()) {
-			return new String[]{"Trip planner is off", "Switch it on above"};
+	private static String[] tripLines(SuppliesCheck.Result r, boolean on, boolean layoutOn, String layout) {
+		if (!on) {
+			return new String[]{"Hidden in the bank", "Switch it on above"};
 		}
 		if (!layoutOn) {
 			return new String[]{"Needs " + layout, "Switch it on in that page"};
@@ -352,7 +354,7 @@ public class RoadmapPanel extends PluginPanel {
 
 	/** The supply that runs out first (the check lists it first). */
 	private java.awt.image.BufferedImage tripPicture(SuppliesCheck.Result r) {
-		if (r == null || r.rows.isEmpty() || !config.suppliesCheck()) {
+		if (r == null || r.rows.isEmpty()) {
 			return null;
 		}
 		int itemId = r.rows.get(0).itemId;
