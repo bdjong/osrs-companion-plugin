@@ -227,7 +227,8 @@ public class CollectionLogMonitor {
 		// TreeMap gives a stable JSON key order so the dedup check is reliable.
 		Map<Integer, Integer> quantities = new TreeMap<>(obtainedQuantityByItemId);
 		CollectionLogSyncPayload payload =
-				new CollectionLogSyncPayload(playerUsername, sortedIds, quantities);
+				// After the full read (the log was opened this session) the list is the whole log.
+				new CollectionLogSyncPayload(playerUsername, sortedIds, quantities, fullReadTriggeredThisSession);
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {

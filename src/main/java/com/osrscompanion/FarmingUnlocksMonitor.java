@@ -158,6 +158,8 @@ public class FarmingUnlocksMonitor {
 	public void onVarbitChanged(VarbitChanged event) {
 		int varbit = event.getVarbitId();
 		if (varbit == VarbitID.FARMING_BLOCKWEEDS || varbit == VarbitID.BRUT_FARMING_PLANTING
+				|| varbit == VarbitID.PRAYER_RIGOUR_UNLOCKED || varbit == VarbitID.PRAYER_AUGURY_UNLOCKED
+				|| varbit == VarbitID.PRAYER_PRESERVE_UNLOCKED
 				|| event.getVarpId() == FarmRunManager.LAST_MINIGAME_TELEPORT_VARP) {
 			trigger.varbitChanged();
 			return;
@@ -351,6 +353,18 @@ public class FarmingUnlocksMonitor {
 		payload.put("tithe_farm", titheFarmUnlocked());
 		// Minutes since the epoch (0: never); the website leaves the minigame teleport out of routes for 20 minutes after it.
 		payload.put("minigame_teleport_at", client.getVarpValue(FarmRunManager.LAST_MINIGAME_TELEPORT_VARP));
+		// Prayers unlocked from their scrolls (the website's gear progression and DPS calculator use them).
+		List<String> prayers = new ArrayList<>();
+		if (client.getVarbitValue(VarbitID.PRAYER_RIGOUR_UNLOCKED) == 1) {
+			prayers.add("rigour");
+		}
+		if (client.getVarbitValue(VarbitID.PRAYER_AUGURY_UNLOCKED) == 1) {
+			prayers.add("augury");
+		}
+		if (client.getVarbitValue(VarbitID.PRAYER_PRESERVE_UNLOCKED) == 1) {
+			prayers.add("preserve");
+		}
+		payload.put("prayer_unlocks", prayers);
 		if (pohFairyRing != null) {
 			payload.put("poh_fairy_ring", pohFairyRing);
 		}
