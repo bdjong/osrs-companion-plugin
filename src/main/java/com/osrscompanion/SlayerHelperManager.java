@@ -62,10 +62,16 @@ import net.runelite.client.util.Text;
 @Slf4j
 @Singleton
 public class SlayerHelperManager {
-	/** Re-read the guide at most this often (the panel opening, the guide running). */
-	static final long REFRESH_INTERVAL_MS = 3 * 60_000L;
-	/** While in the area, the session is sent at most this often (and when it ends, and on logout). */
-	static final long SYNC_INTERVAL_MS = 60_000L;
+	/**
+	 * Re-read the guide at most this often (the panel opening, the guide running): a backstop, as a
+	 * change on the website is picked up by the web version check ({@link WebVersionWatcher}).
+	 */
+	static final long REFRESH_INTERVAL_MS = 10 * 60_000L;
+	/**
+	 * While in the area, the session is sent at most this often when it changed (and when it ends, and
+	 * on logout); the outbox batches it with the other uploads.
+	 */
+	static final long SYNC_INTERVAL_MS = 20_000L;
 	/** The open session is written to the config at most this often while only its timers change. */
 	private static final long PERSIST_INTERVAL_MS = 10_000L;
 	/** Ticks after logging in before the slayer varps are trusted (they arrive a moment after login). */
@@ -807,7 +813,7 @@ public class SlayerHelperManager {
 		sendUnsent();
 	}
 
-	/** Sends the open session when it changed since the last send (every minute in the area, or now). Client thread. */
+	/** Sends the open session when it changed since the last send (every 20 s in the area, or now). Client thread. */
 	private void sync(boolean now) {
 		SlayerSession s = session;
 		String name = s == null || s.player == null ? player : s.player;

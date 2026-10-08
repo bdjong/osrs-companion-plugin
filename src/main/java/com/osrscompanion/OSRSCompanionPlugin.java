@@ -246,6 +246,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private DailiesSceneOverlay dailiesSceneOverlay;
 
+	@Inject
+	private WebVersionWatcher webVersionWatcher;
+
 
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
@@ -256,6 +259,8 @@ public class OSRSCompanionPlugin extends Plugin {
 	protected void startUp() throws Exception {
 		log.debug("OSRS Companion started");
 		migrateSettings();
+		// Uploads queue in the outbox and go out batched (first, so the monitors' first syncs use it).
+		apiClient.startOutbox(executorService);
 
 		TimeTrackingConfig timeTrackingConfig = configManager.getConfig(TimeTrackingConfig.class);
 		FarmingWorld farmingWorld = new FarmingWorld();
@@ -360,6 +365,8 @@ public class OSRSCompanionPlugin extends Plugin {
 			storageItemMonitor.syncNow();
 		});
 		roadmapManager.startPeriodicRefresh();
+		// Website changes: the webVersion from batch answers or a small check every 30 s re-reads what changed.
+		webVersionWatcher.start();
 		roadmapWaitingPoll = executorService.scheduleWithFixedDelay(roadmapManager::pollWhileWaiting,
 				RoadmapManager.WAITING_POLL_SECONDS, RoadmapManager.WAITING_POLL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
 		// The last farm route ready again (all its patches grown), checked logged in or not.
@@ -635,6 +642,9 @@ public class OSRSCompanionPlugin extends Plugin {
 			farmRouteReadyPoll = null;
 		}
 		roadmapManager.clear();
+		webVersionWatcher.stop();
+		// The monitors' stop() above queued their last uploads: send them now; nothing is retried after.
+		apiClient.stopOutbox();
 		log.debug("OSRS Companion stopped");
 	}
 
@@ -679,6 +689,11 @@ public class OSRSCompanionPlugin extends Plugin {
 			executorService.schedule(
 					this::loadRoadmapQuietly, 8, java.util.concurrent.TimeUnit.SECONDS);
 			executorService.schedule(farmRunManager::refresh, 9, java.util.concurrent.TimeUnit.SECONDS);
+		} else if (event.getGameState() == GameState.LOGIN_SCREEN) {
+			webVersionWatcher.onLoggedOut();
+			// The monitors queue their logout uploads (some via the client thread / executor):
+			// send everything shortly after, without waiting for the batch interval or a backoff.
+			executorService.schedule(apiClient::flushOutbox, 2, java.util.concurrent.TimeUnit.SECONDS);
 		}
 	}
 

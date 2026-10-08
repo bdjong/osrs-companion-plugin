@@ -40,8 +40,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 final class SourceSyncer {
-	static final long GOAL_DEBOUNCE_SECONDS = 30;
-	static final long DEFAULT_DEBOUNCE_SECONDS = 180;
+	static final long GOAL_DEBOUNCE_SECONDS = 5;
+	static final long DEFAULT_DEBOUNCE_SECONDS = 15;
 
 	private final String label;
 	private final Gson gson;
@@ -55,6 +55,8 @@ final class SourceSyncer {
 	private volatile Supplier<Set<Integer>> goalItems = Set::of;
 	/** Runs after every upload; set by the monitor (the bank monitor triggers a roadmap reconcile). */
 	private volatile Runnable onSent;
+	/** Runs after an urgent upload (immediate submit, logout): asks the API outbox to send at once. */
+	private volatile Runnable priorityFlush;
 
 	/** Contents last uploaded this session, per source. A source absent here was never sent. */
 	private final Map<String, Map<Integer, Integer>> sentBySource = new HashMap<>();
@@ -96,6 +98,10 @@ final class SourceSyncer {
 
 	void setOnSent(Runnable onSent) {
 		this.onSent = onSent;
+	}
+
+	void setPriorityFlush(Runnable priorityFlush) {
+		this.priorityFlush = priorityFlush;
 	}
 
 	/** New contents for the syncer's single source (its label). */
@@ -150,7 +156,8 @@ final class SourceSyncer {
 		}
 		pendingUsername = playerUsername;
 		if (immediate || neverSent) {
-			flushPending();
+			// A source's first contents go with the login burst; an immediate one is urgent.
+			flush(immediate);
 			return;
 		}
 		if (!anyChange && pendingSync != null) {
@@ -165,11 +172,15 @@ final class SourceSyncer {
 		}
 		pendingDueMs = now + delayMs;
 		log.debug("{} change detected, debouncing sync for {}s", label, delayMs / 1000);
-		pendingSync = executor.schedule(this::flushPending, delayMs, TimeUnit.MILLISECONDS);
+		pendingSync = executor.schedule(() -> flush(false), delayMs, TimeUnit.MILLISECONDS);
 	}
 
 	/** Sends whatever is pending now (logout, plugin shutdown, forced sync). */
 	synchronized void flushPending() {
+		flush(true);
+	}
+
+	private synchronized void flush(boolean urgent) {
 		cancelPending();
 		if (pendingBySource.isEmpty() || pendingUsername == null) {
 			return;
@@ -184,6 +195,10 @@ final class SourceSyncer {
 		log.debug("Syncing {} {} items ({}) for player: {}", payload.getTotalItemCount(), label,
 				String.join(",", itemsBySource.keySet()), pendingUsername);
 		send.accept(payload);
+		Runnable flush = priorityFlush;
+		if (urgent && flush != null) {
+			flush.run();
+		}
 		Runnable listener = onSent;
 		if (listener != null) {
 			listener.run();

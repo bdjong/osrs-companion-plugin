@@ -163,4 +163,23 @@ public class SourceSyncerTest {
 		assertEquals(2, sent.size());
 		assertFalse(enabled);
 	}
+
+	@Test
+	public void onlyUrgentUploadsAskForAPriorityFlush() {
+		int[] flushes = {0};
+		syncer.setPriorityFlush(() -> flushes[0]++);
+		syncer.submit(qty(1, 1), false); // first contents of the session: go with the login burst
+		assertEquals(1, sent.size());
+		assertEquals(0, flushes[0]);
+		syncer.submit(qty(1, 2), false);
+		advance(DEFAULT_MS);
+		assertEquals(2, sent.size());
+		assertEquals(0, flushes[0]);
+		syncer.submit(qty(1, 3), true);
+		assertEquals(3, sent.size());
+		assertEquals(1, flushes[0]);
+		syncer.submit(qty(1, 4), false);
+		syncer.flushPending();
+		assertEquals(2, flushes[0]);
+	}
 }

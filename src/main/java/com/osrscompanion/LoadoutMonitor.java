@@ -32,7 +32,7 @@ import net.runelite.client.game.ItemManager;
 @Singleton
 public class LoadoutMonitor {
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 3;
-	private static final int EQUIPMENT_CHANGE_DEBOUNCE_SECONDS = 60;
+	private static final int EQUIPMENT_CHANGE_DEBOUNCE_SECONDS = 15;
 	private static final int EMPTY_SLOT_ID = -1;
 	private static final int MAX_INVENTORY_SLOTS = 28;
 

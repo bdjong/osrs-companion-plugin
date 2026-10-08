@@ -30,7 +30,7 @@ import net.runelite.client.eventbus.Subscribe;
 public class PlayerSkillsMonitor {
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 3;
 	/** How often to re-upload while training; nothing is sent when XP is static. */
-	static final int TRAINING_SYNC_INTERVAL_SECONDS = 120;
+	static final int TRAINING_SYNC_INTERVAL_SECONDS = 60;
 
 	private final Client client;
 	private final OSRSCompanionConfig config;

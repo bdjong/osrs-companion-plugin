@@ -41,7 +41,8 @@ import net.runelite.client.eventbus.Subscribe;
 @Singleton
 public class DailiesManager {
 	/** Re-read the guide at most this often while the panel or a run uses it. */
-	static final long REFRESH_INTERVAL_MS = 5 * 60_000;
+	/** A backstop: website changes are picked up by the web version check ({@link WebVersionWatcher}). */
+	static final long REFRESH_INTERVAL_MS = 10 * 60_000;
 	private static final String CHAT_PREFIX = "<col=f472b6>Dailies:</col> ";
 
 	private final Client client;

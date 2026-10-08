@@ -18,10 +18,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Singleton
 public class GearProgressionManager {
-	/** While the window is open the plan is re-read at most this often. */
-	static final long REFRESH_INTERVAL_MS = 60_000;
-	/** For the in-game box alone (window closed) the plan is re-read at most this often. */
-	static final long OVERLAY_REFRESH_INTERVAL_MS = 120_000;
+	/**
+	 * While the window is open the plan is re-read at most this often: a backstop, as a change on the
+	 * website is picked up by the web version check ({@link WebVersionWatcher}).
+	 */
+	static final long REFRESH_INTERVAL_MS = 10 * 60_000;
+	/** For the in-game box alone (window closed) the plan is re-read at most this often (backstop too). */
+	static final long OVERLAY_REFRESH_INTERVAL_MS = 10 * 60_000;
 	/** After a failed read the box waits this long before trying again. */
 	static final long OVERLAY_RETRY_MS = 300_000;
 
@@ -77,7 +80,7 @@ public class GearProgressionManager {
 
 	/**
 	 * Keeps the plan fresh for the in-game box while the window is closed: re-reads it
-	 * every couple of minutes when logged in with an App Key, and backs off after a
+	 * every ten minutes (and on a website change) when logged in with an App Key, and backs off after a
 	 * failed read. Cheap enough to call every render frame.
 	 */
 	public void refreshForOverlay() {
