@@ -26,6 +26,8 @@ final class SlayerSession {
 	 * first tick after a restart): a tick is 600 ms, so this only drops real gaps.
 	 */
 	static final long MAX_TICK_GAP_MS = 3_000L;
+	/** A time away longer than this is not a bank trip (a break, another activity). */
+	static final long MAX_BANK_TRIP_MS = 20 * 60_000L;
 
 	@SerializedName("session_uuid")
 	String uuid;
@@ -67,6 +69,16 @@ final class SlayerSession {
 	long timeInAreaMs;
 	@SerializedName("trip_count")
 	int tripCount;
+	/** Times away from the area that included a bank visit and ended back here, and their total length. */
+	@SerializedName("bank_trips")
+	int bankTrips;
+	@SerializedName("bank_trip_ms")
+	long bankTripMs;
+	/** When the player last left the area (0: inside, or not counting), and whether a bank was opened since. */
+	@SerializedName("left_ms")
+	long leftMs;
+	@SerializedName("bank_seen_away")
+	boolean bankSeenAway;
 	@SerializedName("kills")
 	int kills;
 	@SerializedName("kill_time_total_ms")
@@ -112,7 +124,8 @@ final class SlayerSession {
 
 	/**
 	 * One game tick: while inside, the time since the last tick inside is added to the time at the
-	 * location; walking (or teleporting) back in starts a new trip. Returns true on entering.
+	 * location; walking (or teleporting) back in starts a new trip. Leaving notes the time; coming back
+	 * after a bank visit (see {@link #bankOpened}) counts the time away as a bank trip. Returns true on entering.
 	 */
 	boolean tick(boolean nowInside, long nowMs) {
 		boolean entered = false;
@@ -121,6 +134,15 @@ final class SlayerSession {
 				tripCount++;
 				entered = true;
 				updatedMs = nowMs;
+				if (leftMs > 0 && bankSeenAway) {
+					long away = nowMs - leftMs;
+					if (away > 0 && away <= MAX_BANK_TRIP_MS) {
+						bankTrips++;
+						bankTripMs += away;
+					}
+				}
+				leftMs = 0;
+				bankSeenAway = false;
 			} else if (lastTickMs > 0) {
 				long gap = nowMs - lastTickMs;
 				if (gap > 0 && gap <= MAX_TICK_GAP_MS) {
@@ -131,14 +153,25 @@ final class SlayerSession {
 			lastTickMs = nowMs;
 		} else if (inside) {
 			updatedMs = nowMs;
+			leftMs = nowMs;
+			bankSeenAway = false;
 		}
 		inside = nowInside;
 		return entered;
 	}
 
-	/** After loading from the config: the time offline is never counted. */
+	/** A bank was opened: while away from the area, the time away becomes a bank trip once back. */
+	void bankOpened() {
+		if (!inside && leftMs > 0) {
+			bankSeenAway = true;
+		}
+	}
+
+	/** After loading from the config: the time offline is never counted (nor as a bank trip). */
 	void resumed() {
 		lastTickMs = 0;
+		leftMs = 0;
+		bankSeenAway = false;
 	}
 
 	void addKills(int n, long nowMs) {
@@ -238,6 +271,8 @@ final class SlayerSession {
 		m.put("completed", completed);
 		m.put("time_in_area_sec", timeInAreaMs / 1000);
 		m.put("trip_count", tripCount);
+		m.put("bank_trips", bankTrips);
+		m.put("bank_trip_sec", bankTripMs / 1000);
 		m.put("kills", kills);
 		m.put("avg_kill_ms", avgKillMs());
 		m.put("kills_per_hour", killsPerHour());

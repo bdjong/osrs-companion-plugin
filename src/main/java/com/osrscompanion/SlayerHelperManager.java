@@ -478,6 +478,14 @@ public class SlayerHelperManager {
 
 	// ---- Every tick ------------------------------------------------------------------------
 
+	/** A bank opened: if the player is away from the task's area, the time away counts as a bank trip once back. */
+	@Subscribe
+	public void onWidgetLoaded(net.runelite.api.events.WidgetLoaded event) {
+		if (event.getGroupId() == net.runelite.api.gameval.InterfaceID.BANKMAIN && session != null && session.isOpen()) {
+			session.bankOpened();
+		}
+	}
+
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged e) {
 		GameState s = e.getGameState();
