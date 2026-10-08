@@ -71,7 +71,7 @@ public class SlayerHelperManager {
 	 * While in the area, the session is sent at most this often when it changed (and when it ends, and
 	 * on logout); the outbox batches it with the other uploads.
 	 */
-	static final long SYNC_INTERVAL_MS = 20_000L;
+	static final long SYNC_INTERVAL_MS = 10_000L;
 	/** The open session is written to the config at most this often while only its timers change. */
 	private static final long PERSIST_INTERVAL_MS = 10_000L;
 	/** Ticks after logging in before the slayer varps are trusted (they arrive a moment after login). */
