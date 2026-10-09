@@ -41,6 +41,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class CollectionLogMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "collection-log-sync";
+
 	// Fired once the collection log interface has been built/opened.
 	private static final int SETUP_SCRIPT = 7797;
 	// Fired once per obtained item as the collection log draws its list.
@@ -120,31 +123,33 @@ public class CollectionLogMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState state = event.getGameState();
-		switch (state) {
-			case LOGGED_IN:
-				if (previousGameState != GameState.LOGGED_IN) {
-					// Fresh login: capture from now so real-time unlocks are caught
-					// even before the player opens their log.
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState state = event.getGameState();
+			switch (state) {
+				case LOGGED_IN:
+					if (previousGameState != GameState.LOGGED_IN) {
+						// Fresh login: capture from now so real-time unlocks are caught
+						// even before the player opens their log.
+						resetSessionState();
+						captureActive = true;
+					}
+					break;
+				case HOPPING:
+				case LOGGING_IN:
+				case CONNECTION_LOST:
+					// Clear per-account state; the next login re-enumerates on log open.
 					resetSessionState();
-					captureActive = true;
-				}
-				break;
-			case HOPPING:
-			case LOGGING_IN:
-			case CONNECTION_LOST:
-				// Clear per-account state; the next login re-enumerates on log open.
-				resetSessionState();
-				break;
-			default:
-				if (previousGameState == GameState.LOGGED_IN) {
-					// Logging out: flush whatever we captured, then reset.
-					syncCollectionLog();
-					resetSessionState();
-				}
-				break;
-		}
-		previousGameState = state;
+					break;
+				default:
+					if (previousGameState == GameState.LOGGED_IN) {
+						// Logging out: flush whatever we captured, then reset.
+						syncCollectionLog();
+						resetSessionState();
+					}
+					break;
+			}
+			previousGameState = state;
+		});
 	}
 
 	/**
@@ -153,18 +158,20 @@ public class CollectionLogMonitor {
 	 */
 	@Subscribe
 	public void onScriptPostFired(ScriptPostFired event) {
-		if (event.getScriptId() != SETUP_SCRIPT) {
-			return;
-		}
-		if (!config.syncCollectionLog() || !SyncGuard.hasAppKey(config)) {
-			return;
-		}
-		if (fullReadTriggeredThisSession) {
-			return;
-		}
-		fullReadTriggeredThisSession = true;
-		captureActive = true;
-		clientThread.invokeLater(this::triggerFullRead);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getScriptId() != SETUP_SCRIPT) {
+				return;
+			}
+			if (!config.syncCollectionLog() || !SyncGuard.hasAppKey(config)) {
+				return;
+			}
+			if (fullReadTriggeredThisSession) {
+				return;
+			}
+			fullReadTriggeredThisSession = true;
+			captureActive = true;
+			clientThread.invokeLater(this::triggerFullRead);
+		});
 	}
 
 	/**
@@ -174,21 +181,23 @@ public class CollectionLogMonitor {
 	 */
 	@Subscribe
 	public void onScriptPreFired(ScriptPreFired event) {
-		if (event.getScriptId() != DRAW_SCRIPT || !captureActive) {
-			return;
-		}
-		Object[] args = event.getScriptEvent().getArguments();
-		if (args == null || args.length < 2 || !(args[1] instanceof Integer)) {
-			return;
-		}
-		int itemId = (Integer) args[1];
-		int quantity = args.length > 2 && args[2] instanceof Integer ? (Integer) args[2] : 0;
-		Integer previous = obtainedQuantityByItemId.put(itemId, quantity);
-		BiConsumer<Integer, Integer> listener = obtainedListener;
-		if (listener != null && quantity > 0 && (previous == null || quantity > previous)) {
-			listener.accept(itemId, quantity);
-		}
-		tickScriptFired = client.getTickCount();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getScriptId() != DRAW_SCRIPT || !captureActive) {
+				return;
+			}
+			Object[] args = event.getScriptEvent().getArguments();
+			if (args == null || args.length < 2 || !(args[1] instanceof Integer)) {
+				return;
+			}
+			int itemId = (Integer) args[1];
+			int quantity = args.length > 2 && args[2] instanceof Integer ? (Integer) args[2] : 0;
+			Integer previous = obtainedQuantityByItemId.put(itemId, quantity);
+			BiConsumer<Integer, Integer> listener = obtainedListener;
+			if (listener != null && quantity > 0 && (previous == null || quantity > previous)) {
+				listener.accept(itemId, quantity);
+			}
+			tickScriptFired = client.getTickCount();
+		});
 	}
 
 	/**
@@ -197,11 +206,13 @@ public class CollectionLogMonitor {
 	 */
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (tickScriptFired == -1 || tickScriptFired + SYNC_DELAY_TICKS > client.getTickCount()) {
-			return;
-		}
-		tickScriptFired = -1;
-		syncCollectionLog();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (tickScriptFired == -1 || tickScriptFired + SYNC_DELAY_TICKS > client.getTickCount()) {
+				return;
+			}
+			tickScriptFired = -1;
+			syncCollectionLog();
+		});
 	}
 
 	/** Opens the in-log search and runs it, forcing a draw of every obtained item. */

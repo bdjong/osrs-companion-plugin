@@ -27,6 +27,9 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  */
 @Singleton
 public class SuppliesOverlay extends Overlay {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "supplies-overlay";
+
 	private static final int WIDTH = 230;
 	private static final int ROW = 22;
 	private static final int MAX_ROWS = 8;
@@ -67,34 +70,36 @@ public class SuppliesOverlay extends Overlay {
 
 	@Override
 	public Dimension render(Graphics2D g) {
-		if (!config.tripPlannerBoss() && !config.tripPlannerFarm()) {
+		return Guard.render(GUARD_FEATURE, () -> {
+			if (!config.tripPlannerBoss() && !config.tripPlannerFarm()) {
+				return null;
+			}
+			Widget bank = client.getWidget(InterfaceID.Bankmain.UNIVERSE);
+			if (bank == null || bank.isHidden()) {
+				return null;
+			}
+			List<SuppliesCheck.Result> results = shown();
+			if (results.isEmpty()) {
+				return null;
+			}
+			Rectangle b = bank.getBounds();
+			boolean left = b.x >= WIDTH + 12;
+			boolean right = client.getCanvasWidth() - (b.x + b.width) >= WIDTH + 12;
+			boolean full = left || right;
+			int h = 8;
+			for (SuppliesCheck.Result r : results) {
+				h += full ? 46 + Math.min(MAX_ROWS, r.rows.size()) * ROW + 6 : 30;
+			}
+			int x = left ? b.x - WIDTH - 6 : right ? b.x + b.width + 6 : b.x + b.width - WIDTH - 30;
+			int y = full ? b.y + 4 : b.y + 34;
+			Rectangle area = new Rectangle(x, y, WIDTH, h);
+			box(g, area, BG, FRAME_DARK, FRAME_LIGHT);
+			int ly = y + 4;
+			for (SuppliesCheck.Result r : results) {
+				ly = full ? drawFull(g, r, x, ly) : drawLine(g, r, x, ly);
+			}
 			return null;
-		}
-		Widget bank = client.getWidget(InterfaceID.Bankmain.UNIVERSE);
-		if (bank == null || bank.isHidden()) {
-			return null;
-		}
-		List<SuppliesCheck.Result> results = shown();
-		if (results.isEmpty()) {
-			return null;
-		}
-		Rectangle b = bank.getBounds();
-		boolean left = b.x >= WIDTH + 12;
-		boolean right = client.getCanvasWidth() - (b.x + b.width) >= WIDTH + 12;
-		boolean full = left || right;
-		int h = 8;
-		for (SuppliesCheck.Result r : results) {
-			h += full ? 46 + Math.min(MAX_ROWS, r.rows.size()) * ROW + 6 : 30;
-		}
-		int x = left ? b.x - WIDTH - 6 : right ? b.x + b.width + 6 : b.x + b.width - WIDTH - 30;
-		int y = full ? b.y + 4 : b.y + 34;
-		Rectangle area = new Rectangle(x, y, WIDTH, h);
-		box(g, area, BG, FRAME_DARK, FRAME_LIGHT);
-		int ly = y + 4;
-		for (SuppliesCheck.Result r : results) {
-			ly = full ? drawFull(g, r, x, ly) : drawLine(g, r, x, ly);
-		}
-		return null;
+		});
 	}
 
 	private static Color tone(int trips) {

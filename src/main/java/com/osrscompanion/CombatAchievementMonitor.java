@@ -39,6 +39,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class CombatAchievementMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "combat-achievement-sync";
+
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 3;
 	// Minimum ticks between varp-driven reads, so any varp churn doesn't re-read every
 	// tick. A CA completion still syncs within a few ticks, and login/logout syncs are
@@ -81,6 +84,7 @@ public class CombatAchievementMonitor {
 			OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executorService,
 			Gson gson) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -131,37 +135,43 @@ public class CombatAchievementMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			// CA varps load shortly after LOGGED_IN, so wait before reading.
-			executorService.schedule(() -> clientThread.invokeLater(this::syncCombatAchievements),
-					LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-		} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-			// Logging out: flush final state (this handler runs on the client thread).
-			syncCombatAchievements();
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				// CA varps load shortly after LOGGED_IN, so wait before reading.
+				executorService.schedule(() -> clientThread.invokeLater(this::syncCombatAchievements),
+						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
+				// Logging out: flush final state (this handler runs on the client thread).
+				syncCombatAchievements();
+			}
+			previousGameState = newState;
+		});
 	}
 
 	/** A CA completion flips one of the CA varps; mark a re-check for the next game tick. */
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (COMBAT_ACHIEVEMENT_VARP_SET.contains(event.getVarpId())) {
-			caCheckPending = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (COMBAT_ACHIEVEMENT_VARP_SET.contains(event.getVarpId())) {
+				caCheckPending = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (!caCheckPending) {
-			return;
-		}
-		if (lastReadTick != -1 && client.getTickCount() - lastReadTick < RESYNC_THROTTLE_TICKS) {
-			return;
-		}
-		caCheckPending = false;
-		lastReadTick = client.getTickCount();
-		syncCombatAchievements();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!caCheckPending) {
+				return;
+			}
+			if (lastReadTick != -1 && client.getTickCount() - lastReadTick < RESYNC_THROTTLE_TICKS) {
+				return;
+			}
+			caCheckPending = false;
+			lastReadTick = client.getTickCount();
+			syncCombatAchievements();
+		});
 	}
 
 	/** Reads all completed CAs, builds the payload, and syncs (deduped). Client thread only. */

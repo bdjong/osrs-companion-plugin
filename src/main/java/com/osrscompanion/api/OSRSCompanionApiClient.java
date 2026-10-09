@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import com.osrscompanion.Guard;
 import com.osrscompanion.OSRSCompanionConfig;
 import com.osrscompanion.SyncGuard;
 import com.osrscompanion.model.AchievementDiariesSyncPayload;
@@ -147,9 +148,14 @@ public class OSRSCompanionApiClient
 		this.gson = gson;
 		this.gsonWithNulls = gson.newBuilder().serializeNulls().create();
 		this.okHttpClient = withVersionHeader(okHttpClient.newBuilder())
+			.connectTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+			.readTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+			.writeTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 			.callTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 			.build();
 		this.largeRequestClient = withVersionHeader(okHttpClient.newBuilder())
+			.connectTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+			.writeTimeout(LARGE_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 			.callTimeout(LARGE_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 			.readTimeout(LARGE_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 			.build();
@@ -734,6 +740,12 @@ public class OSRSCompanionApiClient
 		largeRequestClient.newCall(request).enqueue(parsingCallback(endpoint, label, type, callback));
 	}
 
+	/** The {@link Guard} feature of a website answer's callback, by what was asked ("roadmap", "slayer guide"...). */
+	static String feature(String label)
+	{
+		return "api-" + (label == null ? "request" : label.toLowerCase().replaceAll("[^a-z0-9]+", "-"));
+	}
+
 	private <T> Callback parsingCallback(String endpoint, String label, Class<T> type, RoadmapCallback<T> callback)
 	{
 		return new Callback()
@@ -742,11 +754,17 @@ public class OSRSCompanionApiClient
 			public void onFailure(Call call, IOException e)
 			{
 				log.warn("Failed {} request to OSRS Companion API: {}", label, e.getMessage());
-				callback.onError("Network error");
+				// The callback is a feature's code, on OkHttp's thread: guarded like the rest.
+				Guard.run(feature(label), () -> callback.onError("Network error"));
 			}
 
 			@Override
 			public void onResponse(Call call, Response response)
+			{
+				Guard.run(feature(label), () -> handle(response));
+			}
+
+			private void handle(Response response)
 			{
 				try
 				{

@@ -28,6 +28,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class PlayerSkillsMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "skills-sync";
+
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 3;
 	/** How often to re-upload while training; nothing is sent when XP is static. */
 	static final int TRAINING_SYNC_INTERVAL_SECONDS = 60;
@@ -52,6 +55,7 @@ public class PlayerSkillsMonitor {
 			OSRSCompanionConfig config,
 			OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executorService) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;
@@ -95,27 +99,31 @@ public class PlayerSkillsMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
 
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			log.debug("Player logged in, scheduling skills sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
-			executorService.schedule(this::syncPlayerSkills, LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-		} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-			log.debug("Player logged out, syncing skills");
-			lastSeenXp.clear();
-			xpDirty = false;
-			syncPlayerSkills();
-		}
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				log.debug("Player logged in, scheduling skills sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
+				executorService.schedule(this::syncPlayerSkills, LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
+				log.debug("Player logged out, syncing skills");
+				lastSeenXp.clear();
+				xpDirty = false;
+				syncPlayerSkills();
+			}
 
-		previousGameState = newState;
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onStatChanged(StatChanged event) {
-		Integer previous = lastSeenXp.put(event.getSkill().getName(), event.getXp());
-		if (xpIncreased(previous, event.getXp())) {
-			xpDirty = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			Integer previous = lastSeenXp.put(event.getSkill().getName(), event.getXp());
+			if (xpIncreased(previous, event.getXp())) {
+				xpDirty = true;
+			}
+		});
 	}
 
 	/** True only for a real gain: the first observation after login is the server

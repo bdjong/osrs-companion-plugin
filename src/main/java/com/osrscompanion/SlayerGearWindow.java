@@ -40,6 +40,9 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  */
 @Singleton
 public class SlayerGearWindow extends Overlay implements MouseListener, MouseWheelListener, KeyListener {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-gear-window";
+
 	private static final int MAX_WIDTH = 520;
 	private static final int MAX_HEIGHT = 400;
 	private static final int MIN_WIDTH = 400;
@@ -88,88 +91,90 @@ public class SlayerGearWindow extends Overlay implements MouseListener, MouseWhe
 
 	@Override
 	public Dimension render(Graphics2D g) {
-		// Out of the way while the bank is open (it is laid out underneath).
-		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null || !manager.isGearOpen()) {
-			window = null;
-			hits = Collections.emptyList();
-			return null;
-		}
-		int w = Math.min(MAX_WIDTH, client.getCanvasWidth() - 2 * SCREEN_MARGIN);
-		int h = Math.min(MAX_HEIGHT, client.getCanvasHeight() - 2 * SCREEN_MARGIN);
-		if (w < MIN_WIDTH || h < MIN_HEIGHT) {
-			window = null;
-			hits = Collections.emptyList();
-			return null;
-		}
-		int x = (client.getCanvasWidth() - w) / 2;
-		int y = (client.getCanvasHeight() - h) / 2;
-		Rectangle win = new Rectangle(x, y, w, h);
-		List<Hit> newHits = new ArrayList<>();
+		return Guard.render(GUARD_FEATURE, () -> {
+			// Out of the way while the bank is open (it is laid out underneath).
+			if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null || !manager.isGearOpen()) {
+				window = null;
+				hits = Collections.emptyList();
+				return null;
+			}
+			int w = Math.min(MAX_WIDTH, client.getCanvasWidth() - 2 * SCREEN_MARGIN);
+			int h = Math.min(MAX_HEIGHT, client.getCanvasHeight() - 2 * SCREEN_MARGIN);
+			if (w < MIN_WIDTH || h < MIN_HEIGHT) {
+				window = null;
+				hits = Collections.emptyList();
+				return null;
+			}
+			int x = (client.getCanvasWidth() - w) / 2;
+			int y = (client.getCanvasHeight() - h) / 2;
+			Rectangle win = new Rectangle(x, y, w, h);
+			List<Hit> newHits = new ArrayList<>();
 
-		g.setColor(BG);
-		g.fillRect(x, y, w, h);
-		g.setColor(FRAME_DARK);
-		g.setStroke(new BasicStroke(3));
-		g.drawRect(x + 1, y + 1, w - 3, h - 3);
-		g.setStroke(new BasicStroke(1));
-		g.setColor(FRAME_LIGHT);
-		g.drawRect(x + 3, y + 3, w - 7, h - 7);
-		g.setFont(FontManager.getRunescapeBoldFont());
-		centred(g, "Slayer Gear", x + w / 2, y + 20, ORANGE);
-		Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
-		box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
-		g.setColor(new Color(0xC8A24A));
-		g.setStroke(new BasicStroke(2));
-		g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
-		g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
-		g.setStroke(new BasicStroke(1));
-		newHits.add(new Hit(close, manager::closeGearWindow, null));
-		g.setColor(PANEL_EDGE);
-		g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
-		g.setColor(FRAME_LIGHT);
-		g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
+			g.setColor(BG);
+			g.fillRect(x, y, w, h);
+			g.setColor(FRAME_DARK);
+			g.setStroke(new BasicStroke(3));
+			g.drawRect(x + 1, y + 1, w - 3, h - 3);
+			g.setStroke(new BasicStroke(1));
+			g.setColor(FRAME_LIGHT);
+			g.drawRect(x + 3, y + 3, w - 7, h - 7);
+			g.setFont(FontManager.getRunescapeBoldFont());
+			centred(g, "Slayer Gear", x + w / 2, y + 20, ORANGE);
+			Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
+			box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
+			g.setColor(new Color(0xC8A24A));
+			g.setStroke(new BasicStroke(2));
+			g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
+			g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
+			g.setStroke(new BasicStroke(1));
+			newHits.add(new Hit(close, manager::closeGearWindow, null));
+			g.setColor(PANEL_EDGE);
+			g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
+			g.setColor(FRAME_LIGHT);
+			g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
 
-		SlayerGear gear = manager.getGear();
-		SlayerGear.Set set = manager.getGearSet();
-		if (set == null) {
-			message(g, win, gear);
-			Rectangle refresh = new Rectangle(x + (w - BUTTON_WIDTH) / 2, y + h / 2 + 30, BUTTON_WIDTH, BUTTON_HEIGHT);
-			button(g, refresh, manager.isGearLoading() ? "Loading..." : "Refresh", manager.isGearLoading());
-			newHits.add(new Hit(refresh, manager::refreshGear, "Load the setups for your task from the website again"));
-			finish(g, win, newHits);
-			return new Dimension(w, h);
-		}
+			SlayerGear gear = manager.getGear();
+			SlayerGear.Set set = manager.getGearSet();
+			if (set == null) {
+				message(g, win, gear);
+				Rectangle refresh = new Rectangle(x + (w - BUTTON_WIDTH) / 2, y + h / 2 + 30, BUTTON_WIDTH, BUTTON_HEIGHT);
+				button(g, refresh, manager.isGearLoading() ? "Loading..." : "Refresh", manager.isGearLoading());
+				newHits.add(new Hit(refresh, manager::refreshGear, "Load the setups for your task from the website again"));
+				finish(g, win, newHits);
+				return new Dimension(w, h);
+			}
 
-		subtitle(g, gear, set, win);
-		int tabsY = y + TITLE_HEIGHT + SUBTITLE_HEIGHT + 4;
-		tabs(g, gear, set, new Rectangle(x + 8, tabsY, w - 16, TAB_HEIGHT), newHits);
+			subtitle(g, gear, set, win);
+			int tabsY = y + TITLE_HEIGHT + SUBTITLE_HEIGHT + 4;
+			tabs(g, gear, set, new Rectangle(x + 8, tabsY, w - 16, TAB_HEIGHT), newHits);
 
-		int bodyY = tabsY + TAB_HEIGHT + 6;
-		int bodyH = y + h - 10 - bodyY;
-		int slot = Math.max(26, Math.min(40, (bodyH - 36) / 5 - SLOT_GAP));
-		int cell = slot + SLOT_GAP;
+			int bodyY = tabsY + TAB_HEIGHT + 6;
+			int bodyH = y + h - 10 - bodyY;
+			int slot = Math.max(26, Math.min(40, (bodyH - 36) / 5 - SLOT_GAP));
+			int cell = slot + SLOT_GAP;
 
-		// Worn equipment on the left.
-		Rectangle worn = new Rectangle(x + 8, bodyY, 3 * cell + 20, bodyH);
-		panel(g, worn);
-		g.setFont(FontManager.getRunescapeBoldFont());
-		text(g, "Worn", worn.x + 10, worn.y + 18, ORANGE);
-		int ex = worn.x + 10;
-		int ey = worn.y + 26;
-		for (int r = 0; r < BossGearWindow.EQUIPMENT.length; r++) {
-			for (int c = 0; c < 3; c++) {
-				String name = BossGearWindow.EQUIPMENT[r][c];
-				if (name != null) {
-					drawSlot(g, new Rectangle(ex + c * cell, ey + r * cell, slot, slot), set.slot(name), newHits);
+			// Worn equipment on the left.
+			Rectangle worn = new Rectangle(x + 8, bodyY, 3 * cell + 20, bodyH);
+			panel(g, worn);
+			g.setFont(FontManager.getRunescapeBoldFont());
+			text(g, "Worn", worn.x + 10, worn.y + 18, ORANGE);
+			int ex = worn.x + 10;
+			int ey = worn.y + 26;
+			for (int r = 0; r < BossGearWindow.EQUIPMENT.length; r++) {
+				for (int c = 0; c < 3; c++) {
+					String name = BossGearWindow.EQUIPMENT[r][c];
+					if (name != null) {
+						drawSlot(g, new Rectangle(ex + c * cell, ey + r * cell, slot, slot), set.slot(name), newHits);
+					}
 				}
 			}
-		}
 
-		// The numbers, what else it counts on, the legend and Refresh on the right.
-		Rectangle side = new Rectangle(worn.x + worn.width + 8, bodyY, x + w - 8 - (worn.x + worn.width + 8), bodyH);
-		renderSide(g, set, side, newHits);
-		finish(g, win, newHits);
-		return new Dimension(w, h);
+			// The numbers, what else it counts on, the legend and Refresh on the right.
+			Rectangle side = new Rectangle(worn.x + worn.width + 8, bodyY, x + w - 8 - (worn.x + worn.width + 8), bodyH);
+			renderSide(g, set, side, newHits);
+			finish(g, win, newHits);
+			return new Dimension(w, h);
+		});
 	}
 
 	/** The task's monster, the picked setup and its numbers. */

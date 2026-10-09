@@ -51,6 +51,10 @@ public final class ErrorReporter {
 
 	public static final String LEVEL_ERROR = "error";
 	public static final String LEVEL_WARN = "warn";
+	/** The {@link FreezeWatchdog} saw our code block the client thread. */
+	public static final String LEVEL_FREEZE = "freeze";
+	/** A fatal error or freeze from an earlier session that may have ended the client ({@link IncidentStore}). */
+	public static final String LEVEL_FATAL = "fatal";
 
 	private static final Pattern NUMBERS = Pattern.compile("\\d+");
 
@@ -166,12 +170,62 @@ public final class ErrorReporter {
 			"Could not read the website's " + label + " response: " + error, null, "sync", context);
 	}
 
+	/**
+	 * An exception the {@link Guard} caught in a feature (reported here, not through the log appender,
+	 * so it is counted once).
+	 */
+	public void reportCaught(String feature, Throwable thrown) {
+		if (thrown == null || !isEnabled()) {
+			return;
+		}
+		Map<String, Object> context = new LinkedHashMap<>();
+		context.put("guard", feature);
+		context.put("thread", Thread.currentThread().getName());
+		add(fingerprint(thrown), LEVEL_ERROR, thrown.toString(), filterStack(thrown), feature, context);
+	}
+
+	/** Our code blocked the client thread for {@code elapsedMs}; {@code stack} is the client thread's. */
+	public void reportFreeze(String feature, long elapsedMs, StackTraceElement[] stack) {
+		if (!isEnabled()) {
+			return;
+		}
+		Throwable where = new Throwable("Client thread blocked by " + feature);
+		where.setStackTrace(stack == null ? new StackTraceElement[0] : stack);
+		Map<String, Object> context = new LinkedHashMap<>();
+		context.put("guard", feature);
+		context.put("elapsed_ms", elapsedMs);
+		StringBuilder fp = new StringBuilder("freeze|").append(feature);
+		for (String frame : ourFrames(where, FINGERPRINT_FRAMES)) {
+			fp.append('|').append(frame);
+		}
+		add(hash(fp.toString()), LEVEL_FREEZE, "The client froze for " + elapsedMs + " ms in " + feature,
+			filterStack(where), feature, context);
+	}
+
+	/** A fatal error or freeze an earlier session persisted, maybe its last act (see {@link IncidentStore}). */
+	public void reportPreviousSession(String kind, String feature, String message, String stack, long occurredMs) {
+		if (!isEnabled()) {
+			return;
+		}
+		Map<String, Object> context = new LinkedHashMap<>();
+		context.put("guard", feature);
+		context.put("kind", kind);
+		context.put("previous_session", true);
+		add(hash("fatal|" + kind + "|" + feature + "|" + normalize(message)), LEVEL_FATAL,
+			message == null ? kind + " in " + feature : message, stack, feature, context, occurredMs);
+	}
+
 	static boolean isErrorReport(String label, String path) {
 		return "errors".equals(label) || (path != null && path.contains("/api/runelite/errors"));
 	}
 
-	private synchronized void add(String fp, String level, String message, String stack, String feature,
+	private void add(String fp, String level, String message, String stack, String feature,
 		Map<String, Object> context) {
+		add(fp, level, message, stack, feature, context, clockMs.getAsLong());
+	}
+
+	private synchronized void add(String fp, String level, String message, String stack, String feature,
+		Map<String, Object> context, long occurredMs) {
 		String who = currentPlayer();
 		if (!seenFingerprints.contains(fp)) {
 			if (seenFingerprints.size() >= MAX_DISTINCT_PER_SESSION) {
@@ -183,7 +237,7 @@ public final class ErrorReporter {
 		Pending p = pending.get(key);
 		if (p == null) {
 			p = new Pending(who, fp, level, truncate(message, MAX_MESSAGE), truncate(stack, MAX_STACK),
-				truncate(feature, MAX_FEATURE), boundedContext(context), clockMs.getAsLong());
+				truncate(feature, MAX_FEATURE), boundedContext(context), occurredMs);
 			pending.put(key, p);
 		}
 		p.count++;

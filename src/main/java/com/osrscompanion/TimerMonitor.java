@@ -36,6 +36,9 @@ import com.osrscompanion.runelite.hunter.BirdHouseSpace;
 
 @Slf4j
 public class TimerMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "timers-sync";
+
 	private static final int INITIAL_DELAY_SECONDS = 10;
 	private static final int SYNC_INTERVAL_SECONDS = 45;
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 3;
@@ -136,13 +139,15 @@ public class TimerMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			log.debug("Player logged in, scheduling timer sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
-			lastSentSnapshot = null;
-			executorService.schedule(this::sync, LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				log.debug("Player logged in, scheduling timer sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
+				lastSentSnapshot = null;
+				executorService.schedule(this::sync, LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+			}
+			previousGameState = newState;
+		});
 	}
 
 	/**

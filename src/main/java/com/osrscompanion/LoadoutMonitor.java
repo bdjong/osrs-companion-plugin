@@ -31,6 +31,9 @@ import net.runelite.client.game.ItemManager;
 @Slf4j
 @Singleton
 public class LoadoutMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "loadout-sync";
+
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 3;
 	private static final int EQUIPMENT_CHANGE_DEBOUNCE_SECONDS = 15;
 	private static final int EMPTY_SLOT_ID = -1;
@@ -78,6 +81,7 @@ public class LoadoutMonitor {
 			ConfigManager configManager,
 			ItemManager itemManager,
 			Gson gson) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -111,41 +115,45 @@ public class LoadoutMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		if (!config.syncLoadouts()) {
-			return;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!config.syncLoadouts()) {
+				return;
+			}
 
-		GameState newState = event.getGameState();
+			GameState newState = event.getGameState();
 
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			log.debug("Player logged in, scheduling loadout sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
-			executorService.schedule(() -> clientThread.invokeLater(this::syncLoadouts),
-					LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-		} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-			log.debug("Player logged out, syncing loadouts immediately");
-			syncLoadouts();
-		}
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				log.debug("Player logged in, scheduling loadout sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
+				executorService.schedule(() -> clientThread.invokeLater(this::syncLoadouts),
+						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
+				log.debug("Player logged out, syncing loadouts immediately");
+				syncLoadouts();
+			}
 
-		previousGameState = newState;
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		int containerId = event.getContainerId();
-		if (containerId != InventoryID.WORN && containerId != InventoryID.INV) {
-			return;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			int containerId = event.getContainerId();
+			if (containerId != InventoryID.WORN && containerId != InventoryID.INV) {
+				return;
+			}
 
-		if (!config.syncLoadouts()) {
-			return;
-		}
+			if (!config.syncLoadouts()) {
+				return;
+			}
 
-		if (debounceFuture != null) {
-			debounceFuture.cancel(false);
-		}
-		log.debug("Equipment/inventory changed, scheduling loadout sync in {}s", EQUIPMENT_CHANGE_DEBOUNCE_SECONDS);
-		debounceFuture = executorService.schedule(() -> clientThread.invokeLater(this::syncLoadouts),
-				EQUIPMENT_CHANGE_DEBOUNCE_SECONDS, TimeUnit.SECONDS);
+			if (debounceFuture != null) {
+				debounceFuture.cancel(false);
+			}
+			log.debug("Equipment/inventory changed, scheduling loadout sync in {}s", EQUIPMENT_CHANGE_DEBOUNCE_SECONDS);
+			debounceFuture = executorService.schedule(() -> clientThread.invokeLater(this::syncLoadouts),
+					EQUIPMENT_CHANGE_DEBOUNCE_SECONDS, TimeUnit.SECONDS);
+		});
 	}
 
 	/**

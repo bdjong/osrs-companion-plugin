@@ -6,13 +6,14 @@ import java.io.InputStream;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.util.ImageUtil;
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -23,33 +24,40 @@ import okhttp3.Response;
  * and the like), scaled to overlay icon size. Only images on the hardcoded
  * {@link #WIKI_HOST} are fetched; any other URL the server sends is ignored,
  * so the plugin never contacts a host taken from a server response. Images are
- * fetched once per URL on the background executor; until one arrives
+ * fetched once per URL, asynchronously; until one arrives
  * {@link #get} returns null and the overlay simply draws no icon. Failed URLs
  * are not retried for the rest of the session.
  */
 @Slf4j
 @Singleton
 public class GoalImageCache {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "goal-images";
+
 	/** Icons are scaled to fit this square, matching RuneLite's item sprites. */
 	static final int ICON_SIZE = 32;
 	private static final int FETCH_TIMEOUT_SECONDS = 10;
+	/** At most this many icons (and failed URLs) are kept, so a long session's memory stays bounded. */
+	static final int MAX_IMAGES = 512;
+	/** At most this many fetches at once. */
+	static final int MAX_PENDING = 16;
 	/** The only host goal images are fetched from. */
 	static final String WIKI_HOST = "oldschool.runescape.wiki";
 	private static final String WIKI_IMAGE_PATH = "/images/";
 
 	private final OkHttpClient httpClient;
-	private final ScheduledExecutorService executorService;
 
 	private final Map<String, BufferedImage> images = new ConcurrentHashMap<>();
 	private final Set<String> pending = ConcurrentHashMap.newKeySet();
 	private final Set<String> failed = ConcurrentHashMap.newKeySet();
 
 	@Inject
-	public GoalImageCache(OkHttpClient okHttpClient, ScheduledExecutorService executorService) {
+	public GoalImageCache(OkHttpClient okHttpClient) {
 		this.httpClient = okHttpClient.newBuilder()
+				.connectTimeout(FETCH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+				.readTimeout(FETCH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 				.callTimeout(FETCH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 				.build();
-		this.executorService = executorService;
 	}
 
 	/**
@@ -64,8 +72,11 @@ public class GoalImageCache {
 		if (cached != null) {
 			return cached;
 		}
+		if (images.size() >= MAX_IMAGES || failed.size() >= MAX_IMAGES || pending.size() >= MAX_PENDING) {
+			return null;
+		}
 		if (!failed.contains(url) && pending.add(url)) {
-			executorService.execute(() -> fetch(url));
+			fetch(url);
 		}
 		return null;
 	}
@@ -86,24 +97,49 @@ public class GoalImageCache {
 		failed.clear();
 	}
 
+	/**
+	 * Fetches asynchronously (OkHttp's own threads): never blocks the caller, which may be the client
+	 * thread rendering, nor RuneLite's shared executor (one thread for every plugin).
+	 */
 	private void fetch(String url) {
+		Request request;
 		try {
-			Request request = new Request.Builder().url(url).get().build();
-			try (Response response = httpClient.newCall(request).execute()) {
-				if (!response.isSuccessful() || response.body() == null) {
-					log.debug("Goal image fetch failed ({}): {}", response.code(), url);
+			request = new Request.Builder().url(url).get().build();
+		} catch (RuntimeException e) {
+			failed.add(url);
+			pending.remove(url);
+			return;
+		}
+		httpClient.newCall(request).enqueue(new Callback() {
+			@Override
+			public void onFailure(Call call, IOException e) {
+				log.debug("Goal image fetch error for {}: {}", url, e.toString());
+				failed.add(url);
+				pending.remove(url);
+			}
+
+			@Override
+			public void onResponse(Call call, Response response) {
+				Guard.run(GUARD_FEATURE, () -> read(url, response));
+			}
+		});
+	}
+
+	private void read(String url, Response response) {
+		try (Response r = response) {
+			if (!r.isSuccessful() || r.body() == null) {
+				log.debug("Goal image fetch failed ({}): {}", r.code(), url);
+				failed.add(url);
+				return;
+			}
+			try (InputStream in = r.body().byteStream()) {
+				BufferedImage image = ImageIO.read(in);
+				if (image == null) {
+					log.debug("Goal image not decodable: {}", url);
 					failed.add(url);
 					return;
 				}
-				try (InputStream in = response.body().byteStream()) {
-					BufferedImage image = ImageIO.read(in);
-					if (image == null) {
-						log.debug("Goal image not decodable: {}", url);
-						failed.add(url);
-						return;
-					}
-					images.put(url, fit(image));
-				}
+				images.put(url, fit(image));
 			}
 		} catch (IOException | RuntimeException e) {
 			log.debug("Goal image fetch error for {}: {}", url, e.toString());

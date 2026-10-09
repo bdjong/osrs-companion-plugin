@@ -39,6 +39,9 @@ import net.runelite.client.game.ItemManager;
 @Slf4j
 @Singleton
 public class BankMemoryMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "bank-sync";
+
 	static final String SOURCE_BANK = "bank";
 	static final String SOURCE_INVENTORY = "inventory";
 
@@ -64,6 +67,7 @@ public class BankMemoryMonitor {
 			ItemManager itemManager,
 			Gson gson,
 			ScheduledExecutorService executor) {
+		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.itemManager = itemManager;
@@ -92,16 +96,20 @@ public class BankMemoryMonitor {
 	/** Deposit boxes (and the bank boat) open this interface instead of the bank. */
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
-			deposits.onDepositInterface(true);
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
+				deposits.onDepositInterface(true);
+			}
+		});
 	}
 
 	@Subscribe
 	public void onWidgetClosed(WidgetClosed event) {
-		if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
-			deposits.onDepositInterface(false);
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
+				deposits.onDepositInterface(false);
+			}
+		});
 	}
 
 
@@ -147,16 +155,18 @@ public class BankMemoryMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (SyncGuard.isLogout(previousGameState, newState)) {
-			// A final sync, always: whatever changed since the last upload was
-			// captured while logged in. Do not re-read the client here: the
-			// player name is already gone and the containers may read empty.
-			syncer.flushPending();
-			deposits.resetSession();
-			lastCarried = new LinkedHashMap<>();
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (SyncGuard.isLogout(previousGameState, newState)) {
+				// A final sync, always: whatever changed since the last upload was
+				// captured while logged in. Do not re-read the client here: the
+				// player name is already gone and the containers may read empty.
+				syncer.flushPending();
+				deposits.resetSession();
+				lastCarried = new LinkedHashMap<>();
+			}
+			previousGameState = newState;
+		});
 	}
 
 	public void stop() {
@@ -166,11 +176,13 @@ public class BankMemoryMonitor {
 	/** Bank, inventory and worn-gear changes all feed the same debounced upload. */
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		int id = event.getContainerId();
-		if (id != InventoryID.BANK && id != InventoryID.INV && id != InventoryID.WORN) {
-			return;
-		}
-		push(true, false);
+		Guard.run(GUARD_FEATURE, () -> {
+			int id = event.getContainerId();
+			if (id != InventoryID.BANK && id != InventoryID.INV && id != InventoryID.WORN) {
+				return;
+			}
+			push(true, false);
+		});
 	}
 
 	/**

@@ -35,6 +35,9 @@ import net.runelite.client.ui.overlay.components.SplitComponent;
  * nothing when disabled, no app key, or no incomplete goal is available.
  */
 public class NextGoalOverlay extends OverlayPanel {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "next-goal-overlay";
+
 	private static final Color TITLE_COLOR = new Color(0xF2, 0x8C, 0x28); // OSRS Companion orange
 	private static final Color MUTED_COLOR = new Color(0xA5, 0xA5, 0xA5);
 	/** Shown under goals only the server can move while a re-read is pending. */
@@ -80,105 +83,107 @@ public class NextGoalOverlay extends OverlayPanel {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		if (!config.showNextGoal() || !roadmapManager.hasAppKey()) {
-			return null;
-		}
+		return Guard.render(GUARD_FEATURE, () -> {
+			if (!config.showNextGoal() || !roadmapManager.hasAppKey()) {
+				return null;
+			}
 
-		Roadmap roadmap = roadmapManager.getCurrentRoadmap();
-		if (roadmap == null) {
-			return null;
-		}
-		// The tracker's view includes goals completed locally this session, so
-		// the overlay advances the moment a goal is done rather than after the
-		// next server read.
-		RoadmapGoal goal = goalProgressTracker.firstIncompleteGoal(roadmap);
-		if (goal == null || goal.getName() == null) {
-			return null;
-		}
-		GoalProgressBarComponent bar = config.showGoalProgress()
-				? barFor(goalProgressTracker.progressFor(goal))
-				: null;
+			Roadmap roadmap = roadmapManager.getCurrentRoadmap();
+			if (roadmap == null) {
+				return null;
+			}
+			// The tracker's view includes goals completed locally this session, so
+			// the overlay advances the moment a goal is done rather than after the
+			// next server read.
+			RoadmapGoal goal = goalProgressTracker.firstIncompleteGoal(roadmap);
+			if (goal == null || goal.getName() == null) {
+				return null;
+			}
+			GoalProgressBarComponent bar = config.showGoalProgress()
+					? barFor(goalProgressTracker.progressFor(goal))
+					: null;
 
-		String title = roadmap.getTitle();
-		String header = (title == null || title.isEmpty())
-				? "Current Goal"
-				: title + " - Current Goal";
-		String goalName = goal.getName();
-		BufferedImage icon = iconFor(goal);
-		int iconWidth = icon != null ? icon.getWidth() : 0;
+			String title = roadmap.getTitle();
+			String header = (title == null || title.isEmpty())
+					? "Current Goal"
+					: title + " - Current Goal";
+			String goalName = goal.getName();
+			BufferedImage icon = iconFor(goal);
+			int iconWidth = icon != null ? icon.getWidth() : 0;
 
-		// Word-wrap both lines so long content flows onto multiple lines instead
-		// of spilling past the background box. The goal name sits to the right of
-		// the icon, so it wraps in the narrower space left beside it.
-		FontMetrics metrics = graphics.getFontMetrics();
-		List<String> titleLines = wrapText(header, MAX_TEXT_WIDTH, metrics);
-		int contentMax = MAX_TEXT_WIDTH - (icon != null ? iconWidth + ICON_GAP : 0);
-		List<String> goalLines = wrapText(goalName, contentMax, metrics);
+			// Word-wrap both lines so long content flows onto multiple lines instead
+			// of spilling past the background box. The goal name sits to the right of
+			// the icon, so it wraps in the narrower space left beside it.
+			FontMetrics metrics = graphics.getFontMetrics();
+			List<String> titleLines = wrapText(header, MAX_TEXT_WIDTH, metrics);
+			int contentMax = MAX_TEXT_WIDTH - (icon != null ? iconWidth + ICON_GAP : 0);
+			List<String> goalLines = wrapText(goalName, contentMax, metrics);
 
-		// Size the panel to the actual widest rendered line (left-aligned). The
-		// whole goal-text block sits to the right of the icon, so its width is the
-		// widest goal line plus the icon column.
-		int widest = 0;
-		for (String line : titleLines) {
-			widest = Math.max(widest, metrics.stringWidth(line));
-		}
-		int goalTextWidth = 0;
-		for (String line : goalLines) {
-			goalTextWidth = Math.max(goalTextWidth, metrics.stringWidth(line));
-		}
-		int goalBlockWidth = goalTextWidth + (icon != null ? iconWidth + ICON_GAP : 0);
-		widest = Math.max(widest, goalBlockWidth);
-		if (bar != null) {
-			widest = Math.max(widest, bar.minWidth(metrics));
-		}
+			// Size the panel to the actual widest rendered line (left-aligned). The
+			// whole goal-text block sits to the right of the icon, so its width is the
+			// widest goal line plus the icon column.
+			int widest = 0;
+			for (String line : titleLines) {
+				widest = Math.max(widest, metrics.stringWidth(line));
+			}
+			int goalTextWidth = 0;
+			for (String line : goalLines) {
+				goalTextWidth = Math.max(goalTextWidth, metrics.stringWidth(line));
+			}
+			int goalBlockWidth = goalTextWidth + (icon != null ? iconWidth + ICON_GAP : 0);
+			widest = Math.max(widest, goalBlockWidth);
+			if (bar != null) {
+				widest = Math.max(widest, bar.minWidth(metrics));
+			}
 
-		panelComponent.getChildren().clear();
-		panelComponent.setPreferredSize(
-				new Dimension(Math.max(MIN_WIDTH, widest + WIDTH_PADDING), 0));
-
-		// Title: left-aligned orange line(s).
-		for (String line : titleLines) {
-			panelComponent.getChildren().add(LineComponent.builder()
-					.left(line)
-					.leftColor(TITLE_COLOR)
-					.build());
-		}
-		// Breathing room between the title and the goal content below it.
-		panelComponent.getChildren().add(new ImageComponent(TITLE_CONTENT_SPACER));
-
-		// Goal name: the icon sits beside the whole (possibly multi-line) goal
-		// text, so wrapped lines like "from drops" align under the first line's
-		// text rather than dropping under the icon.
-		LayoutableRenderableEntity goalBlock = stackLines(goalLines);
-		if (icon != null) {
-			goalBlock = SplitComponent.builder()
-					.first(new ImageComponent(icon))
-					.second(goalBlock)
-					.orientation(ComponentOrientation.HORIZONTAL)
-					.gap(new Point(ICON_GAP, 0))
-					.build();
-		}
-		panelComponent.getChildren().add(goalBlock);
-
-		// Progress bar + "current / target" label for measurable goals.
-		if (bar != null) {
-			panelComponent.getChildren().add(bar);
-		}
-
-		// Server-driven goals (net worth, Tears of Guthix) only move on a server
-		// read: say so while one is pending so the wait is not mistaken for a stall.
-		if (goal.getType().isServerDriven() && roadmapManager.isSyncing()) {
-			panelComponent.getChildren().add(new ImageComponent(TITLE_CONTENT_SPACER));
-			panelComponent.getChildren().add(LineComponent.builder()
-					.left(SYNCING_TEXT)
-					.leftColor(MUTED_COLOR)
-					.build());
-			widest = Math.max(widest, metrics.stringWidth(SYNCING_TEXT));
+			panelComponent.getChildren().clear();
 			panelComponent.setPreferredSize(
 					new Dimension(Math.max(MIN_WIDTH, widest + WIDTH_PADDING), 0));
-		}
 
-		return super.render(graphics);
+			// Title: left-aligned orange line(s).
+			for (String line : titleLines) {
+				panelComponent.getChildren().add(LineComponent.builder()
+						.left(line)
+						.leftColor(TITLE_COLOR)
+						.build());
+			}
+			// Breathing room between the title and the goal content below it.
+			panelComponent.getChildren().add(new ImageComponent(TITLE_CONTENT_SPACER));
+
+			// Goal name: the icon sits beside the whole (possibly multi-line) goal
+			// text, so wrapped lines like "from drops" align under the first line's
+			// text rather than dropping under the icon.
+			LayoutableRenderableEntity goalBlock = stackLines(goalLines);
+			if (icon != null) {
+				goalBlock = SplitComponent.builder()
+						.first(new ImageComponent(icon))
+						.second(goalBlock)
+						.orientation(ComponentOrientation.HORIZONTAL)
+						.gap(new Point(ICON_GAP, 0))
+						.build();
+			}
+			panelComponent.getChildren().add(goalBlock);
+
+			// Progress bar + "current / target" label for measurable goals.
+			if (bar != null) {
+				panelComponent.getChildren().add(bar);
+			}
+
+			// Server-driven goals (net worth, Tears of Guthix) only move on a server
+			// read: say so while one is pending so the wait is not mistaken for a stall.
+			if (goal.getType().isServerDriven() && roadmapManager.isSyncing()) {
+				panelComponent.getChildren().add(new ImageComponent(TITLE_CONTENT_SPACER));
+				panelComponent.getChildren().add(LineComponent.builder()
+						.left(SYNCING_TEXT)
+						.leftColor(MUTED_COLOR)
+						.build());
+				widest = Math.max(widest, metrics.stringWidth(SYNCING_TEXT));
+				panelComponent.setPreferredSize(
+						new Dimension(Math.max(MIN_WIDTH, widest + WIDTH_PADDING), 0));
+			}
+
+			return super.render(graphics);
+		});
 	}
 
 	/** The bar for a measurable goal, or null for binary goals (no bar). */

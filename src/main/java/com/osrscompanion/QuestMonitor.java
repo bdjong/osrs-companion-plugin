@@ -60,6 +60,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class QuestMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "quest-sync";
+
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 3;
 	// Minimum ticks between varp-driven reads, so continuous varp churn during play
 	// doesn't re-read every quest every tick. A quest completion still syncs within
@@ -102,6 +105,7 @@ public class QuestMonitor {
 			OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executorService,
 			Gson gson) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -155,20 +159,22 @@ public class QuestMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			// Quest varps load shortly after LOGGED_IN, so wait before reading.
-			executorService.schedule(() -> clientThread.invokeLater(this::syncQuests),
-					LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-		} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-			// Logging out: flush final state (this handler runs on the client thread).
-			syncQuests();
-		}
-		if (newState == GameState.LOGIN_SCREEN) {
-			// Scroll completions belong to the account that was logged in.
-			completedFromScroll.clear();
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				// Quest varps load shortly after LOGGED_IN, so wait before reading.
+				executorService.schedule(() -> clientThread.invokeLater(this::syncQuests),
+						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
+				// Logging out: flush final state (this handler runs on the client thread).
+				syncQuests();
+			}
+			if (newState == GameState.LOGIN_SCREEN) {
+				// Scroll completions belong to the account that was logged in.
+				completedFromScroll.clear();
+			}
+			previousGameState = newState;
+		});
 	}
 
 	/**
@@ -179,48 +185,56 @@ public class QuestMonitor {
 	 */
 	@Subscribe
 	public void onScriptCallbackEvent(ScriptCallbackEvent event) {
-		if (!"questFilter".equals(event.getEventName())) {
-			return;
-		}
-		int[] intStack = client.getIntStack();
-		int size = client.getIntStackSize();
-		if (size < 1) {
-			return;
-		}
-		if (questRows.add(intStack[size - 1])) {
-			questCheckPending = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!"questFilter".equals(event.getEventName())) {
+				return;
+			}
+			int[] intStack = client.getIntStack();
+			int size = client.getIntStackSize();
+			if (size < 1) {
+				return;
+			}
+			if (questRows.add(intStack[size - 1])) {
+				questCheckPending = true;
+			}
+		});
 	}
 
 	/** The quest-complete scroll opened; read its title once its text is set. */
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.QUESTSCROLL) {
-			questScrollPending = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.QUESTSCROLL) {
+				questScrollPending = true;
+			}
+		});
 	}
 
 	/** A quest state change flips a varp; mark a re-check for the next game tick. */
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		questCheckPending = true;
+		Guard.run(GUARD_FEATURE, () -> {
+			questCheckPending = true;
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (questScrollPending) {
-			questScrollPending = false;
-			readQuestScroll();
-		}
-		if (!questCheckPending) {
-			return;
-		}
-		if (lastReadTick != -1 && client.getTickCount() - lastReadTick < RESYNC_THROTTLE_TICKS) {
-			return;
-		}
-		questCheckPending = false;
-		lastReadTick = client.getTickCount();
-		syncQuests();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (questScrollPending) {
+				questScrollPending = false;
+				readQuestScroll();
+			}
+			if (!questCheckPending) {
+				return;
+			}
+			if (lastReadTick != -1 && client.getTickCount() - lastReadTick < RESYNC_THROTTLE_TICKS) {
+				return;
+			}
+			questCheckPending = false;
+			lastReadTick = client.getTickCount();
+			syncQuests();
+		});
 	}
 
 	/** Reads the quest name off the quest-complete scroll and syncs it as completed. */

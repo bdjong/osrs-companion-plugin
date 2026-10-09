@@ -37,6 +37,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class KillCountMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "kill-count-sync";
+
 	private static final String KILLCOUNT_GROUP = "killcount";
 	// The RSProfile is set a little after LOGGED_IN, so wait before the first read.
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 5;
@@ -66,6 +69,7 @@ public class KillCountMonitor {
 			ConfigManager configManager,
 			ScheduledExecutorService executorService,
 			Gson gson) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -110,37 +114,43 @@ public class KillCountMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			// The RSProfile the kill counts live under is resolved shortly after login.
-			executorService.schedule(() -> clientThread.invokeLater(this::syncKillCounts),
-					LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-		} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-			// Logging out: flush final state (this handler runs on the client thread).
-			syncKillCounts();
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				// The RSProfile the kill counts live under is resolved shortly after login.
+				executorService.schedule(() -> clientThread.invokeLater(this::syncKillCounts),
+						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
+				// Logging out: flush final state (this handler runs on the client thread).
+				syncKillCounts();
+			}
+			previousGameState = newState;
+		});
 	}
 
 	/** RuneLite rewrites a killcount config key on each kill; mark a re-check. */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
-		if (KILLCOUNT_GROUP.equals(event.getGroup())) {
-			kcCheckPending = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (KILLCOUNT_GROUP.equals(event.getGroup())) {
+				kcCheckPending = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (!kcCheckPending) {
-			return;
-		}
-		if (lastReadTick != -1 && client.getTickCount() - lastReadTick < RESYNC_THROTTLE_TICKS) {
-			return;
-		}
-		kcCheckPending = false;
-		lastReadTick = client.getTickCount();
-		syncKillCounts();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!kcCheckPending) {
+				return;
+			}
+			if (lastReadTick != -1 && client.getTickCount() - lastReadTick < RESYNC_THROTTLE_TICKS) {
+				return;
+			}
+			kcCheckPending = false;
+			lastReadTick = client.getTickCount();
+			syncKillCounts();
+		});
 	}
 
 	/** Reads RuneLite's stored kill counts, builds the payload, and syncs (deduped). */

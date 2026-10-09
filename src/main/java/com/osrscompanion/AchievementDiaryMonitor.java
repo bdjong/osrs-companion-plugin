@@ -38,6 +38,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class AchievementDiaryMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "diary-sync";
+
 	private final Client client;
 	private final ClientThread clientThread;
 	private final OSRSCompanionConfig config;
@@ -110,32 +113,38 @@ public class AchievementDiaryMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		boolean wasLoggedIn = previousGameState == GameState.LOGGED_IN;
-		boolean nowLoggedIn = newState == GameState.LOGGED_IN;
-		if (wasLoggedIn && !nowLoggedIn) {
-			// Logging out: the client varps still hold this player's fully-loaded values, so
-			// flush the final state (this handler runs on the client thread) — but only if
-			// the session ever produced a trustworthy baseline read.
-			if (trigger.leaveAndShouldFlush()) {
-				syncDiaries();
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			boolean wasLoggedIn = previousGameState == GameState.LOGGED_IN;
+			boolean nowLoggedIn = newState == GameState.LOGGED_IN;
+			if (wasLoggedIn && !nowLoggedIn) {
+				// Logging out: the client varps still hold this player's fully-loaded values, so
+				// flush the final state (this handler runs on the client thread) — but only if
+				// the session ever produced a trustworthy baseline read.
+				if (trigger.leaveAndShouldFlush()) {
+					syncDiaries();
+				}
 			}
-		}
-		previousGameState = newState;
+			previousGameState = newState;
+		});
 	}
 
 	/** A diary task completion flips a varp; request a resync (honoured after the baseline). */
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		trigger.varbitChanged();
+		Guard.run(GUARD_FEATURE, () -> {
+			trigger.varbitChanged();
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
-		if (trigger.tick(client.getTickCount(), loggedIn) == DiarySyncTrigger.Decision.SYNC) {
-			syncDiaries();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
+			if (trigger.tick(client.getTickCount(), loggedIn) == DiarySyncTrigger.Decision.SYNC) {
+				syncDiaries();
+			}
+		});
 	}
 
 	/** Reads all diary completion, builds the payload, and syncs (deduped). Client thread only. */

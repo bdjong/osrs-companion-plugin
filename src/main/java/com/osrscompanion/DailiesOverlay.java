@@ -26,6 +26,9 @@ import net.runelite.client.ui.overlay.components.SplitComponent;
  * unlocks, where to go, who to talk to and the option, what to bring, and how it gets ticked off.
  */
 public class DailiesOverlay extends OverlayPanel {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "dailies-overlay";
+
 	static final Color TITLE_COLOR = new Color(0xF4, 0x72, 0xB6);
 	private static final int WIDTH = 220;
 	private static final int ICON_GAP = 6;
@@ -46,58 +49,60 @@ public class DailiesOverlay extends OverlayPanel {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		DailiesManager.Entry e = config.showDailiesGuide() ? manager.current() : null;
-		if (e == null) {
-			return null;
-		}
-		FontMetrics fm = graphics.getFontMetrics();
-		int textWidth = WIDTH - 14;
-		panelComponent.getChildren().clear();
+		return Guard.render(GUARD_FEATURE, () -> {
+			DailiesManager.Entry e = config.showDailiesGuide() ? manager.current() : null;
+			if (e == null) {
+				return null;
+			}
+			FontMetrics fm = graphics.getFontMetrics();
+			int textWidth = WIDTH - 14;
+			panelComponent.getChildren().clear();
 
-		List<DailiesManager.Entry> all = manager.entries();
-		int open = 0;
-		int done = 0;
-		for (DailiesManager.Entry x : all) {
-			open += x.state == State.OPEN ? 1 : 0;
-			done += x.state == State.DONE ? 1 : 0;
-		}
-		panelComponent.getChildren().add(LineComponent.builder().left("Dailies").leftColor(TITLE_COLOR)
-			.right(done + "/" + (done + open) + " done").rightColor(FarmRunOverlay.MUTED_COLOR).build());
-		Dailies.Daily g = e.guide;
-		addIconLine(g == null ? null : g.getIcon(), e.name + (e.amount > 0 ? " (" + e.amount + ")" : ""), Color.WHITE, fm, textWidth);
-		if (g == null) {
-			line(manager.isLoading() ? "Loading the guide..." : manager.getError() != null ? manager.getError() : "Open the side panel to load the guide.",
-				FarmRunOverlay.MUTED_COLOR, fm, textWidth);
+			List<DailiesManager.Entry> all = manager.entries();
+			int open = 0;
+			int done = 0;
+			for (DailiesManager.Entry x : all) {
+				open += x.state == State.OPEN ? 1 : 0;
+				done += x.state == State.DONE ? 1 : 0;
+			}
+			panelComponent.getChildren().add(LineComponent.builder().left("Dailies").leftColor(TITLE_COLOR)
+				.right(done + "/" + (done + open) + " done").rightColor(FarmRunOverlay.MUTED_COLOR).build());
+			Dailies.Daily g = e.guide;
+			addIconLine(g == null ? null : g.getIcon(), e.name + (e.amount > 0 ? " (" + e.amount + ")" : ""), Color.WHITE, fm, textWidth);
+			if (g == null) {
+				line(manager.isLoading() ? "Loading the guide..." : manager.getError() != null ? manager.getError() : "Open the side panel to load the guide.",
+					FarmRunOverlay.MUTED_COLOR, fm, textWidth);
+				panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
+				return super.render(graphics);
+			}
+
+			FarmRoute.Travel travel = g.getTravel();
+			if (travel != null) {
+				String via = (travel.isWalk() ? "" : travel.isSpell() ? "Cast " : "Use ") + travel.getName() + (travel.isSpell() ? " (normal spellbook)" : "");
+				addIconLine(travel.getItems().isEmpty() ? null : travel.getItems().get(0), via, Color.CYAN, fm, textWidth);
+				line(travel.getHow(), FarmRunOverlay.MUTED_COLOR, fm, textWidth);
+			}
+			panelComponent.getChildren().add(new ImageComponent(SPACER));
+			line(g.getArea(), Color.WHITE, fm, textWidth);
+			if (g.getNpc() != null) {
+				line(g.getNpc() + ": " + g.getOption(), FarmRunOverlay.TODO_COLOR, fm, textWidth);
+			} else if (!g.getOption().isEmpty()) {
+				line(g.getOption(), FarmRunOverlay.TODO_COLOR, fm, textWidth);
+			}
+			for (String step : g.getSteps()) {
+				line(step, FarmRunOverlay.MUTED_COLOR, fm, textWidth);
+			}
+			for (Dailies.Bring b : g.getBring()) {
+				addIconLine(b.getItem(), "Bring: " + b.getText(), FarmRunOverlay.COMPOST_COLOR, fm, textWidth);
+			}
+			if (e.note != null) {
+				line(e.note, Color.YELLOW, fm, textWidth);
+			}
+			panelComponent.getChildren().add(new ImageComponent(SPACER));
+			line(e.tracked ? "Ticks off by itself once you have it." : "Tick it off in the side panel when done.", FarmRunOverlay.DONE_COLOR, fm, textWidth);
 			panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
 			return super.render(graphics);
-		}
-
-		FarmRoute.Travel travel = g.getTravel();
-		if (travel != null) {
-			String via = (travel.isWalk() ? "" : travel.isSpell() ? "Cast " : "Use ") + travel.getName() + (travel.isSpell() ? " (normal spellbook)" : "");
-			addIconLine(travel.getItems().isEmpty() ? null : travel.getItems().get(0), via, Color.CYAN, fm, textWidth);
-			line(travel.getHow(), FarmRunOverlay.MUTED_COLOR, fm, textWidth);
-		}
-		panelComponent.getChildren().add(new ImageComponent(SPACER));
-		line(g.getArea(), Color.WHITE, fm, textWidth);
-		if (g.getNpc() != null) {
-			line(g.getNpc() + ": " + g.getOption(), FarmRunOverlay.TODO_COLOR, fm, textWidth);
-		} else if (!g.getOption().isEmpty()) {
-			line(g.getOption(), FarmRunOverlay.TODO_COLOR, fm, textWidth);
-		}
-		for (String step : g.getSteps()) {
-			line(step, FarmRunOverlay.MUTED_COLOR, fm, textWidth);
-		}
-		for (Dailies.Bring b : g.getBring()) {
-			addIconLine(b.getItem(), "Bring: " + b.getText(), FarmRunOverlay.COMPOST_COLOR, fm, textWidth);
-		}
-		if (e.note != null) {
-			line(e.note, Color.YELLOW, fm, textWidth);
-		}
-		panelComponent.getChildren().add(new ImageComponent(SPACER));
-		line(e.tracked ? "Ticks off by itself once you have it." : "Tick it off in the side panel when done.", FarmRunOverlay.DONE_COLOR, fm, textWidth);
-		panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
-		return super.render(graphics);
+		});
 	}
 
 	private void line(String text, Color color, FontMetrics fm, int width) {

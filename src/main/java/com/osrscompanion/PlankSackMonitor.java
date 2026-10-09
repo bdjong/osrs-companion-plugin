@@ -29,6 +29,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class PlankSackMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "plank-sack-sync";
+
 	static final String SOURCE = "plank_sack";
 
 	/** Varbit to the plank item it counts. */
@@ -60,6 +63,7 @@ public class PlankSackMonitor {
 			OSRSCompanionApiClient apiClient,
 			Gson gson,
 			ScheduledExecutorService executor) {
+		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.syncer = new SourceSyncer(SOURCE, gson, executor,
 				() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
@@ -89,34 +93,40 @@ public class PlankSackMonitor {
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (PLANK_VARBITS.containsKey(event.getVarbitId())) {
-			dirty = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (PLANK_VARBITS.containsKey(event.getVarbitId())) {
+				dirty = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			dirty = true;
-		} else if (SyncGuard.isLogout(previousGameState, newState)) {
-			syncer.flushPending();
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				dirty = true;
+			} else if (SyncGuard.isLogout(previousGameState, newState)) {
+				syncer.flushPending();
+			}
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (!dirty) {
-			return;
-		}
-		dirty = false;
-		Map<Integer, Integer> contents = contents(client::getVarbitValue);
-		BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-		if (listener != null) {
-			listener.accept(SOURCE, contents);
-		}
-		syncer.submit(contents, false);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!dirty) {
+				return;
+			}
+			dirty = false;
+			Map<Integer, Integer> contents = contents(client::getVarbitValue);
+			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
+			if (listener != null) {
+				listener.accept(SOURCE, contents);
+			}
+			syncer.submit(contents, false);
+		});
 	}
 
 	/** Plank item id to count from the varbit values. */

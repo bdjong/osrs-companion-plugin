@@ -97,6 +97,11 @@ final class ErrorLogAppender extends AppenderBase<ILoggingEvent> {
 			if (loggerName.equals(ErrorReporter.class.getName()) || loggerName.equals(ErrorLogAppender.class.getName())) {
 				return false;
 			}
+			// The Guard and the watchdog report what they log straight to the ErrorReporter (with the
+			// feature and the right level): the log line must not be counted a second time.
+			if (loggerName.equals(Guard.class.getName()) || loggerName.equals(FreezeWatchdog.class.getName())) {
+				return false;
+			}
 			// The outbox's own send failures are network trouble (reported as dropped uploads instead) and
 			// may be the error reports themselves: only the callbacks it runs (other features' code) count.
 			if (loggerName.equals(OUTBOX_LOGGER)) {

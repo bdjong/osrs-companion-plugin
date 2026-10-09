@@ -40,6 +40,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class PotionStorageMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "potion-storage-sync";
+
 	private static final String SOURCE = "potion_storage";
 	private static final int MAX_DOSES = 4;
 
@@ -60,6 +63,7 @@ public class PotionStorageMonitor {
 			OSRSCompanionApiClient apiClient,
 			Gson gson,
 			ScheduledExecutorService executor) {
+		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.config = config;
 		this.syncer = new SourceSyncer(SOURCE, gson, executor,
@@ -82,42 +86,52 @@ public class PotionStorageMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (SyncGuard.isLogout(previousGameState, newState)) {
-			syncer.flushPending();
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (SyncGuard.isLogout(previousGameState, newState)) {
+				syncer.flushPending();
+			}
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN) {
-			needsRebuild = true;
-			readUntilTick = client.getTickCount() + 3;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN) {
+				needsRebuild = true;
+				readUntilTick = client.getTickCount() + 3;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (readUntilTick >= 0 && client.getTickCount() <= readUntilTick && client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null) {
-			needsRebuild = true;
-		} else {
-			readUntilTick = -1;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (readUntilTick >= 0 && client.getTickCount() <= readUntilTick && client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null) {
+				needsRebuild = true;
+			} else {
+				readUntilTick = -1;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (potionStoreVarps != null && potionStoreVarps.contains(event.getVarpId())) {
-			needsRebuild = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (potionStoreVarps != null && potionStoreVarps.contains(event.getVarpId())) {
+				needsRebuild = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onWidgetClosed(WidgetClosed event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN && event.isUnload()) {
-			potionStoreVarps = null;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN && event.isUnload()) {
+				potionStoreVarps = null;
+			}
+		});
 	}
 
 	/**
@@ -127,39 +141,41 @@ public class PotionStorageMonitor {
 	 */
 	@Subscribe
 	public void onClientTick(ClientTick event) {
-		if (!needsRebuild) {
-			return;
-		}
-		needsRebuild = false;
-
-		if (!config.syncBankMemory() || !SyncGuard.hasAppKey(config)) {
-			return;
-		}
-		if (GameModeUtil.isSpecialGameMode(client)) {
-			return;
-		}
-
-		// The varps that change with the storage (to re-read on a change), from its widget once the bank
-		// has built it. The storage is read either way: it needn't have been opened.
-		if (potionStoreVarps == null) {
-			Widget w = client.getWidget(InterfaceID.Bankmain.POTIONSTORE_ITEMS);
-			int[] triggers = w == null ? null : w.getVarTransmitTrigger();
-			if (triggers != null) {
-				potionStoreVarps = new HashSet<>();
-				Arrays.stream(triggers).forEach(potionStoreVarps::add);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!needsRebuild) {
+				return;
 			}
-		}
+			needsRebuild = false;
 
-		Map<Integer, Integer> quantities = new LinkedHashMap<>();
-		for (BankSyncPayload.BankItem item : collectPotionItems()) {
-			quantities.merge(item.getItemId(), item.getQuantity(), Integer::sum);
-		}
-		// Nothing read before the storage's varps are known may only mean they haven't arrived yet:
-		// never clear what the website has on that.
-		if (quantities.isEmpty() && potionStoreVarps == null) {
-			return;
-		}
-		syncer.submit(quantities, false);
+			if (!config.syncBankMemory() || !SyncGuard.hasAppKey(config)) {
+				return;
+			}
+			if (GameModeUtil.isSpecialGameMode(client)) {
+				return;
+			}
+
+			// The varps that change with the storage (to re-read on a change), from its widget once the bank
+			// has built it. The storage is read either way: it needn't have been opened.
+			if (potionStoreVarps == null) {
+				Widget w = client.getWidget(InterfaceID.Bankmain.POTIONSTORE_ITEMS);
+				int[] triggers = w == null ? null : w.getVarTransmitTrigger();
+				if (triggers != null) {
+					potionStoreVarps = new HashSet<>();
+					Arrays.stream(triggers).forEach(potionStoreVarps::add);
+				}
+			}
+
+			Map<Integer, Integer> quantities = new LinkedHashMap<>();
+			for (BankSyncPayload.BankItem item : collectPotionItems()) {
+				quantities.merge(item.getItemId(), item.getQuantity(), Integer::sum);
+			}
+			// Nothing read before the storage's varps are known may only mean they haven't arrived yet:
+			// never clear what the website has on that.
+			if (quantities.isEmpty() && potionStoreVarps == null) {
+				return;
+			}
+			syncer.submit(quantities, false);
+		});
 	}
 
 	/**

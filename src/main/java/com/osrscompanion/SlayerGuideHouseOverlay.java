@@ -25,6 +25,9 @@ import net.runelite.client.ui.overlay.outline.ModelOutlineRenderer;
  * first (its own scene overlay does the same for its stop). Client thread for the scan.
  */
 public class SlayerGuideHouseOverlay extends Overlay {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-guide-house";
+
 	private static final int SCAN_EVERY_TICKS = 2;
 
 	private final Client client;
@@ -49,43 +52,47 @@ public class SlayerGuideHouseOverlay extends Overlay {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		SlayerGuide.Location l = manager.getLocation();
-		FarmRoute.Travel travel = l == null ? null : l.getTravel();
-		if (!manager.isGuiding() || travel == null || farmRun.isRunning() || client.getGameState() != GameState.LOGGED_IN
-			|| FarmRunSceneOverlay.houseObjectNames(travel).isEmpty()) {
-			clear();
-			return;
-		}
-		if (++ticks % SCAN_EVERY_TICKS == 0 || houseObject == null) {
-			GameObject object = FarmRunSceneOverlay.findHouseObject(client, travel);
-			houseObject = object;
-			houseObjectName = object == null ? null : FarmRunSceneOverlay.objectName(client, object);
-		}
-		GameObject object = houseObject;
-		if (object == null) {
-			clearArrow();
-			return;
-		}
-		WorldPoint target = object.getWorldLocation();
-		if (!target.equals(arrowAt)) {
-			client.setHintArrow(target);
-			arrowAt = target;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			SlayerGuide.Location l = manager.getLocation();
+			FarmRoute.Travel travel = l == null ? null : l.getTravel();
+			if (!manager.isGuiding() || travel == null || farmRun.isRunning() || client.getGameState() != GameState.LOGGED_IN
+				|| FarmRunSceneOverlay.houseObjectNames(travel).isEmpty()) {
+				clear();
+				return;
+			}
+			if (++ticks % SCAN_EVERY_TICKS == 0 || houseObject == null) {
+				GameObject object = FarmRunSceneOverlay.findHouseObject(client, travel);
+				houseObject = object;
+				houseObjectName = object == null ? null : FarmRunSceneOverlay.objectName(client, object);
+			}
+			GameObject object = houseObject;
+			if (object == null) {
+				clearArrow();
+				return;
+			}
+			WorldPoint target = object.getWorldLocation();
+			if (!target.equals(arrowAt)) {
+				client.setHintArrow(target);
+				arrowAt = target;
+			}
+		});
 	}
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		GameObject object = houseObject;
-		if (object == null || !manager.isGuiding() || farmRun.isRunning()) {
+		return Guard.render(GUARD_FEATURE, () -> {
+			GameObject object = houseObject;
+			if (object == null || !manager.isGuiding() || farmRun.isRunning()) {
+				return null;
+			}
+			outlines.drawOutline(object, 3, FarmRunSceneOverlay.HOUSE_COLOR, 4);
+			String label = "Use: " + houseObjectName;
+			Point at = object.getCanvasTextLocation(graphics, label, 200);
+			if (at != null) {
+				OverlayUtil.renderTextLocation(graphics, at, label, FarmRunSceneOverlay.HOUSE_COLOR);
+			}
 			return null;
-		}
-		outlines.drawOutline(object, 3, FarmRunSceneOverlay.HOUSE_COLOR, 4);
-		String label = "Use: " + houseObjectName;
-		Point at = object.getCanvasTextLocation(graphics, label, 200);
-		if (at != null) {
-			OverlayUtil.renderTextLocation(graphics, at, label, FarmRunSceneOverlay.HOUSE_COLOR);
-		}
-		return null;
+		});
 	}
 
 	private void clearArrow() {

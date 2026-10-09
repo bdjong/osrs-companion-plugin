@@ -29,6 +29,9 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
  * mark with the reward's picture. Leaves the arrow to the farm run while one is going.
  */
 public class DailiesSceneOverlay extends Overlay {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "dailies-markers";
+
 	/** An NPC of the right name further than this from the daily's tile is someone else. */
 	static final int NPC_RADIUS = 20;
 	private static final Color NPC_COLOR = DailiesOverlay.TITLE_COLOR;
@@ -64,42 +67,44 @@ public class DailiesSceneOverlay extends Overlay {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		DailiesManager.Entry e = config.showDailiesGuide() && !farmRun.isRunning() ? manager.current() : null;
-		Dailies.Daily g = e == null ? null : e.guide;
-		if (g == null || client.getGameState() != GameState.LOGGED_IN || (g.getX() == 0 && g.getY() == 0)) {
-			npc = null;
-			clearPointers();
-			return;
-		}
-		WorldPoint tile = new WorldPoint(g.getX(), g.getY(), g.getPlane());
-		NPC found = findNpc(g.getNpc(), tile);
-		npc = found;
-		option = g.getOption();
-		if (found != null) {
-			if (found != arrowNpc) {
-				client.setHintArrow(found);
-				arrowNpc = found;
-				arrowPoint = null;
+		Guard.run(GUARD_FEATURE, () -> {
+			DailiesManager.Entry e = config.showDailiesGuide() && !farmRun.isRunning() ? manager.current() : null;
+			Dailies.Daily g = e == null ? null : e.guide;
+			if (g == null || client.getGameState() != GameState.LOGGED_IN || (g.getX() == 0 && g.getY() == 0)) {
+				npc = null;
+				clearPointers();
+				return;
 			}
-		} else if (!tile.equals(arrowPoint)) {
-			client.setHintArrow(tile);
-			arrowPoint = tile;
-			arrowNpc = null;
-		}
-		if (mapPoint == null || !g.getId().equals(mapFor)) {
-			if (mapPoint != null) {
-				worldMap.remove(mapPoint);
+			WorldPoint tile = new WorldPoint(g.getX(), g.getY(), g.getPlane());
+			NPC found = findNpc(g.getNpc(), tile);
+			npc = found;
+			option = g.getOption();
+			if (found != null) {
+				if (found != arrowNpc) {
+					client.setHintArrow(found);
+					arrowNpc = found;
+					arrowPoint = null;
+				}
+			} else if (!tile.equals(arrowPoint)) {
+				client.setHintArrow(tile);
+				arrowPoint = tile;
+				arrowNpc = null;
 			}
-			mapPoint = new WorldMapPoint(tile, pin(g.getIcon()));
-			mapPoint.setTooltip("Daily: " + g.getName());
-			// Click to centre the map on it; RuneLite wants a name for clickable points.
-			mapPoint.setName("Daily: " + g.getName());
-			mapPoint.setTarget(tile);
-			mapPoint.setSnapToEdge(true);
-			mapPoint.setJumpOnClick(true);
-			worldMap.add(mapPoint);
-			mapFor = g.getId();
-		}
+			if (mapPoint == null || !g.getId().equals(mapFor)) {
+				if (mapPoint != null) {
+					worldMap.remove(mapPoint);
+				}
+				mapPoint = new WorldMapPoint(tile, pin(g.getIcon()));
+				mapPoint.setTooltip("Daily: " + g.getName());
+				// Click to centre the map on it; RuneLite wants a name for clickable points.
+				mapPoint.setName("Daily: " + g.getName());
+				mapPoint.setTarget(tile);
+				mapPoint.setSnapToEdge(true);
+				mapPoint.setJumpOnClick(true);
+				worldMap.add(mapPoint);
+				mapFor = g.getId();
+			}
+		});
 	}
 
 	/** The daily's NPC in the loaded scene, near its tile. Client thread. */
@@ -135,17 +140,19 @@ public class DailiesSceneOverlay extends Overlay {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		NPC n = npc;
-		if (n == null || !manager.isRunning()) {
+		return Guard.render(GUARD_FEATURE, () -> {
+			NPC n = npc;
+			if (n == null || !manager.isRunning()) {
+				return null;
+			}
+			outlines.drawOutline(n, 3, NPC_COLOR, 4);
+			String label = option == null || option.isEmpty() ? n.getName() : option;
+			Point at = n.getCanvasTextLocation(graphics, label, n.getLogicalHeight() + 40);
+			if (at != null) {
+				OverlayUtil.renderTextLocation(graphics, at, label, NPC_COLOR);
+			}
 			return null;
-		}
-		outlines.drawOutline(n, 3, NPC_COLOR, 4);
-		String label = option == null || option.isEmpty() ? n.getName() : option;
-		Point at = n.getCanvasTextLocation(graphics, label, n.getLogicalHeight() + 40);
-		if (at != null) {
-			OverlayUtil.renderTextLocation(graphics, at, label, NPC_COLOR);
-		}
-		return null;
+		});
 	}
 
 	/** The reward's picture as the map mark (it fills in once loaded). */

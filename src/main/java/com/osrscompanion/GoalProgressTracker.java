@@ -36,6 +36,9 @@ import net.runelite.client.game.ItemManager;
 @Slf4j
 @Singleton
 public class GoalProgressTracker implements GoalProgressState.SyncHooks {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "goal-progress";
+
 	private final Client client;
 	private final ClientThread clientThread;
 	private final ItemManager itemManager;
@@ -81,32 +84,36 @@ public class GoalProgressTracker implements GoalProgressState.SyncHooks {
 
 	@Subscribe
 	public void onStatChanged(StatChanged event) {
-		state.onSkillXp(event.getSkill().getName(), event.getXp());
+		Guard.run(GUARD_FEATURE, () -> {
+			state.onSkillXp(event.getSkill().getName(), event.getXp());
+		});
 	}
 
 	/** Inventory and equipment changes keep owned-item goals exact between bank
 	 * visits: cutting or picking up raises them, dropping lowers them. */
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		boolean equipment;
-		if (event.getContainerId() == InventoryID.INV) {
-			equipment = false;
-		} else if (event.getContainerId() == InventoryID.WORN) {
-			equipment = true;
-		} else {
-			return;
-		}
-		ItemContainer container = event.getItemContainer();
-		Map<Integer, Integer> quantities = new HashMap<>();
-		if (container != null) {
-			for (Item item : container.getItems()) {
-				if (item == null || item.getId() <= 0 || item.getQuantity() <= 0) {
-					continue;
-				}
-				quantities.merge(canonicalItemId(item.getId()), item.getQuantity(), Integer::sum);
+		Guard.run(GUARD_FEATURE, () -> {
+			boolean equipment;
+			if (event.getContainerId() == InventoryID.INV) {
+				equipment = false;
+			} else if (event.getContainerId() == InventoryID.WORN) {
+				equipment = true;
+			} else {
+				return;
 			}
-		}
-		state.onInventoryChanged(equipment, quantities);
+			ItemContainer container = event.getItemContainer();
+			Map<Integer, Integer> quantities = new HashMap<>();
+			if (container != null) {
+				for (Item item : container.getItems()) {
+					if (item == null || item.getId() <= 0 || item.getQuantity() <= 0) {
+						continue;
+					}
+					quantities.merge(canonicalItemId(item.getId()), item.getQuantity(), Integer::sum);
+				}
+			}
+			state.onInventoryChanged(equipment, quantities);
+		});
 	}
 
 	/** A bank upload was built: its bank section (and any deposit-box deposits)
@@ -158,17 +165,21 @@ public class GoalProgressTracker implements GoalProgressState.SyncHooks {
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		state.settleOwned();
-		if (client.getTickCount() % FARMING_CHECK_TICKS == 0) {
-			state.checkFarming(System.currentTimeMillis());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			state.settleOwned();
+			if (client.getTickCount() % FARMING_CHECK_TICKS == 0) {
+				state.checkFarming(System.currentTimeMillis());
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		if (endsSession(event.getGameState())) {
-			state.resetSession();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (endsSession(event.getGameState())) {
+				state.resetSession();
+			}
+		});
 	}
 
 	/**

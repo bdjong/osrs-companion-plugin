@@ -40,6 +40,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class DailiesManager {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "dailies";
+
 	/** Re-read the guide at most this often while the panel or a run uses it. */
 	/** A backstop: website changes are picked up by the web version check ({@link WebVersionWatcher}). */
 	static final long REFRESH_INTERVAL_MS = 10 * 60_000;
@@ -91,50 +94,56 @@ public class DailiesManager {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState s = event.getGameState();
-		// Logging in again or hopping refreshes the claimed flags: today's are the real ones from then on.
-		if (s == GameState.LOGIN_SCREEN || s == GameState.HOPPING) {
-			loginDay = -1;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState s = event.getGameState();
+			// Logging in again or hopping refreshes the claimed flags: today's are the real ones from then on.
+			if (s == GameState.LOGIN_SCREEN || s == GameState.HOPPING) {
+				loginDay = -1;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (DailyChecks.WATCHED.contains(event.getVarbitId()) || event.getVarpId() == DailyChecks.NZONE_POINTS_VARP) {
-			trigger.varbitChanged();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (DailyChecks.WATCHED.contains(event.getVarbitId()) || event.getVarpId() == DailyChecks.NZONE_POINTS_VARP) {
+				trigger.varbitChanged();
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
-		long today = DailyReset.day(System.currentTimeMillis());
-		if (loggedIn) {
-			if (loginDay < 0) {
-				loginDay = today;
+		Guard.run(GUARD_FEATURE, () -> {
+			boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
+			long today = DailyReset.day(System.currentTimeMillis());
+			if (loggedIn) {
+				if (loginDay < 0) {
+					loginDay = today;
+				}
+				Player me = client.getLocalPlayer();
+				if (me != null && me.getWorldLocation() != null && KingdomMonitor.isKingdomRegion(me.getWorldLocation().getRegionID())
+					&& kingdomVisitDay != today) {
+					kingdomVisitDay = today;
+					trigger.varbitChanged();
+				}
+				// After 00:00 UTC: read again (the guide and the hand ticks of yesterday are stale too).
+				if (readDay >= 0 && readDay != today) {
+					trigger.varbitChanged();
+					fetchedAtMs = 0;
+				}
 			}
-			Player me = client.getLocalPlayer();
-			if (me != null && me.getWorldLocation() != null && KingdomMonitor.isKingdomRegion(me.getWorldLocation().getRegionID())
-				&& kingdomVisitDay != today) {
-				kingdomVisitDay = today;
-				trigger.varbitChanged();
+			if (trigger.tick(client.getTickCount(), loggedIn) == DiarySyncTrigger.Decision.SYNC) {
+				boolean first = guide == null || fetchedAtMs == 0;
+				read(today);
+				if (first) {
+					refresh();
+				}
 			}
-			// After 00:00 UTC: read again (the guide and the hand ticks of yesterday are stale too).
-			if (readDay >= 0 && readDay != today) {
-				trigger.varbitChanged();
-				fetchedAtMs = 0;
+			if (running) {
+				followRun();
 			}
-		}
-		if (trigger.tick(client.getTickCount(), loggedIn) == DiarySyncTrigger.Decision.SYNC) {
-			boolean first = guide == null || fetchedAtMs == 0;
-			read(today);
-			if (first) {
-				refresh();
-			}
-		}
-		if (running) {
-			followRun();
-		}
+		});
 	}
 
 	/** Reads every daily from the game and syncs it. Client thread. */
