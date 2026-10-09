@@ -99,7 +99,10 @@ public class SlayerHelperOverlay extends OverlayPanel {
 		return super.render(graphics);
 	}
 
-	/** At the location: task, kills left, time there, average kill time and the estimated time left. */
+	/**
+	 * At the location: task, kills left, time there, the fight time (first hit to kill), the time per kill
+	 * (time in the area per kill: walking, looting and AFK included), kills/h and the estimated time left.
+	 */
 	private Dimension renderStats(Graphics2D graphics, SlayerHelperManager.Task task) {
 		SlayerHelperManager.Stats s = manager.getStats();
 		long now = System.currentTimeMillis();
@@ -108,7 +111,10 @@ public class SlayerHelperOverlay extends OverlayPanel {
 		addRow("Left", task.remaining + (task.original > 0 ? " / " + task.original : ""));
 		if (s != null) {
 			addRow("Time here", SlayerFormat.clock(s.timeInArea(now)));
-			addRow("Avg kill", s.avgKillMs > 0 ? SlayerFormat.seconds(s.avgKillMs) : "-");
+			long here = s.timeInArea(now);
+			addRow("Fight time", s.avgKillMs > 0 ? SlayerFormat.seconds(s.avgKillMs) : "-");
+			addRow("Time per kill", s.kills > 0 && here > 0 ? SlayerFormat.seconds(here / s.kills) : "-");
+			addRow("Kills/h", s.kills > 0 && here > 0 ? String.valueOf(Math.round(s.kills * 3_600_000.0 / here)) : "-");
 			addRow("Est. left", s.estimatedLeftMs > 0 ? SlayerFormat.clock(s.estimatedLeftMs) : "-");
 		}
 		panelComponent.setPreferredSize(new Dimension(150, 0));
