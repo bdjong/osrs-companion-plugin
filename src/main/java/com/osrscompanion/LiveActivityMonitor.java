@@ -97,6 +97,7 @@ public class LiveActivityMonitor {
 			b.put("world", world);
 			b.put("area", area);
 			b.put("region_id", regionId);
+			b.put("plugin_version", PluginVersion.VERSION);
 			return b;
 		}
 	}
@@ -437,6 +438,7 @@ public class LiveActivityMonitor {
 		b.put("state", "offline");
 		b.put("activity", "offline");
 		b.put("since", System.currentTimeMillis());
+		b.put("plugin_version", PluginVersion.VERSION);
 		apiClient.sendActivity(player, gson.toJson(b), true);
 	}
 

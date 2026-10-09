@@ -30,6 +30,76 @@ dependencies {
 group = 'com.osrscompanion'
 version = '1.0-SNAPSHOT'
 
+// ---- Plugin version ---------------------------------------------------------------------------
+// <base>.<patch>: the base comes from src/main/resources/com/osrscompanion/version.properties, the
+// patch is the number of commits since its "base=" line last changed (the first base counts from
+// the start of the repository). Written into the jar as com/osrscompanion/build-version.properties,
+// which PluginVersion reads. Git must never fail the build: without git or with a shallow clone the
+// file is not written and the plugin reports <base>-dev.
+def versionFile = 'src/main/resources/com/osrscompanion/version.properties'
+
+def gitOut = { List<String> args ->
+	try {
+		def proc = (['git'] + args).execute(null, rootDir)
+		def out = new StringBuilder()
+		proc.consumeProcessOutput(out, new StringBuilder())
+		if (!proc.waitFor(20, java.util.concurrent.TimeUnit.SECONDS)) {
+			proc.destroy()
+			return null
+		}
+		return proc.exitValue() == 0 ? out.toString().trim() : null
+	} catch (Exception ignored) {
+		return null
+	}
+}
+
+def computePluginVersion = {
+	def props = new Properties()
+	file(versionFile).withInputStream { props.load(it) }
+	String base = props.getProperty('base', '0.0').trim()
+	if (gitOut(['rev-parse', '--is-shallow-repository']) != 'false') {
+		return null // no git, not a repository, or a shallow clone: the counts would be wrong
+	}
+	def changes = gitOut(['log', '--format=%H', '-G^base=', '--', versionFile])
+	if (changes == null || changes.isEmpty()) {
+		return null
+	}
+	def commits = changes.readLines()
+	def count = commits.size() == 1
+		? gitOut(['rev-list', '--count', 'HEAD'])
+		: gitOut(['rev-list', '--count', "${commits[0]}..HEAD".toString()])
+	if (count == null || !(count ==~ /\d+/)) {
+		return null
+	}
+	return [version: "${base}.${count}".toString(), commit: gitOut(['rev-parse', '--short', 'HEAD']) ?: '']
+}
+
+def pluginVersionInfo = computePluginVersion()
+def generatedVersionDir = layout.buildDirectory.dir('generated/plugin-version')
+
+def generatePluginVersion = tasks.register('generatePluginVersion') {
+	inputs.property('pluginVersion', pluginVersionInfo?.version ?: '')
+	inputs.property('pluginCommit', pluginVersionInfo?.commit ?: '')
+	outputs.dir(generatedVersionDir)
+	doLast {
+		def dir = generatedVersionDir.get().dir('com/osrscompanion').asFile
+		project.delete(generatedVersionDir)
+		if (pluginVersionInfo != null) {
+			dir.mkdirs()
+			new File(dir, 'build-version.properties').text =
+				"version=${pluginVersionInfo.version}\ncommit=${pluginVersionInfo.commit}\n"
+		}
+	}
+}
+
+sourceSets.main.resources.srcDir(generatePluginVersion)
+
+tasks.register('printPluginVersion') {
+	doLast {
+		println(pluginVersionInfo?.version ?: 'unknown (no full git history): the plugin reports <base>-dev')
+	}
+}
+
 test {
 	// Guard rethrows a failed assertion inside guarded code under tests instead of swallowing it,
 	// so a failing test cannot pass. Production never sets this.
