@@ -1011,7 +1011,7 @@ public class SlayerHelperManager {
 		return playerName != null && playerName.toLowerCase().contains(DEBUG_NAME);
 	}
 
-	/** Debug mode: your tile above your head (and in the chat) when you attack a task monster. Client thread. */
+	/** Debug mode: your tile in the chat when you attack a task monster (the debug box shows the rest). Client thread. */
 	private void showDebugTile() {
 		Player me = client.getLocalPlayer();
 		if (!config.slayerDebug() || me == null || !debugAllowed(me.getName())) {
@@ -1019,8 +1019,6 @@ public class SlayerHelperManager {
 		}
 		WorldPoint at = WorldPoint.fromLocalInstance(client, me.getLocalLocation());
 		String text = at.getX() + ", " + at.getY() + ", " + at.getPlane();
-		me.setOverheadText(text);
-		me.setOverheadCycle(200);
 		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Slayer debug: " + text + " (region " + at.getRegionID() + ")", null);
 	}
 
