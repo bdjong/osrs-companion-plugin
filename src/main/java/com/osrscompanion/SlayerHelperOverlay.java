@@ -125,8 +125,8 @@ public class SlayerHelperOverlay extends OverlayPanel {
 		if (s != null) {
 			addRow("Time here", SlayerFormat.clock(s.timeInArea(now)));
 			long here = s.timeInArea(now);
-			addRow("Fight time", s.avgKillMs > 0 ? SlayerFormat.seconds(s.avgKillMs) : "-");
-			addRow("TTK", s.kills > 0 && here > 0 ? SlayerFormat.seconds(here / s.kills) : "-");
+			addRow("TTK", s.avgKillMs > 0 ? SlayerFormat.seconds(s.avgKillMs) : "-");
+			addRow("Time per kill", s.kills > 0 && here > 0 ? SlayerFormat.seconds(here / s.kills) : "-");
 			addRow("Kills/h", s.kills > 0 && here > 0 ? String.valueOf(Math.round(s.kills * 3_600_000.0 / here)) : "-");
 			addRow("Est. left", s.estimatedLeftMs > 0 ? SlayerFormat.clock(s.estimatedLeftMs) : "-");
 		}
