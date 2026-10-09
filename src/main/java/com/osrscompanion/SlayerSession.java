@@ -102,7 +102,10 @@ final class SlayerSession {
 	long bossKillTimeMs;
 	@SerializedName("regular_kill_time_ms_total")
 	long regularKillTimeMs;
-	/** The centre of the area round a boss (x, y, plane) when the session is at one, for a restart. */
+	/** Task kills per exact NPC, region and multi-combat (see {@link SlayerKillLog}); sent whole as kill_log. */
+	@SerializedName("kill_log")
+	List<SlayerKillLog.Entry> killLog = new ArrayList<>();
+	/** The centre of the area round a boss or an unknown spot (x, y, plane) when the session is at one, for a restart. */
 	@SerializedName("boss_area_tile")
 	List<Integer> bossAreaTile;
 
@@ -218,6 +221,29 @@ final class SlayerSession {
 		updatedMs = nowMs;
 	}
 
+	/** n task kills of this NPC in the kill log (they are counted in {@link #kills} by {@link #addKills}). */
+	void logKills(SlayerKillLog.Npc npc, int n, long nowMs) {
+		if (npc != null && n > 0) {
+			SlayerKillLog.addKills(killLog(), npc, n);
+			updatedMs = nowMs;
+		}
+	}
+
+	/** A timed kill of this NPC in the kill log (it is in the session's kill times by {@link #addKillTime}). */
+	void logFightTime(SlayerKillLog.Npc npc, long ms, long nowMs) {
+		if (npc != null && ms >= 0) {
+			SlayerKillLog.addFightTime(killLog(), npc, ms);
+			updatedMs = nowMs;
+		}
+	}
+
+	private List<SlayerKillLog.Entry> killLog() {
+		if (killLog == null) {
+			killLog = new ArrayList<>();
+		}
+		return killLog;
+	}
+
 	void addLoot(long gp, long nowMs) {
 		if (gp > 0) {
 			lootGp += gp;
@@ -321,6 +347,7 @@ final class SlayerSession {
 		m.put("boss_kills", Math.max(0, Math.min(bossKills, Math.max(kills, 0))));
 		m.put("boss_kill_time_ms_total", bossKillTimeMs);
 		m.put("regular_kill_time_ms_total", regularKillTimeMs);
+		m.put("kill_log", SlayerKillLog.payload(killLog));
 		return m;
 	}
 

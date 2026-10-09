@@ -205,8 +205,13 @@ public class SlayerHelperManager {
 
 	// Client thread only.
 	private SlayerSession session;
-	/** The area round the task's boss you are fighting (see {@link #BOSS_AREA_RADIUS}); null: none this task. */
-	private SlayerGuide.Location bossArea;
+	/**
+	 * The area round the task's boss you are fighting, or round an unknown spot where you fight the task's
+	 * monster outside the guide's locations (see {@link #BOSS_AREA_RADIUS}); null: none this task.
+	 */
+	private SlayerGuide.Location adhocArea;
+	/** Pairs the task count going down with the monster that died, for the session's kill log. */
+	private final SlayerKillLog.Matcher killMatcher = new SlayerKillLog.Matcher();
 	/** Finished sessions the website has not acknowledged yet (stored in the config too). */
 	private List<SlayerSession> unsent = new ArrayList<>();
 	private boolean loggedIn;
@@ -528,7 +533,7 @@ public class SlayerHelperManager {
 			sync(true);
 		}
 		session = null;
-		bossArea = null;
+		adhocArea = null;
 		stats = null;
 		task = null;
 		here = null;
@@ -537,6 +542,7 @@ public class SlayerHelperManager {
 		distance = -1;
 		direction = null;
 		timer.clear();
+		killMatcher.clear();
 		taskRead = false;
 	}
 
@@ -575,6 +581,7 @@ public class SlayerHelperManager {
 			task = now0;
 			taskChanges(before, now0, now);
 		}
+		logKills(killMatcher.expire(client.getTickCount(), false), now);
 		if (closeAtTick >= 0 && client.getTickCount() >= closeAtTick) {
 			closeSession(closeCompleted, now);
 		}
@@ -661,7 +668,7 @@ public class SlayerHelperManager {
 		here = null;
 		location = null;
 		guide = null;
-		bossArea = null;
+		adhocArea = null;
 		if (now != null) {
 			rememberStartXp(now);
 			fetchAtMs = nowMs + TASK_CHANGE_FETCH_DELAY_MS;
@@ -724,10 +731,30 @@ public class SlayerHelperManager {
 	}
 
 	private void countKills(int n, long nowMs) {
-		if (session != null && session.isOpen() && ticksSinceInside <= KILL_GRACE_TICKS) {
+		SlayerKillLog.Npc recent = killMatcher.recent();
+		boolean away = session == null || !session.isOpen() || ticksSinceInside > KILL_GRACE_TICKS;
+		if (away && closeAtTick < 0 && recent != null) {
+			// A task kill outside any known location: its spot (or the boss's lair) becomes the session's area.
+			noteArea(recent.name, nowMs);
+		}
+		boolean counts = session != null && session.isOpen() && ticksSinceInside <= KILL_GRACE_TICKS;
+		List<SlayerKillLog.Npc> killed = killMatcher.counted(n, client.getTickCount(), counts);
+		if (counts) {
 			session.addKills(n, nowMs);
+			logKills(killed, nowMs);
 			// A kill goes to the website at once (with the task count), not with the next timed sync.
 			sync(true, true);
+		}
+	}
+
+	/** Task kills of these monsters go in the session's kill log. */
+	private void logKills(List<SlayerKillLog.Npc> killed, long nowMs) {
+		SlayerSession s = session;
+		if (s == null || killed.isEmpty()) {
+			return;
+		}
+		for (SlayerKillLog.Npc npc : killed) {
+			s.logKills(npc, 1, nowMs);
 		}
 	}
 
@@ -751,11 +778,12 @@ public class SlayerHelperManager {
 					in = l;
 				}
 			}
-			// Not in a location of the guide: the area round the task's boss, once you fought it.
-			SlayerGuide.Location boss = bossArea;
-			if (in == null && boss != null && boss.contains(at.getX(), at.getY(), at.getPlane(), at.getRegionID())) {
-				in = boss;
-			}
+		}
+		// Not in a location of the guide: the area round the task's boss or the unknown spot, once you fought
+		// there (known without the guide).
+		SlayerGuide.Location adhoc = adhocArea;
+		if (in == null && adhoc != null && at != null && t != null && adhoc.contains(at.getX(), at.getY(), at.getPlane(), at.getRegionID())) {
+			in = adhoc;
 		}
 		here = in;
 		ticksSinceInside = in != null ? 0 : ticksSinceInside == Integer.MAX_VALUE ? ticksSinceInside : ticksSinceInside + 1;
@@ -771,19 +799,12 @@ public class SlayerHelperManager {
 				closeSession(false, nowMs);
 			}
 			if (session == null) {
-				String master = guide != null && guide.getTask() != null ? guide.getTask().getMaster() : null;
-				session = SlayerSession.start(t.key(), t.taskId, t.name, t.areaId == 0 ? null : t.areaId, master,
-					in.getKey(), in.getName(), t.original, t.remaining, nowMs);
-				session.monsters = new ArrayList<>(in.getMonsters());
-				if (in == bossArea) {
-					session.bossAreaTile = Arrays.asList(in.getX(), in.getY(), in.getPlane());
-				}
-				session.player = player;
-				lastSentUpdate = -1;
-				log.debug("Slayer helper: session started for {} at {}", t.displayName(), in.getName());
+				startSession(t, in, nowMs);
 			}
 		}
-		if (session != null && known) {
+		// An area round a boss or a spot is known without the guide; the guide's locations only once it is loaded.
+		boolean adhocSession = session != null && isAdhocKey(session.locationKey);
+		if (session != null && (known || adhocSession)) {
 			if (session.tick(in != null, nowMs)) {
 				log.debug("Slayer helper: trip {} at {}", session.tripCount, session.locationName);
 				persist(true);
@@ -820,12 +841,33 @@ public class SlayerHelperManager {
 
 	// ---- Sessions --------------------------------------------------------------------------
 
+	/** A new session for the task at this location (of the guide, or round a boss or a spot). Client thread. */
+	private void startSession(Task t, SlayerGuide.Location in, long nowMs) {
+		String master = guide != null && guide.getTask() != null ? guide.getTask().getMaster() : null;
+		session = SlayerSession.start(t.key(), t.taskId, t.name, t.areaId == 0 ? null : t.areaId, master,
+			in.getKey(), in.getName(), t.original, t.remaining, nowMs);
+		session.monsters = new ArrayList<>(in.getMonsters());
+		if (isAdhocKey(in.getKey())) {
+			session.bossAreaTile = Arrays.asList(in.getX(), in.getY(), in.getPlane());
+		}
+		session.player = player;
+		lastSentUpdate = -1;
+		log.debug("Slayer helper: session started for {} at {}", t.displayName(), in.getName());
+	}
+
+	/** Whether a location key is an area made in the game (round a boss, or an unknown spot), not the guide's. */
+	static boolean isAdhocKey(String key) {
+		return key != null && (key.startsWith("boss-") || key.startsWith("spot-"));
+	}
+
 	private void closeSession(boolean completed, long nowMs) {
 		SlayerSession s = session;
 		closeAtTick = -1;
 		if (s == null) {
 			return;
 		}
+		// Counted kills still waiting for their monster's death go to the last one killed.
+		logKills(killMatcher.expire(client.getTickCount(), true), nowMs);
 		// A session closed when its task ended keeps that end time; its last kill and loot still count.
 		s.close(completed, nowMs);
 		queue(s);
@@ -937,11 +979,14 @@ public class SlayerHelperManager {
 				if (stored.killTimesMs == null) {
 					stored.killTimesMs = new ArrayList<>();
 				}
+				if (stored.killLog == null) {
+					stored.killLog = new ArrayList<>();
+				}
 				session = stored;
 				if (session.player == null) {
 					session.player = player;
 				}
-				bossArea = bossAreaOf(stored);
+				adhocArea = bossAreaOf(stored);
 				lastSentUpdate = -1;
 				lastPersistedUpdate = stored.updatedMs;
 				log.debug("Slayer helper: picked up the session at {} ({} kills)", stored.locationName, stored.kills);
@@ -964,7 +1009,74 @@ public class SlayerHelperManager {
 	 */
 	private boolean isTaskNpc(NPC npc) {
 		SlayerSession s = session;
-		return npc != null && s != null && (SlayerMonsters.matches(npc.getName(), s.monsters, s.taskName) || isTaskBoss(npc, s));
+		return npc != null && s != null && (SlayerMonsters.matches(npc.getName(), s.monsters, s.taskName) || isTaskBoss(npc, s)
+			|| s.locationKey != null && s.locationKey.startsWith("spot-") && SlayerMonsters.matches(npc.getName(), null, s.taskName));
+	}
+
+	/**
+	 * Whether this NPC is the task's monster without a session: one of the guide's locations' monsters, a
+	 * boss variant of the task, or by the task's name.
+	 */
+	private boolean isTaskMonster(Task t, String npcName) {
+		if (t == null || npcName == null) {
+			return false;
+		}
+		if (t.bossId == 0 && SlayerBosses.isBoss(t.name, npcName)) {
+			return true;
+		}
+		for (SlayerGuide.Location l : locations()) {
+			List<String> m = l.getMonsters();
+			if (m != null && !m.isEmpty() && SlayerMonsters.matches(npcName, m, t.name)) {
+				return true;
+			}
+		}
+		return SlayerMonsters.matches(npcName, null, t.name);
+	}
+
+	/** The monsters of a session at an unknown spot: the guide's for the task and this one (the task's name also counts). */
+	private List<String> spotMonsters(Task t, String npcName) {
+		List<String> out = new ArrayList<>();
+		for (SlayerGuide.Location l : locations()) {
+			for (String m : l.getMonsters()) {
+				if (m != null && !out.contains(m)) {
+					out.add(m);
+				}
+			}
+		}
+		String name = Text.removeTags(npcName);
+		if (!out.isEmpty() && !out.contains(name)) {
+			out.add(name);
+		}
+		return out;
+	}
+
+	/**
+	 * Whether a session at a location of the guide is going and you are just outside it (within the radius
+	 * of a spot): fighting at its edge is no other spot, so that session stays.
+	 */
+	private boolean nearGuideSession(WorldPoint at) {
+		SlayerSession s = session;
+		if (s == null || !s.isOpen() || isAdhocKey(s.locationKey)) {
+			return false;
+		}
+		if (ticksSinceInside <= KILL_GRACE_TICKS) {
+			return true;
+		}
+		for (SlayerGuide.Location l : locations()) {
+			if (Objects.equals(l.getKey(), s.locationKey)) {
+				if (l.getRegionIds().contains(at.getRegionID())) {
+					return true;
+				}
+				return l.hasTile() && l.getPlane() == at.getPlane()
+					&& Math.max(Math.abs(at.getX() - l.getX()), Math.abs(at.getY() - l.getY())) <= Math.max(0, l.getRadius()) + BOSS_AREA_RADIUS;
+			}
+		}
+		return false;
+	}
+
+	/** Whether the guide for the task is in (or the website had none): only then is a spot "unknown". */
+	private boolean guideSettled(Task t) {
+		return matches(guide, t) || !loading && fetchAtMs == 0;
 	}
 
 	/** Whether this NPC is a boss variant of the session's task (never on the "Boss" task itself). */
@@ -978,30 +1090,65 @@ public class SlayerHelperManager {
 		return parts.length > 1 && !"0".equals(parts[1]);
 	}
 
-	/**
-	 * You fought a boss variant of the task outside the guide's locations (in its lair): the tiles round
-	 * you become the task's area there, so the session counts its time and kills. Client thread.
-	 */
-	private void noteBoss(NPC npc) {
-		Task t = task;
-		if (t == null || t.bossId != 0 || here != null || npc == null || !SlayerBosses.isBoss(t.name, npc.getName())) {
-			return;
+	/** You attacked or hit an NPC: see {@link #noteArea(String, long)}. Client thread. */
+	private void noteArea(NPC npc) {
+		if (npc != null) {
+			noteArea(npc.getName(), System.currentTimeMillis());
 		}
-		WorldPoint at = playerPoint();
-		SlayerGuide.Location area = bossArea;
-		if (at == null || area != null && area.contains(at.getX(), at.getY(), at.getPlane(), at.getRegionID())) {
-			return;
-		}
-		String name = Text.removeTags(npc.getName());
-		bossArea = SlayerGuide.Location.area(SlayerBosses.areaKey(name), name, at.getX(), at.getY(), at.getPlane(), BOSS_AREA_RADIUS,
-			SlayerBosses.forTask(t.name));
-		log.debug("Slayer helper: fighting {} for {}, its area counts", name, t.displayName());
 	}
 
-	/** A restored session at a boss's area: that area again (null for a location of the guide). */
+	/**
+	 * You fought the task's monster outside the guide's locations: the tiles round you become the task's
+	 * area there ("boss-..." round a boss variant of the task, in its lair; "spot-<region>" round any other
+	 * spot), and its session starts at once so this fight counts. Returns whether you are in such an area
+	 * now. Client thread.
+	 */
+	private boolean noteArea(String npcName, long nowMs) {
+		Task t = task;
+		if (t == null || here != null || closeAtTick >= 0 || npcName == null) {
+			return false;
+		}
+		boolean boss = t.bossId == 0 && SlayerBosses.isBoss(t.name, npcName);
+		// An unknown spot only once the guide's locations are known (else it may be one of them).
+		if (!boss && (!guideSettled(t) || !isTaskMonster(t, npcName))) {
+			return false;
+		}
+		WorldPoint at = playerPoint();
+		if (at == null || !boss && nearGuideSession(at)) {
+			return false;
+		}
+		SlayerGuide.Location area = adhocArea;
+		boolean inArea = area != null && area.contains(at.getX(), at.getY(), at.getPlane(), at.getRegionID());
+		// A boss fought at a spot gets its own area (its lair); regular monsters near a boss stay in the boss's.
+		if (!inArea || boss && !area.getKey().startsWith("boss-")) {
+			String name = Text.removeTags(npcName);
+			int region = at.getRegionID();
+			area = boss
+				? SlayerGuide.Location.area(SlayerBosses.areaKey(name), name, at.getX(), at.getY(), at.getPlane(), BOSS_AREA_RADIUS,
+					SlayerBosses.forTask(t.name))
+				: SlayerGuide.Location.area(SlayerKillLog.spotKey(region), SlayerKillLog.spotName(region), at.getX(), at.getY(), at.getPlane(),
+					BOSS_AREA_RADIUS, spotMonsters(t, npcName));
+			adhocArea = area;
+			log.debug("Slayer helper: fighting {} for {} at {}, its area counts", name, t.displayName(), area.getName());
+		}
+		if (session != null && Objects.equals(session.locationKey, area.getKey())) {
+			// The same boss or region again: the session goes on round the new centre.
+			session.bossAreaTile = Arrays.asList(area.getX(), area.getY(), area.getPlane());
+		} else {
+			if (session != null) {
+				closeSession(false, nowMs);
+			}
+			startSession(t, area, nowMs);
+		}
+		here = area;
+		ticksSinceInside = 0;
+		return true;
+	}
+
+	/** A restored session at a boss's area or an unknown spot: that area again (null for a location of the guide). */
 	static SlayerGuide.Location bossAreaOf(SlayerSession s) {
 		List<Integer> tile = s.bossAreaTile;
-		if (s.locationKey == null || !s.locationKey.startsWith("boss-") || tile == null || tile.size() < 3 || tile.contains(null)) {
+		if (!isAdhocKey(s.locationKey) || tile == null || tile.size() < 3 || tile.contains(null)) {
 			return null;
 		}
 		return SlayerGuide.Location.area(s.locationKey, s.locationName, tile.get(0), tile.get(1), tile.get(2), BOSS_AREA_RADIUS, s.monsters);
@@ -1035,7 +1182,7 @@ public class SlayerHelperManager {
 	public void onInteractingChanged(InteractingChanged e) {
 		Actor target = e.getTarget();
 		if (e.getSource() == client.getLocalPlayer() && target instanceof NPC) {
-			noteBoss((NPC) target);
+			noteArea((NPC) target);
 		}
 		if (e.getSource() == client.getLocalPlayer() && target instanceof NPC && isTaskNpc((NPC) target)) {
 			showDebugTile();
@@ -1049,7 +1196,7 @@ public class SlayerHelperManager {
 	public void onHitsplatApplied(HitsplatApplied e) {
 		Actor actor = e.getActor();
 		if (actor instanceof NPC && e.getHitsplat() != null && e.getHitsplat().isMine()) {
-			noteBoss((NPC) actor);
+			noteArea((NPC) actor);
 		}
 		if (timing() && actor instanceof NPC && e.getHitsplat() != null && e.getHitsplat().isMine() && isTaskNpc((NPC) actor)) {
 			timer.hit(((NPC) actor).getIndex(), System.currentTimeMillis());
@@ -1075,10 +1222,37 @@ public class SlayerHelperManager {
 	}
 
 	private void died(NPC npc) {
-		Long ms = timer.died(npc.getIndex(), System.currentTimeMillis());
+		long now = System.currentTimeMillis();
+		Long ms = timer.died(npc.getIndex(), now);
 		if (ms != null && timing()) {
-			session.addKillTime(ms, isTaskBoss(npc, session), System.currentTimeMillis());
+			session.addKillTime(ms, isTaskBoss(npc, session), now);
 		}
+		// The kill log: the task monster that died (the count going down pairs with it, see SlayerKillLog.Matcher),
+		// also without a session (a kill at an unknown spot opens one).
+		boolean taskNpc = timing() ? isTaskNpc(npc) : isTaskMonster(task, npc.getName());
+		SlayerKillLog.Npc key = taskNpc ? killLogNpc(npc) : null;
+		if (key == null) {
+			return;
+		}
+		SlayerKillLog.Npc counted = killMatcher.died(key, ms != null, client.getTickCount());
+		if (timing()) {
+			if (ms != null) {
+				session.logFightTime(key, ms, now);
+			}
+			if (counted != null) {
+				session.logKills(counted, 1, now);
+			}
+		}
+	}
+
+	/** The kill log's line for this NPC dying now: its id, name and level, your region and multi-combat. Client thread. */
+	private SlayerKillLog.Npc killLogNpc(NPC npc) {
+		WorldPoint at = playerPoint();
+		if (npc == null || at == null) {
+			return null;
+		}
+		boolean multi = client.getVarbitValue(VarbitID.MULTIWAY_INDICATOR) != 0;
+		return new SlayerKillLog.Npc(npc.getId(), Text.removeTags(npc.getName()), npc.getCombatLevel(), at.getRegionID(), multi);
 	}
 
 	@Subscribe
