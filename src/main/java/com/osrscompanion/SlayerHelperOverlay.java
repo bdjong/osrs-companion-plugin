@@ -55,12 +55,25 @@ public class SlayerHelperOverlay extends OverlayPanel {
 		if (manager.isAtLocation()) {
 			return renderStats(graphics, task);
 		}
-		if (!manager.isGuiding()) {
+		if (!manager.isGuiding() && !(manager.isGuideOn() && manager.getLocation() == null)) {
 			return null;
 		}
 		SlayerGuide.Location l = manager.getLocation();
 		if (l == null) {
-			return null;
+			// A new task: say the location is on its way (or that none was found) instead of showing nothing.
+			boolean fetching = manager.isFetchingForTask();
+			if (!fetching && manager.getGuide() == null) {
+				return null;
+			}
+			panelComponent.getChildren().clear();
+			panelComponent.getChildren().add(LineComponent.builder().left("Slayer: " + task.displayName()).leftColor(FarmRunOverlay.TITLE_COLOR)
+				.right(task.remaining + " left").rightColor(FarmRunOverlay.MUTED_COLOR).build());
+			String text = fetching ? "Retrieving location and gear information for the new task..." : "No location data was found for this task.";
+			for (String line : FarmRunOverlay.wrap(text, graphics.getFontMetrics(), WIDTH - 14)) {
+				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(FarmRunOverlay.MUTED_COLOR).build());
+			}
+			panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
+			return super.render(graphics);
 		}
 		FontMetrics fm = graphics.getFontMetrics();
 		int textWidth = WIDTH - 14;

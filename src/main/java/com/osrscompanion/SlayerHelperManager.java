@@ -84,9 +84,13 @@ public class SlayerHelperManager {
 	/** Kills a few ticks after stepping out of the area still count (the last monster dies as you leave). */
 	private static final int KILL_GRACE_TICKS = 10;
 	/** After a task change the website needs a moment to hear about the new task before the guide is read. */
-	private static final long TASK_CHANGE_FETCH_DELAY_MS = 6_000L;
-	private static final long GUIDE_RETRY_MS = 20_000L;
-	private static final int GUIDE_RETRIES = 5;
+	/**
+	 * After a new task the guide is read once the website has the task: the task change goes up at once,
+	 * so a short wait, then a quick retry while the website still answers for the old task (~25 s at most).
+	 */
+	private static final long TASK_CHANGE_FETCH_DELAY_MS = 2_000L;
+	private static final long GUIDE_RETRY_MS = 3_000L;
+	private static final int GUIDE_RETRIES = 8;
 	/**
 	 * Tiles round where you first fought a boss variant of the task (Cerberus on a hellhound task) that
 	 * count as its area when no location of the guide is there: boss lairs aren't in the guide.
@@ -1174,6 +1178,11 @@ public class SlayerHelperManager {
 		return config.slayerGuide() && task != null && location != null && here == null;
 	}
 
+	/** The guide is on for a task and you aren't at one of its locations (the location may still be on its way). */
+	public boolean isGuideOn() {
+		return config.slayerGuide() && task != null && here == null;
+	}
+
 	/** The guide is on and you are at one of the task's locations. */
 	public boolean isAtLocation() {
 		return config.slayerGuide() && task != null && here != null;
@@ -1210,6 +1219,14 @@ public class SlayerHelperManager {
 
 	public String getError() {
 		return error;
+	}
+
+	/**
+	 * Still getting the location and gear for the task you have: a guide for it is loading, due or being
+	 * retried while the website catches up with a new task. False once it arrived, or the retries ran out.
+	 */
+	public boolean isFetchingForTask() {
+		return task != null && !isGuideForTask() && error == null && (loading || fetchAtMs > 0);
 	}
 
 	/** True when the loaded guide is about the task you have (false while it is loading or the website lags behind). */
