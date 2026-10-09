@@ -37,7 +37,13 @@ final class SlayerBosses {
 		m.put("kalphite", Collections.singletonList("Kalphite Queen"));
 		m.put("black dragons", Collections.singletonList("King Black Dragon"));
 		m.put("blue dragons", Collections.singletonList("Vorkath"));
-		m.put("greater demons", Arrays.asList("K'ril Tsutsaroth", "Tstanon Karlak"));
+		// Skotizo counts for both black and greater demons (OSRS Wiki, Skotizo).
+		m.put("greater demons", Arrays.asList("K'ril Tsutsaroth", "Tstanon Karlak", "Skotizo"));
+		m.put("black demons", Collections.singletonList("Skotizo"));
+		m.put("skeletons", Arrays.asList("Vet'ion", "Calvar'ion"));
+		// The Royal Titans: Branda for fire giants, Eldric for ice giants.
+		m.put("fire giants", Collections.singletonList("Branda the Fire Queen"));
+		m.put("ice giants", Collections.singletonList("Eldric the Ice King"));
 		m.put("aviansie", Collections.singletonList("Kree'arra"));
 		m.put("spiders", Arrays.asList("Sarachnis", "Venenatis", "Spindel"));
 		m.put("bears", Arrays.asList("Callisto", "Artio"));
