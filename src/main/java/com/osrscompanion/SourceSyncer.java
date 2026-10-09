@@ -85,7 +85,10 @@ final class SourceSyncer {
 			Consumer<BankSyncPayload> send) {
 		this.label = label;
 		this.gson = gson;
-		this.executor = executor;
+		// The debounced upload runs as "sync", which is never turned off: contents already read must
+		// still go up when the monitor's own feature was turned off (its breaker), or a later upload of
+		// another source would be the only one the website sees.
+		this.executor = GuardedExecutor.wrap(Guard.SYNC_FEATURE, executor);
 		this.clockMs = clockMs;
 		this.syncEnabled = syncEnabled;
 		this.username = username;

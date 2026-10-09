@@ -364,7 +364,26 @@ public class OSRSCompanionPlugin extends Plugin {
 		guard.setListener(new GuardListener());
 		// The whole client thread too, wherever it is stuck: a heartbeat on every tick and frame.
 		stallReporter = new ClientStallReporter(() -> incidentStore, () -> errorReporter, System::currentTimeMillis);
-		watchdog.setStallListener(stallReporter);
+		ClientStallReporter reporter = stallReporter;
+		watchdog.setStallListener(new FreezeWatchdog.StallListener() {
+			@Override
+			public void onStall(FreezeWatchdog.Stall stall) {
+				reporter.onStall(stall);
+				if (stall.terminated) {
+					// The client thread is dead and the player will kill the client: send what was already
+					// read (a bank visit's changes) now. Nothing is re-read: the containers are not reliable.
+					step("flush uploads after the client thread died", () -> {
+						bankMemoryMonitor.flushPending();
+						apiClient.flushOutbox();
+					});
+				}
+			}
+
+			@Override
+			public void onResume(FreezeWatchdog.Stall stall, long stalledMs) {
+				reporter.onResume(stall, stalledMs);
+			}
+		});
 		watchdog.setInGame(() -> isInGame(client.getGameState()));
 		// The watchdog times our sections on the client thread: tell the Guard which thread that is.
 		clientThread.invoke(() -> guard.watchThread(Thread.currentThread()));
