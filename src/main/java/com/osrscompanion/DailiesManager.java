@@ -224,7 +224,7 @@ public class DailiesManager {
 
 	/** Reads and sends again (App Key entered while logged in), even when nothing changed. */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			lastSyncJson = null;
 			trigger.varbitChanged();
 			fetchedAtMs = 0;
@@ -352,7 +352,7 @@ public class DailiesManager {
 			ticked.put(id, tickExpiry(e.guide == null ? "daily" : e.guide.getReset(), System.currentTimeMillis()));
 		}
 		saveTicks();
-		clientThread.invokeLater(this::sync);
+		Guard.invokeLater(clientThread, GUARD_FEATURE, this::sync);
 	}
 
 	/** A hand tick taken away: the website forgets its done too. */

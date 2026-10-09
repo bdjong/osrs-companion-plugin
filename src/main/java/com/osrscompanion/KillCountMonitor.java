@@ -106,7 +106,7 @@ public class KillCountMonitor {
 	 * still sends.
 	 */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			lastSyncJson = null;
 			syncKillCounts();
 		});
@@ -118,7 +118,7 @@ public class KillCountMonitor {
 			GameState newState = event.getGameState();
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
 				// The RSProfile the kill counts live under is resolved shortly after login.
-				executorService.schedule(() -> clientThread.invokeLater(this::syncKillCounts),
+				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncKillCounts),
 						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
 				// Logging out: flush final state (this handler runs on the client thread).

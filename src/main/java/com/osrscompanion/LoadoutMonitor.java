@@ -107,7 +107,7 @@ public class LoadoutMonitor {
 	 * snapshot. Used by the roadmap panel's "Sync &amp; refresh" button.
 	 */
 	public void forceSync() {
-		executorService.execute(() -> clientThread.invokeLater(() -> {
+		executorService.execute(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			lastSyncJson = null;
 			syncLoadouts();
 		}));
@@ -124,7 +124,7 @@ public class LoadoutMonitor {
 
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
 				log.debug("Player logged in, scheduling loadout sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
-				executorService.schedule(() -> clientThread.invokeLater(this::syncLoadouts),
+				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncLoadouts),
 						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
 				log.debug("Player logged out, syncing loadouts immediately");
@@ -151,7 +151,7 @@ public class LoadoutMonitor {
 				debounceFuture.cancel(false);
 			}
 			log.debug("Equipment/inventory changed, scheduling loadout sync in {}s", EQUIPMENT_CHANGE_DEBOUNCE_SECONDS);
-			debounceFuture = executorService.schedule(() -> clientThread.invokeLater(this::syncLoadouts),
+			debounceFuture = executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncLoadouts),
 					EQUIPMENT_CHANGE_DEBOUNCE_SECONDS, TimeUnit.SECONDS);
 		});
 	}

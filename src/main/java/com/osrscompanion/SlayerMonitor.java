@@ -487,7 +487,7 @@ public class SlayerMonitor {
 
 	/** Re-reads and re-pushes slayer state; clears the dedup cache. */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			lastSyncJson = null;
 			readAndSync(true);
 		});
@@ -499,7 +499,7 @@ public class SlayerMonitor {
 			GameState newState = event.getGameState();
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
 				// Slayer varps and DB tables settle shortly after login.
-				executorService.schedule(() -> clientThread.invokeLater(() -> {
+				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 					previous = null; // don't fabricate a transition across sessions
 					restorePendingEvents();
 					readAndSync(true);
@@ -1288,7 +1288,7 @@ public class SlayerMonitor {
 
 	/** Drops acknowledged events from the queue and re-persists the remainder. */
 	private void onEventsAcknowledged(List<SlayerTaskEvent> sent) {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			pendingEvents.removeIf(e -> sent.stream()
 					.anyMatch(a -> a.getEventUuid().equals(e.getEventUuid())));
 			persistPendingEvents();

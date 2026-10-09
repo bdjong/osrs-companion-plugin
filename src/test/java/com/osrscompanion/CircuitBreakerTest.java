@@ -59,4 +59,16 @@ public class CircuitBreakerTest {
 		assertTrue(b.isOpen());
 		assertFalse(b.recordFailure(0));
 	}
+
+	@Test
+	public void anExemptBreakerCountsButNeverOpens() {
+		CircuitBreaker b = new CircuitBreaker(5, 60_000, true);
+		for (int i = 0; i < 50; i++) {
+			assertFalse(b.recordFailure(i));
+		}
+		assertFalse(b.trip());
+		assertFalse(b.isOpen());
+		assertTrue(b.isExempt());
+		assertEquals(50, b.totalFailures());
+	}
 }

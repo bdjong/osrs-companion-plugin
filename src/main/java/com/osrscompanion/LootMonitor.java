@@ -206,7 +206,7 @@ public class LootMonitor
 				log.debug("Player logged in, waiting for RS profile before loot sync");
 				// Use clientThread.invokeLater to poll each tick until the RS profile
 				// key is available. Returns false to retry, true when done.
-				clientThread.invokeLater(() ->
+				Guard.invokeLater(clientThread, GUARD_FEATURE, () ->
 				{
 					if (client.getGameState().getState() < GameState.LOGGED_IN.getState())
 					{

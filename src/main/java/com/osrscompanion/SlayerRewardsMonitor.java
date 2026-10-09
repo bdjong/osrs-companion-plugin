@@ -95,7 +95,7 @@ public class SlayerRewardsMonitor {
 				return;
 			}
 			// Children populate as the interface finishes loading; read next cycle.
-			clientThread.invokeLater(this::scrapeAndSync);
+			Guard.invokeLater(clientThread, GUARD_FEATURE, this::scrapeAndSync);
 		});
 	}
 

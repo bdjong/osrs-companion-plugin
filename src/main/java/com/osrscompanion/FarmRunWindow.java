@@ -679,85 +679,101 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 
 	@Override
 	public MouseEvent mousePressed(MouseEvent e) {
-		if (!inside(e)) {
-			return e;
-		}
-		if (SwingUtilities.isLeftMouseButton(e)) {
-			Point p = e.getPoint();
-			boolean listWasOpen = switcherOpen;
-			Hit clicked = null;
-			for (Hit hit : hits) {
-				if (hit.area.contains(p)) {
-					clicked = hit;
-					break;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (!inside(e)) {
+				return e;
+			}
+			if (SwingUtilities.isLeftMouseButton(e)) {
+				Point p = e.getPoint();
+				boolean listWasOpen = switcherOpen;
+				Hit clicked = null;
+				for (Hit hit : hits) {
+					if (hit.area.contains(p)) {
+						clicked = hit;
+						break;
+					}
+				}
+				if (clicked != null) {
+					clicked.action.run();
+				}
+				if (listWasOpen && switcherOpen && (clicked == null || clicked.tooltip == null || !clicked.tooltip.startsWith("Switch"))) {
+					switcherOpen = false;
 				}
 			}
-			if (clicked != null) {
-				clicked.action.run();
-			}
-			if (listWasOpen && switcherOpen && (clicked == null || clicked.tooltip == null || !clicked.tooltip.startsWith("Switch"))) {
-				switcherOpen = false;
-			}
-		}
-		e.consume();
-		return e;
+			e.consume();
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseReleased(MouseEvent e) {
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseClicked(MouseEvent e) {
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseMoved(MouseEvent e) {
-		mouse = e.getPoint();
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			mouse = e.getPoint();
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseDragged(MouseEvent e) {
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseEntered(MouseEvent e) {
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseExited(MouseEvent e) {
-		mouse = null;
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			mouse = null;
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseWheelEvent mouseWheelMoved(MouseWheelEvent e) {
-		if (!inside(e)) {
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (!inside(e)) {
+				return e;
+			}
+			Rectangle area = stopsArea;
+			if (area != null && area.contains(e.getPoint())) {
+				scroll = Math.max(0, Math.min(maxScroll, scroll + e.getWheelRotation() * SCROLL_STEP));
+			}
+			e.consume();
 			return e;
-		}
-		Rectangle area = stopsArea;
-		if (area != null && area.contains(e.getPoint())) {
-			scroll = Math.max(0, Math.min(maxScroll, scroll + e.getWheelRotation() * SCROLL_STEP));
-		}
-		e.consume();
-		return e;
+		}, e);
 	}
 
 	@Override
@@ -766,14 +782,16 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 
 	@Override
 	public void keyPressed(KeyEvent e) {
-		if (manager.isOpen() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-			if (switcherOpen) {
-				switcherOpen = false;
-			} else {
-				manager.close();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (manager.isOpen() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+				if (switcherOpen) {
+					switcherOpen = false;
+				} else {
+					manager.close();
+				}
+				e.consume();
 			}
-			e.consume();
-		}
+		});
 	}
 
 	@Override

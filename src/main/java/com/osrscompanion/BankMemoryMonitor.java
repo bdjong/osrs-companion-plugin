@@ -90,7 +90,7 @@ public class BankMemoryMonitor {
 	 * deposit box, a crew member banking the hold): count them as deposited and push. */
 	public void onItemsBankedUnseen(Map<Integer, Integer> contents) {
 		deposits.onContainerEmptied(contents);
-		clientThread.invokeLater(() -> push(true, false));
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> push(true, false));
 	}
 
 	/** Deposit boxes (and the bank boat) open this interface instead of the bank. */
@@ -125,7 +125,7 @@ public class BankMemoryMonitor {
 	 * the bank is (or was) open this session; if it is null we simply skip.
 	 */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			syncer.invalidate();
 			push(false, true);
 		});
@@ -150,7 +150,7 @@ public class BankMemoryMonitor {
 	 * when an owned-item goal completes locally.
 	 */
 	public void syncInventoryNow() {
-		clientThread.invokeLater(() -> push(true, true));
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> push(true, true));
 	}
 
 	@Subscribe

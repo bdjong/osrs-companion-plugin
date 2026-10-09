@@ -151,7 +151,7 @@ public class QuestMonitor {
 	 * still sends.
 	 */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			lastSyncJson = null;
 			syncQuests();
 		});
@@ -163,7 +163,7 @@ public class QuestMonitor {
 			GameState newState = event.getGameState();
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
 				// Quest varps load shortly after LOGGED_IN, so wait before reading.
-				executorService.schedule(() -> clientThread.invokeLater(this::syncQuests),
+				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncQuests),
 						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
 				// Logging out: flush final state (this handler runs on the client thread).

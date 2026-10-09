@@ -358,72 +358,88 @@ public class SlayerGearWindow extends Overlay implements MouseListener, MouseWhe
 
 	@Override
 	public MouseEvent mousePressed(MouseEvent e) {
-		if (!inside(e)) {
-			return e;
-		}
-		if (SwingUtilities.isLeftMouseButton(e)) {
-			Point p = e.getPoint();
-			for (Hit hit : hits) {
-				if (hit.area.contains(p)) {
-					hit.action.run();
-					break;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (!inside(e)) {
+				return e;
+			}
+			if (SwingUtilities.isLeftMouseButton(e)) {
+				Point p = e.getPoint();
+				for (Hit hit : hits) {
+					if (hit.area.contains(p)) {
+						hit.action.run();
+						break;
+					}
 				}
 			}
-		}
-		e.consume();
-		return e;
+			e.consume();
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseReleased(MouseEvent e) {
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseClicked(MouseEvent e) {
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseMoved(MouseEvent e) {
-		mouse = e.getPoint();
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			mouse = e.getPoint();
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseDragged(MouseEvent e) {
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseEntered(MouseEvent e) {
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseEvent mouseExited(MouseEvent e) {
-		mouse = null;
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			mouse = null;
+			return e;
+		}, e);
 	}
 
 	@Override
 	public MouseWheelEvent mouseWheelMoved(MouseWheelEvent e) {
-		if (inside(e)) {
-			e.consume();
-		}
-		return e;
+		return Guard.call(GUARD_FEATURE, () -> {
+			if (inside(e)) {
+				e.consume();
+			}
+			return e;
+		}, e);
 	}
 
 	@Override
@@ -432,10 +448,12 @@ public class SlayerGearWindow extends Overlay implements MouseListener, MouseWhe
 
 	@Override
 	public void keyPressed(KeyEvent e) {
-		if (manager.isGearOpen() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-			manager.closeGearWindow();
-			e.consume();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (manager.isGearOpen() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+				manager.closeGearWindow();
+				e.consume();
+			}
+		});
 	}
 
 	@Override

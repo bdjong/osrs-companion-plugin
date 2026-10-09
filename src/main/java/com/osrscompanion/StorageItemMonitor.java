@@ -202,7 +202,7 @@ public class StorageItemMonitor {
 		Guard.run(GUARD_FEATURE, () -> {
 			GameState newState = event.getGameState();
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-				clientThread.invokeLater(() -> {
+				Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 					readContainer(InventoryID.INV);
 					readContainer(InventoryID.WORN);
 					adoptChargesPluginState(ChargesPluginBridge.readAll(configManager::getConfiguration));
@@ -448,7 +448,7 @@ public class StorageItemMonitor {
 			if (event.getGroupId() != MESSAGEBOX_GROUP) {
 				return;
 			}
-			clientThread.invokeLater(() -> {
+			Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 				Widget widget = client.getWidget(MESSAGEBOX_TEXT);
 				if (widget == null || widget.getText() == null) {
 					return;

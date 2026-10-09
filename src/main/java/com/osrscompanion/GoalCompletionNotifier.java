@@ -35,6 +35,8 @@ public class GoalCompletionNotifier {
 	/** In-game sound effect for the default option. */
 	static final int DEFAULT_SOUND_ID = SoundEffectID.GE_ADD_OFFER_DINGALING;
 	static final String TITLE = "<col=f28c28>Roadmap Goal Complete!</col>";
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "goal-popups";
 
 	private final Client client;
 	private final ClientThread clientThread;
@@ -111,7 +113,7 @@ public class GoalCompletionNotifier {
 	}
 
 	private void enqueue(Popup popup, boolean goal) {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			if ((goal && !config.showGoalPopup()) || client.getGameState() != GameState.LOGGED_IN) {
 				return;
 			}
@@ -129,10 +131,11 @@ public class GoalCompletionNotifier {
 
 	/** Drops queued popups and closes an open one (plugin shutdown). */
 	public void clear() {
-		clientThread.invokeLater(() -> {
+		// A clean-up: runs even when the feature was turned off, so no popup stays open.
+		clientThread.invokeLater(Guard.wrapCleanup(GUARD_FEATURE, () -> {
 			queue.clear();
 			closeOpen();
-		});
+		}));
 	}
 
 	/** Blank lines reserved at the bottom of the body so the roadmap progress bar
@@ -193,7 +196,7 @@ public class GoalCompletionNotifier {
 		}
 		active = popup;
 		playSound();
-		clientThread.invokeLater(this::pollClosed);
+		Guard.invokeLater(clientThread, GUARD_FEATURE, this::pollClosed);
 	}
 
 	/** Returns false to be invoked again next tick while the popup is still visible. */

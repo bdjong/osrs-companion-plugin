@@ -138,7 +138,7 @@ public class BankLayoutPrep {
 	/** Registers the tags; their items follow the active set / route / slayer setup live. */
 	public void startUp() {
 		// Bank Tags reads its tags on the client thread.
-		clientThread.invoke(() -> {
+		Guard.invoke(clientThread, GUARD_FEATURE, () -> {
 			tagManager.registerTag(BOSS_TAG, bossGear::needs);
 			tagManager.registerTag(FARM_TAG, farmRun::needs);
 			tagManager.registerTag(SLAYER_TAG, slayer::needs);
@@ -206,7 +206,8 @@ public class BankLayoutPrep {
 	}
 
 	public void shutDown() {
-		clientThread.invoke(() -> {
+		// A clean-up: runs even when the feature was turned off, so no tag stays registered.
+		clientThread.invoke(Guard.wrapCleanup(GUARD_FEATURE, () -> {
 			if (isOurTagOpen()) {
 				bankTags.closeBankTag();
 			}
@@ -219,7 +220,7 @@ public class BankLayoutPrep {
 			layoutManager.removeLayout(SLAYER_TAG);
 			applied = null;
 			userLeft = false;
-		});
+		}));
 	}
 
 	// ---- When ---------------------------------------------------------------------
@@ -287,7 +288,7 @@ public class BankLayoutPrep {
 			if (event.getScriptId() == ScriptID.BANKMAIN_BUILD && waitingForBuild && !userLeft) {
 				waitingForBuild = false;
 				log.debug("Bank layout: bank built, laying it out");
-				clientThread.invokeLater(this::update);
+				Guard.invokeLater(clientThread, GUARD_FEATURE, this::update);
 			}
 		});
 	}

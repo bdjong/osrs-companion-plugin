@@ -88,7 +88,7 @@ public class SlayerCatalogMonitor {
 	public void forceSync() {
 		confirmedHash = null;
 		confirmedRevision = -1;
-		clientThread.invokeLater(this::dumpAndUpload);
+		Guard.invokeLater(clientThread, GUARD_FEATURE, this::dumpAndUpload);
 	}
 
 	@Subscribe
@@ -98,7 +98,7 @@ public class SlayerCatalogMonitor {
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
 				// Late enough that the cache DB tables are certainly readable, and
 				// well behind the state monitors' own login syncs.
-				executorService.schedule(() -> clientThread.invokeLater(this::dumpAndUpload),
+				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::dumpAndUpload),
 						LOGIN_DUMP_DELAY_SECONDS, TimeUnit.SECONDS);
 			}
 			previousGameState = newState;
