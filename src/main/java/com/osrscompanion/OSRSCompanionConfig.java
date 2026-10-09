@@ -343,7 +343,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "slayerDebug",
 			name = "Slayer debug mode",
-			description = "Developer aid: attacking a monster of your slayer task shows your coordinates above your head (and in the chat). Only offered to the developer's characters.",
+			description = "Developer aid: a box with your tile, region, the task and the location the website sent (tile, radius, regions, whether you count as inside); attacking a task monster also shows your coordinates above your head and in the chat. Only offered to the developer's characters.",
 			hidden = true)
 	default boolean slayerDebug() {
 		return false;

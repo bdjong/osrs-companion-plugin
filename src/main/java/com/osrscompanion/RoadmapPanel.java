@@ -418,7 +418,7 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, toggle("Bank layout", "Bank shows this setup", "Bank left alone", SLAYER, "slayerGearBankLayout", config::slayerGearBankLayout),
 			"Only one bank layout is active at a time: turning this on turns the other bank layouts off.");
 		slayerDebug = toggle("Debug mode", "Coordinates on attack", "Off", SLAYER, "slayerDebug", config::slayerDebug);
-		add(p, slayerDebug, "Attacking a monster of your task shows your coordinates above your head and in the chat.");
+		add(p, slayerDebug, "Shows a box with everything the plugin knows about your location and the task area the website sent; attacking a task monster also shows your coordinates above your head and in the chat.");
 		slayerDebugGap = p.getComponent(p.getComponentCount() - 1);
 		slayerDebug.setVisible(false);
 		slayerDebugGap.setVisible(false);
