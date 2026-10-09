@@ -15,13 +15,15 @@ public interface OSRSCompanionConfig extends Config {
 	 * third-party server, which the Plugin Hub requires plugins to disclose.
 	 */
 	String APP_KEY_WARNING = "With an App Key this plugin sends your account's game data (your RuneScape name, skills, bank and other"
-		+ " storage, collection log, quests, diaries, combat achievements, kill counts, loot, slayer, farming and the other items"
-		+ " switched on under Data Syncing) to the OSRS Companion website (osrs-companion-web.vercel.app). This is a third-party"
+		+ " storage, collection log, quests, diaries, combat achievements, kill counts, loot, slayer, farming, your online status and"
+		+ " current activity, and the other items switched on under Data Syncing) to the OSRS Companion website (osrs-companion-web.vercel.app). This is a third-party"
 		+ " server that is not run or checked by the RuneLite developers. Continue?";
 	/** The goal sound switch; replaced the old "goalCompleteSound" choice (In-game / Off). */
 	String GOAL_SOUND_KEY = "goalSoundOn";
 	/** Sends this plugin's errors to the website (see {@link ErrorReporter}). */
 	String SEND_ERROR_REPORTS_KEY = "sendErrorReports";
+	/** Shares the live activity status (see {@link LiveActivityMonitor}). */
+	String SHARE_LIVE_ACTIVITY_KEY = "shareLiveActivity";
 	/** The farming cape setting; replaced the "farmingCapeForHerbs" and "forceFarmingCape" switches. */
 	String FARMING_CAPE_KEY = "farmingCapeMode";
 	/** The trip planner per tool; replaced the one "suppliesCheck" switch. */
@@ -221,6 +223,16 @@ public interface OSRSCompanionConfig extends Config {
 			section = SYNC_SECTION,
 			position = 15)
 	default boolean sendErrorReports() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = SHARE_LIVE_ACTIVITY_KEY,
+			name = "Share live activity",
+			description = "While you are logged in, share your online status, your current activity (for example a raid, boss, slayer task, farm run, skill or banking, or idle), your world and the area name with OSRS Companion, so you and the site admin can see what you are doing right now. Off: nothing new is sent, and the website shows you as offline after about half a minute.",
+			section = SYNC_SECTION,
+			position = 16)
+	default boolean shareLiveActivity() {
 		return true;
 	}
 

@@ -48,7 +48,7 @@ Legend: **compliant**: no change needed. **fixed**: changed on this branch. **ow
 | 25 | README (README step 11) | **fixed** | Added "Data sent and privacy". |
 | 26 | No hard-coded secrets | **compliant** | No keys in the source or in git history. The App Key is a `secret = true` config item. The only hosts in the code are the website and the OSRS Wiki. |
 | 27 | Thread safety: no blocking network on the client thread | **compliant**, with a minor note | All API calls use OkHttp `enqueue` (async). `GoalImageCache` uses a blocking `execute()`, but on RuneLite's shared `ScheduledExecutorService` with a call timeout, never on the client thread. Switching it to `enqueue` would free that shared executor (optional). |
-| 28 | Resource use | **compliant** | Session pings every 5 minutes, dedup of identical payloads, a 2-tick collection-log settle and an in-memory image cache limited to wiki goal icons. |
+| 28 | Resource use | **compliant** | Session pings every 5 minutes; with "Share live activity" on, the activity status rides along with each batch, and a heartbeat batch goes out only when nothing reached the website for 15 s (it replaces the 30 s version check); the per-tick activity check reads a few varbits and the local player only. Dedup of identical payloads, a 2-tick collection-log settle and an in-memory image cache limited to wiki goal icons. |
 | 29 | "If we cannot review every line, we will not accept it" (wiki) | **owner** | See O4. The plugin is large (about 146 main source files), which slows review. A clear README and this document help. |
 
 ## What this branch changed

@@ -257,6 +257,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private WebVersionWatcher webVersionWatcher;
 
 	@Inject
+	private LiveActivityMonitor liveActivityMonitor;
+
+	@Inject
 	private ChatMessageManager chatMessageManager;
 
 
@@ -296,7 +299,7 @@ public class OSRSCompanionPlugin extends Plugin {
 				kingdomMonitor, combatAchievementMonitor, killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
 				slayerRewardsMonitor, goalProgressTracker, farmRunManager, farmHarvestTracker, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
-				bossTripTracker, suppliesCheck, dailiesManager, dailiesSceneOverlay);
+				bossTripTracker, suppliesCheck, dailiesManager, dailiesSceneOverlay, liveActivityMonitor);
 		for (Object subscriber : subscribers) {
 			if (subscriber != null) {
 				step("register " + subscriber.getClass().getSimpleName(), () -> eventBus.register(subscriber));
@@ -313,6 +316,8 @@ public class OSRSCompanionPlugin extends Plugin {
 			roadmapWaitingPoll = executorService.scheduleWithFixedDelay(Guard.wrap(RoadmapManager.GUARD_FEATURE, roadmapManager::pollWhileWaiting),
 					RoadmapManager.WAITING_POLL_SECONDS, RoadmapManager.WAITING_POLL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
 		});
+		// Live activity: every batch carries the status; the watcher below sends the heartbeat.
+		step("live activity", liveActivityMonitor::start);
 		// Website changes: the webVersion from batch answers or a small check every 30 s re-reads what changed.
 		step("web updates", webVersionWatcher::start);
 		// The last farm route ready again (all its patches grown), checked logged in or not.
@@ -668,6 +673,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("stop slayerMonitor", () -> slayerMonitor.stop());
 		step("stop slayerCatalogMonitor", () -> slayerCatalogMonitor.stop());
 		step("stop slayerRewardsMonitor", () -> slayerRewardsMonitor.stop());
+		// "Offline" for the player, queued before the outbox's last flush below.
+		step("live activity", liveActivityMonitor::stop);
 
 		step("side panel", () -> {
 			if (navButton != null) {

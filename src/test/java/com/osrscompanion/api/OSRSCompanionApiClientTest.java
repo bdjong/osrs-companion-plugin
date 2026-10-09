@@ -235,4 +235,28 @@ public class OSRSCompanionApiClientTest {
 		client.observeWebVersion(9);
 		assertEquals("after logout the first value is a new baseline", 1, changes.get());
 	}
+
+	@Test
+	public void activityRidesAlongWithABatchOfTheSamePlayerOnly() {
+		com.osrscompanion.TestOSRSCompanionConfig c = new com.osrscompanion.TestOSRSCompanionConfig();
+		c.setOsrsCompanionAppKey("abcdefgh");
+		OSRSCompanionApiClient client = new OSRSCompanionApiClient(c, new Gson(), new OkHttpClient());
+		String base = c.apiBaseUrl().replaceAll("/+$", "");
+		SyncOutbox.Item bank = new SyncOutbox.Item(base, "abcdefgh", "/api/runelite/bank/", "POST",
+			"{\"player_username\":\"Zezima\"}", "bank", null, false, false, null);
+		// No source: nothing.
+		assertEquals(null, client.activityExtra(Collections.singletonList(bank)));
+		client.setActivitySource(() -> "{\"player_username\":\"Zezima\",\"state\":\"online\"}");
+		SyncOutbox.Item extra = client.activityExtra(Collections.singletonList(bank));
+		assertNotNull(extra);
+		assertEquals(OSRSCompanionApiClient.ACTIVITY_ENDPOINT, extra.getPath());
+		assertEquals(OSRSCompanionApiClient.ACTIVITY_LABEL, extra.getLabel());
+		// A batch that already has a status, or is for another player, gets none.
+		assertEquals(null, client.activityExtra(Arrays.asList(bank, extra)));
+		client.setActivitySource(() -> "{\"player_username\":\"Other\"}");
+		assertEquals(null, client.activityExtra(Collections.singletonList(bank)));
+		// Nothing to share (logged out, switched off): none.
+		client.setActivitySource(() -> null);
+		assertEquals(null, client.activityExtra(Collections.singletonList(bank)));
+	}
 }

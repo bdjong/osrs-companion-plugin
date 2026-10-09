@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -109,6 +110,9 @@ public class OSRSCompanionApiClient
 	static final String VERSION_ENDPOINT = "/api/runelite/version";
 	static final String ERRORS_ENDPOINT = "/api/runelite/errors";
 	static final String ERRORS_LABEL = "errors";
+	/** Live activity status (online, activity, world, area): its own upload, and riding along with every batch. */
+	static final String ACTIVITY_ENDPOINT = "/api/runelite/activity";
+	static final String ACTIVITY_LABEL = "activity";
 
 	private static final int HTTP_OK_MIN = 200;
 	private static final int HTTP_OK_MAX = 300;
@@ -130,6 +134,8 @@ public class OSRSCompanionApiClient
 	private Integer lastWebVersion;
 	private volatile Runnable webVersionChangedListener;
 	private volatile ErrorListener errorListener;
+	/** The current live activity status as JSON, or null when none is to be shared (see {@link #setActivitySource}). */
+	private volatile Supplier<String> activitySource;
 
 	/** Hears of failures worth an error report: refused uploads and website answers that could not be read. */
 	public interface ErrorListener
@@ -566,6 +572,60 @@ public class OSRSCompanionApiClient
 			() -> log.debug("OSRS Companion session {} recorded for {}", event, playerUsername));
 	}
 
+	/**
+	 * Sends the live activity status ({@code POST /api/runelite/activity}). A newer status replaces one
+	 * still queued; a priority one (a change, the heartbeat, logout) goes out at once.
+	 */
+	public void sendActivity(String playerUsername, String json, boolean priority)
+	{
+		postAsync(ACTIVITY_ENDPOINT, json, ACTIVITY_LABEL, false, false, key(ACTIVITY_LABEL, playerUsername), priority,
+			() -> log.debug("OSRS Companion activity sent for {}", playerUsername));
+	}
+
+	/**
+	 * Where the current activity status comes from: every batch carries it (unless it already has one),
+	 * so the server sees the player as online without a request of its own. Null: none.
+	 */
+	public void setActivitySource(Supplier<String> source)
+	{
+		this.activitySource = source;
+	}
+
+	/** The status to add to a batch: same server, key and player as the batch, and none in it yet. */
+	SyncOutbox.Item activityExtra(List<SyncOutbox.Item> chunk)
+	{
+		Supplier<String> source = activitySource;
+		if (source == null || chunk.isEmpty() || !SyncGuard.hasAppKey(config))
+		{
+			return null;
+		}
+		String player = null;
+		for (SyncOutbox.Item item : chunk)
+		{
+			if (ACTIVITY_LABEL.equals(item.getLabel()))
+			{
+				return null;
+			}
+			if (player == null)
+			{
+				player = playerInBody(item.getBody());
+			}
+		}
+		String baseUrl = config.apiBaseUrl().replaceAll("/+$", "");
+		String appKey = config.osrsCompanionAppKey().trim();
+		SyncOutbox.Item first = chunk.get(0);
+		if (!baseUrl.equals(first.getBaseUrl()) || !appKey.equals(first.getAppKey()))
+		{
+			return null;
+		}
+		String json = source.get();
+		if (json == null || player != null && !player.equals(playerInBody(json)))
+		{
+			return null;
+		}
+		return new SyncOutbox.Item(baseUrl, appKey, ACTIVITY_ENDPOINT, "POST", json, ACTIVITY_LABEL, null, false, false, null);
+	}
+
 	/** Fetches the player's active farm route ({ route: null } until one is saved on the website). */
 	public void getFarmRoute(String playerUsername, RoadmapCallback<FarmRoute.Response> callback)
 	{
@@ -672,7 +732,8 @@ public class OSRSCompanionApiClient
 	private void notifyDropped(String label, String path, int status)
 	{
 		ErrorListener listener = errorListener;
-		if (listener == null || ERRORS_LABEL.equals(label))
+		// A website without the activity route (404) is not a plugin error: the status is sent again anyway.
+		if (listener == null || ERRORS_LABEL.equals(label) || ACTIVITY_LABEL.equals(label) && status == 404)
 		{
 			return;
 		}
@@ -915,6 +976,7 @@ public class OSRSCompanionApiClient
 			}, executor, System::currentTimeMillis);
 			box.setWebVersionListener(this::observeWebVersion);
 			box.setDropListener((item, status) -> notifyDropped(item.getLabel(), item.getPath(), status));
+			box.setBatchExtra(this::activityExtra);
 			outbox = box;
 		}
 		outbox.start();
