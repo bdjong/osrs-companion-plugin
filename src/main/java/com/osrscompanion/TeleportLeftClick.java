@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
@@ -57,28 +58,37 @@ public class TeleportLeftClick {
 	 * guide's step for the log ("farm step 3", "slayer"). Client thread.
 	 */
 	public void apply(FarmRoute.Travel travel, String where) {
+		apply(travel, where, m -> false);
+	}
+
+	/**
+	 * As {@link #apply(FarmRoute.Travel, String)}, but entries {@code keep} accepts are never made the left
+	 * click (the Slayer helper keeps "Wear" on a teleport item the suggested setup wears). Client thread.
+	 */
+	public void apply(FarmRoute.Travel travel, String where, Predicate<MenuEntry> keep) {
 		if (travel == null) {
 			return;
 		}
+		Predicate<MenuEntry> cape = m -> isTeleportCape(m) && !keep.test(m);
 		MenuEntry[] entries = client.getMenuEntries();
 		StringBuilder capes = new StringBuilder();
 		for (MenuEntry m : entries) {
-			if (isTeleportCape(m)) {
+			if (cape.test(m)) {
 				capes.append('\'').append(Text.removeTags(m.getOption())).append("' ");
 			}
 		}
 		if (capes.length() == 0) {
-			travelItemLeftClick(entries, travel, where);
+			travelItemLeftClick(entries, travel, where, keep);
 			return;
 		}
 		List<String> wanted = capeOptions(travel);
-		int best = capeEntry(entries, wanted);
+		int best = capeEntry(entries, wanted, cape);
 		MenuEntry fromSub = null;
 		if (best < 0) {
 			// Not on the cape's own menu (the Max cape in the inventory): its "Teleports" sub menu has it.
 			List<String> subWanted = capeSubOptions(travel);
 			for (MenuEntry m : entries) {
-				if (fromSub != null || subWanted.isEmpty() || !isTeleportCape(m) || m.getSubMenu() == null) {
+				if (fromSub != null || subWanted.isEmpty() || !cape.test(m) || m.getSubMenu() == null) {
 					continue;
 				}
 				for (MenuEntry sub : m.getSubMenu().getMenuEntries()) {
@@ -92,7 +102,7 @@ public class TeleportLeftClick {
 		}
 		if (best < 0 && fromSub == null) {
 			// Only then a generic option that opens the cape's teleport list (the Farming cape's Teleport).
-			best = capeEntry(entries, capeFallbackOptions(travel));
+			best = capeEntry(entries, capeFallbackOptions(travel), cape);
 		}
 		logOnce("CAPE TELEPORT " + where + ", travel '" + travel.getName() + "' (" + travel.getHow() + "), looking for " + wanted
 			+ ", cape options " + capes + "-> left click " + (best >= 0 ? "'" + Text.removeTags(entries[best].getOption()) + "'"
@@ -109,7 +119,7 @@ public class TeleportLeftClick {
 	 * necklace...): its option (or sub menu option) named in the step's travel text becomes the left click,
 	 * else its teleport option (Rub, Reminisce, Teleport...).
 	 */
-	private void travelItemLeftClick(MenuEntry[] entries, FarmRoute.Travel travel, String where) {
+	private void travelItemLeftClick(MenuEntry[] entries, FarmRoute.Travel travel, String where, Predicate<MenuEntry> keep) {
 		if (travel.getItems().isEmpty()) {
 			return;
 		}
@@ -129,7 +139,7 @@ public class TeleportLeftClick {
 		StringBuilder seen = new StringBuilder();
 		for (MenuEntry m : entries) {
 			boolean ours = (m.getItemId() > 0 && ids.contains(ItemVariationMapping.map(m.getItemId()))) || wantedNames.contains(baseName(m.getTarget()));
-			if (!ours) {
+			if (!ours || keep.test(m)) {
 				continue;
 			}
 			List<MenuEntry> options = new ArrayList<>();
@@ -179,11 +189,11 @@ public class TeleportLeftClick {
 	}
 
 	/** The cape entry whose option contains the best-ranked of {@code wanted}, -1 when none does. */
-	private static int capeEntry(MenuEntry[] entries, List<String> wanted) {
+	private static int capeEntry(MenuEntry[] entries, List<String> wanted, Predicate<MenuEntry> cape) {
 		int best = -1;
 		int bestRank = Integer.MAX_VALUE;
 		for (int i = 0; i < entries.length; i++) {
-			if (!isTeleportCape(entries[i])) {
+			if (!cape.test(entries[i])) {
 				continue;
 			}
 			String option = Text.removeTags(entries[i].getOption()).toLowerCase();
