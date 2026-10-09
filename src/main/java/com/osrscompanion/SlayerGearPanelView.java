@@ -108,7 +108,7 @@ class SlayerGearPanelView extends JComponent {
 			List<Tip> newTips = new ArrayList<>();
 			if (set == null) {
 				g.setFont(FontManager.getRunescapeFont());
-				shadow(g, fit(gear == null ? "Loading..." : "No setups for this task", g.getFontMetrics(), w - 24), 12, 32, Color.WHITE);
+				shadow(g, fit(gear == null || manager.isFetchingForTask() ? "Retrieving gear for the task..." : "No setups for this task", g.getFontMetrics(), w - 24), 12, 32, Color.WHITE);
 				g.setFont(FontManager.getRunescapeSmallFont());
 				shadow(g, fit(gear == null ? "" : "Sync your bank and skills", g.getFontMetrics(), w - 24), 12, 45, TEXT);
 				tips = newTips;

@@ -454,16 +454,16 @@ public class RoadmapPanel extends PluginPanel {
 		if (slayer.getTask() == null) {
 			return new String[]{"No task, no location", "", ""};
 		}
-		if (slayer.isLoading()) {
-			return new String[]{"Loading...", "", ""};
+		if (slayer.isFetchingForTask()) {
+			return new String[]{"Retrieving location and gear", "information for the new task...", ""};
 		}
 		if (slayer.getError() != null) {
 			return new String[]{"No location loaded", slayer.getError(), ""};
 		}
 		if (!slayer.isGuideForTask()) {
-			return new String[]{"No location yet", "The website doesn't have this task yet", "(it needs Slayer sync on)"};
+			return new String[]{"No location data was found", "The website doesn't have this task yet", "(it needs Slayer sync on)"};
 		}
-		return new String[]{"No location known", "The website has no locations", "for this task yet"};
+		return new String[]{"No location data was found", "The website has no locations", "for this task yet"};
 	}
 
 	private String[][] slayerStatRows() {
