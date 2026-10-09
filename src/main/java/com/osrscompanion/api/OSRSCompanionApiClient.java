@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import com.osrscompanion.Guard;
 import com.osrscompanion.OSRSCompanionConfig;
+import com.osrscompanion.PluginVersion;
 import com.osrscompanion.SyncGuard;
 import com.osrscompanion.model.AchievementDiariesSyncPayload;
 import com.osrscompanion.model.HouseLocationSyncPayload;
@@ -67,11 +68,10 @@ public class OSRSCompanionApiClient
 	// Resolved at call-time from config so the user can point at localhost or any server.
 
 	/**
-	 * This release, sent with every OSRS Companion request so the server can tell plugin
-	 * releases apart (Plugin Hub builds carry no version of their own). Bump it
-	 * in the commit a Plugin Hub update points at.
+	 * This build's version (see {@link PluginVersion}), sent with every OSRS Companion request so the
+	 * website can show which plugin version each player runs.
 	 */
-	public static final String PLUGIN_VERSION = "2026.10.05";
+	public static final String PLUGIN_VERSION = PluginVersion.VERSION;
 	static final String VERSION_HEADER = "X-OSRSCompanion-Plugin-Version";
 	private static final Interceptor VERSION_INTERCEPTOR = chain -> chain.proceed(
 		chain.request().newBuilder().header(VERSION_HEADER, PLUGIN_VERSION).build());

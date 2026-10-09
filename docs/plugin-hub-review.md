@@ -123,6 +123,13 @@ Legend: **compliant**: no change needed. **fixed**: changed on this branch. **ow
 - What it is: `author=OSRS Companion` and the name "OSRS Companion".
 - Why it matters: both are fine under the rules. Reviewers sometimes ask for a person or GitHub handle as the author. This is optional.
 
+**O9. Plugin version in the hub build.**
+- What happens: the version is `<base>.<patch>`; the base is in `src/main/resources/com/osrscompanion/version.properties` and our `build.gradle` counts the patch from git and writes `com/osrscompanion/build-version.properties` into the jar. With `build=standard` the hub replaces `build.gradle`, so that file is not generated and hub users report `<base>-dev` (for example `0.1-dev`). The same happens for any build without the full git history (a source tarball or a shallow clone); the build never fails because of git.
+- Why it matters: the website shows each player's plugin version; all hub users would show the same `-dev` value, so hub releases are only told apart by the base.
+- Options:
+  - a) Accept it, and bump `base` in `version.properties` in the commit each hub update points at.
+  - b) Before a hub update, commit the generated `build-version.properties` into `src/main/resources` (it then survives the standard build) and delete it again after.
+
 ## Submission checklist (after the decisions above)
 
 1. Repository public, README and LICENSE in place (done).

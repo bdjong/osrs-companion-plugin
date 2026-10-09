@@ -135,7 +135,7 @@ public class RoadmapPanel extends PluginPanel {
 		tick();
 
 		JLabel note = new JLabel("<html><body style='width:170px'><i>Progress updates as you play and "
-			+ "syncs with the website in the background.</i></body></html>");
+			+ "syncs with the website in the background.</i><br><br>" + PluginVersion.label() + "</body></html>");
 		note.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		note.setFont(FontManager.getRunescapeSmallFont());
 		note.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
