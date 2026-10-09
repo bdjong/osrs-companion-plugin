@@ -91,6 +91,20 @@ final class SlayerSession {
 	List<Long> killTimesMs = new ArrayList<>();
 	@SerializedName("loot_gp")
 	long lootGp;
+	/**
+	 * Task kills that were a boss variant of the task (Alchemical Hydra on a hydra task, see
+	 * {@link SlayerBosses}), and the fight time of the timed boss and regular kills: the website tells a
+	 * regular, boss or mixed session apart from them (a boss counts as one kill but is far slower).
+	 */
+	@SerializedName("boss_kills")
+	int bossKills;
+	@SerializedName("boss_kill_time_ms_total")
+	long bossKillTimeMs;
+	@SerializedName("regular_kill_time_ms_total")
+	long regularKillTimeMs;
+	/** The centre of the area round a boss (x, y, plane) when the session is at one, for a restart. */
+	@SerializedName("boss_area_tile")
+	List<Integer> bossAreaTile;
 
 	/** Slayer XP gained while the session was open (the task's kills). */
 	@SerializedName("slayer_xp")
@@ -184,6 +198,17 @@ final class SlayerSession {
 	}
 
 	void addKillTime(long ms, long nowMs) {
+		addKillTime(ms, false, nowMs);
+	}
+
+	/** A timed kill; a boss variant's also counts as a boss kill. */
+	void addKillTime(long ms, boolean boss, long nowMs) {
+		if (boss) {
+			bossKills++;
+			bossKillTimeMs += ms;
+		} else {
+			regularKillTimeMs += ms;
+		}
 		killTimeTotalMs += ms;
 		killTimeCount++;
 		killTimesMs.add(ms);
@@ -292,6 +317,10 @@ final class SlayerSession {
 		m.put("avg_loot_gp", avgLootGp());
 		m.put("slayer_xp", slayerXp);
 		m.put("kill_times_ms", new ArrayList<>(killTimesMs));
+		// Never more boss kills than the task's count (a boss timed but its kill not counted, e.g. just before the session).
+		m.put("boss_kills", Math.max(0, Math.min(bossKills, Math.max(kills, 0))));
+		m.put("boss_kill_time_ms_total", bossKillTimeMs);
+		m.put("regular_kill_time_ms_total", regularKillTimeMs);
 		return m;
 	}
 

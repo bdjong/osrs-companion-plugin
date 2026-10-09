@@ -1,6 +1,8 @@
 package com.osrscompanion.model;
 
 import com.google.gson.annotations.SerializedName;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -139,6 +141,17 @@ public class SlayerGuide {
 		/** NPC names that count as the task monster here. */
 		@SerializedName("monsters")
 		private List<String> monsters;
+
+		/** An area the plugin makes itself (round a task's boss, see SlayerBosses): a tile and a radius. */
+		public static Location area(String key, String name, int x, int y, int plane, int radius, List<String> monsters) {
+			Location l = new Location();
+			l.key = key;
+			l.name = name;
+			l.tile = Arrays.asList(x, y, plane);
+			l.radius = radius;
+			l.monsters = monsters == null ? null : new ArrayList<>(monsters);
+			return l;
+		}
 
 		public String getKey() {
 			return key;
