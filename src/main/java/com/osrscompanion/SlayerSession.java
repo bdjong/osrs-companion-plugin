@@ -250,9 +250,19 @@ final class SlayerSession {
 		return Math.max(0, (endedMs > 0 ? endedMs : nowMs) - startedMs);
 	}
 
-	/** Remaining kills times the average kill time; 0 when not known yet. */
+	/** Kills before the estimate uses the time in the area (until then the fight time stands in). */
+	static final int ESTIMATE_MIN_KILLS = 3;
+
+	/**
+	 * Remaining kills times the real time a kill takes: the time in the area plus the bank trips, per
+	 * kill (walking to spots, looting, waiting and AFK included, as the website's Est. time left), or
+	 * the average fight time for the first kills; 0 when not known yet.
+	 */
 	long estimatedLeftMs() {
-		return Math.max(0, amountRemaining) * avgKillMs();
+		long perKill = kills >= ESTIMATE_MIN_KILLS && timeInAreaMs >= 1_000
+			? Math.round((timeInAreaMs + Math.max(0, bankTripMs)) / (double) kills)
+			: avgKillMs();
+		return Math.max(0, amountRemaining) * perKill;
 	}
 
 	/** The POST /api/runelite/slayer/sessions/ body, keys as the contract has them. */

@@ -123,7 +123,8 @@ public class SlayerSessionTest {
 		assertEquals(18_833, s.avgKillMs());
 		assertEquals(240.0, s.killsPerHour(), 0.001);
 		assertEquals(25_000, s.avgLootGp());
-		assertEquals(186 * 18_833L, s.estimatedLeftMs());
+		// Time in the area per kill (60 s / 4 kills), not the fight time.
+		assertEquals(186 * 15_000L, s.estimatedLeftMs());
 	}
 
 	@Test
