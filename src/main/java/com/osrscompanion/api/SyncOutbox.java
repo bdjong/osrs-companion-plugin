@@ -148,6 +148,17 @@ public final class SyncOutbox {
 	private volatile IntConsumer webVersionListener;
 	private volatile DropListener dropListener;
 
+	/**
+	 * Adds one request to a batch about to be sent (the live activity status rides along with every
+	 * batch this way). It is sent once with that batch and never queued or retried on its own.
+	 */
+	public interface BatchExtra {
+		/** The request to add to this chunk (same server and key), or null for none. */
+		Item extraFor(List<Item> chunk);
+	}
+
+	private volatile BatchExtra batchExtra;
+
 	/** Hears of each upload the server refused (a non-2xx status for it), so it is not silently lost. */
 	public interface DropListener {
 		void onDropped(Item item, int httpStatus);
@@ -165,6 +176,10 @@ public final class SyncOutbox {
 
 	public void setDropListener(DropListener listener) {
 		this.dropListener = listener;
+	}
+
+	public void setBatchExtra(BatchExtra extra) {
+		this.batchExtra = extra;
 	}
 
 	/** When a batch response last arrived (clock ms), or {@link Long#MIN_VALUE} if never. */
@@ -314,9 +329,29 @@ public final class SyncOutbox {
 			useBatch = now >= batchUnsupportedUntilMs;
 		}
 		if (useBatch) {
+			addExtra(chunk);
 			sendBatch(chunk);
 		} else {
 			sendIndividually(chunk, 0, new Integer[chunk.size()]);
+		}
+	}
+
+	/** The {@link BatchExtra}'s request, appended (in flight with the chunk, never queued). */
+	private void addExtra(List<Item> chunk) {
+		BatchExtra extra = batchExtra;
+		if (extra == null || chunk.size() >= MAX_BATCH_REQUESTS) {
+			return;
+		}
+		try {
+			Item item = extra.extraFor(Collections.unmodifiableList(chunk));
+			Item first = chunk.get(0);
+			if (item != null && Objects.equals(item.baseUrl, first.baseUrl) && Objects.equals(item.appKey, first.appKey)) {
+				item.inFlight = true;
+				item.enqueuedAtMs = clockMs.getAsLong();
+				chunk.add(item);
+			}
+		} catch (RuntimeException e) {
+			log.debug("Outbox: the batch extra failed", e);
 		}
 	}
 

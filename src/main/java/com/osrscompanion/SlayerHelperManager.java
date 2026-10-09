@@ -1384,6 +1384,16 @@ public class SlayerHelperManager {
 		return config.slayerGuide() && task != null && here == null;
 	}
 
+	/** The guide's locations for the current task (empty without a guide for it). */
+	List<SlayerGuide.Location> guideLocations() {
+		return locations();
+	}
+
+	/** Whether this NPC counts for the current task (its monster or a boss variant). Client thread. */
+	boolean isTaskTarget(String npcName) {
+		return isTaskMonster(task, npcName);
+	}
+
 	/** The guide is on and you are at one of the task's locations. */
 	public boolean isAtLocation() {
 		return config.slayerGuide() && task != null && here != null;

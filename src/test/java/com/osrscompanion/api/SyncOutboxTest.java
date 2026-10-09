@@ -384,4 +384,33 @@ public class SyncOutboxTest {
 		sender.lastBatch().onNetworkFailure("offline");
 		assertEquals(1, dropped.size());
 	}
+
+	@Test
+	public void batchExtraRidesAlongOnceAndIsNeverRetried() {
+		List<Integer> asked = new ArrayList<>();
+		outbox.setBatchExtra(chunk -> {
+			asked.add(chunk.size());
+			return new SyncOutbox.Item("https://x", "k", "/activity", "POST", "{\"s\":1}", "activity", null, false, false, null);
+		});
+		outbox.enqueue(item("/a", "{\"n\":1}", null, true));
+		advance(0);
+		assertEquals(Collections.singletonList(1), asked);
+		assertEquals(Arrays.asList("{\"n\":1}", "{\"s\":1}"), bodies(sender.batches.get(0)));
+		// A failed batch retries its queued uploads, not the extra (the next batch gets a fresh one).
+		sender.lastBatch().onNetworkFailure("offline");
+		assertEquals(1, outbox.size());
+		advance(SyncOutbox.BACKOFF_MAX_MS);
+		assertEquals(2, sender.batches.size());
+		assertEquals(Arrays.asList("{\"n\":1}", "{\"s\":1}"), bodies(sender.batches.get(1)));
+		sender.okLast(null);
+		assertEquals(0, outbox.size());
+	}
+
+	@Test
+	public void batchExtraForAnotherServerOrKeyIsLeftOut() {
+		outbox.setBatchExtra(chunk -> new SyncOutbox.Item("https://other", "k", "/activity", "POST", "{}", "activity", null, false, false, null));
+		outbox.enqueue(item("/a", "{\"n\":1}", null, true));
+		advance(0);
+		assertEquals(1, sender.batches.get(0).size());
+	}
 }

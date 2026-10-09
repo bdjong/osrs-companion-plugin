@@ -16,6 +16,11 @@ import net.runelite.api.GameState;
  * answers with it, and every {@link #CHECK_SECONDS} a tiny {@code GET /api/runelite/version} asks
  * for it when no batch answered lately. A different value than the last one seen re-reads
  * everything that shows website data; the features' own periodic re-reads are only a backstop.
+ *
+ * <p>It is also the live activity heartbeat: while the status is shared ({@link LiveActivityMonitor}),
+ * every batch carries it, and when no batch answered for {@link LiveActivityMonitor#HEARTBEAT_MS} the
+ * status goes out on its own (a batch, whose answer carries the webVersion too, so no version check is
+ * needed then). Idle, that is one request per 15 s instead of the version check's one per 30 s.
  */
 @Slf4j
 @Singleton
@@ -24,6 +29,8 @@ public class WebVersionWatcher {
 	static final String GUARD_FEATURE = "web-updates";
 
 	static final int CHECK_SECONDS = 30;
+	/** How often the (network-free) decision runs; the heartbeat then goes out 15 to 16 s after the last contact. */
+	static final int TICK_SECONDS = 1;
 	/** A batch response this recent already carried the webVersion. */
 	static final long RECENT_BATCH_MS = TimeUnit.SECONDS.toMillis(CHECK_SECONDS);
 
@@ -37,14 +44,17 @@ public class WebVersionWatcher {
 	private final BossGearManager bossGearManager;
 	private final GearProgressionManager gearProgressionManager;
 	private final DailiesManager dailiesManager;
+	private final LiveActivityMonitor liveActivity;
 
 	private ScheduledFuture<?> task;
+	private volatile long lastVersionCheckMs = Long.MIN_VALUE;
+	private volatile long lastHeartbeatMs = Long.MIN_VALUE;
 
 	@Inject
 	public WebVersionWatcher(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executor, RoadmapManager roadmapManager, FarmRunManager farmRunManager,
 			SlayerHelperManager slayerHelperManager, BossGearManager bossGearManager,
-			GearProgressionManager gearProgressionManager, DailiesManager dailiesManager) {
+			GearProgressionManager gearProgressionManager, DailiesManager dailiesManager, LiveActivityMonitor liveActivity) {
 		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.config = config;
@@ -56,12 +66,13 @@ public class WebVersionWatcher {
 		this.bossGearManager = bossGearManager;
 		this.gearProgressionManager = gearProgressionManager;
 		this.dailiesManager = dailiesManager;
+		this.liveActivity = liveActivity;
 	}
 
 	public synchronized void start() {
 		apiClient.setWebVersionChangedListener(() -> executor.execute(this::refreshAll));
 		if (task == null) {
-			task = executor.scheduleWithFixedDelay(this::check, CHECK_SECONDS, CHECK_SECONDS, TimeUnit.SECONDS);
+			task = executor.scheduleWithFixedDelay(this::check, TICK_SECONDS, TICK_SECONDS, TimeUnit.SECONDS);
 		}
 	}
 
@@ -72,11 +83,20 @@ public class WebVersionWatcher {
 		}
 		apiClient.setWebVersionChangedListener(null);
 		apiClient.resetWebVersion();
+		lastVersionCheckMs = Long.MIN_VALUE;
+		lastHeartbeatMs = Long.MIN_VALUE;
 	}
 
 	/** Logged out: the next login's first webVersion is a new baseline (the login loads everything anyway). */
 	public void onLoggedOut() {
 		apiClient.resetWebVersion();
+		lastHeartbeatMs = Long.MIN_VALUE;
+	}
+
+	/** Whether the live activity heartbeat is due: nothing reached the website (batch or heartbeat) for 15 s. */
+	static boolean shouldHeartbeat(long nowMs, long lastBatchResponseMs, long lastHeartbeatMs) {
+		long last = Math.max(lastBatchResponseMs, lastHeartbeatMs);
+		return last == Long.MIN_VALUE || nowMs - last >= LiveActivityMonitor.HEARTBEAT_MS;
 	}
 
 	/** Whether the version GET is worth sending now. */
@@ -89,11 +109,22 @@ public class WebVersionWatcher {
 
 	private void check() {
 		try {
-			String player = SyncGuard.getPlayerUsername(client);
-			if (!shouldCheck(client.getGameState() == GameState.LOGGED_IN, SyncGuard.hasAppKey(config), player,
-					System.currentTimeMillis(), apiClient.getLastBatchResponseMs())) {
+			long now = System.currentTimeMillis();
+			long lastBatch = apiClient.getLastBatchResponseMs();
+			if (liveActivity.isSharing()) {
+				// The heartbeat's batch answers with the webVersion: it is the version check too.
+				if (shouldHeartbeat(now, lastBatch, lastHeartbeatMs)) {
+					lastHeartbeatMs = now;
+					liveActivity.heartbeat();
+				}
 				return;
 			}
+			String player = SyncGuard.getPlayerUsername(client);
+			if (!shouldCheck(client.getGameState() == GameState.LOGGED_IN, SyncGuard.hasAppKey(config), player,
+					now, Math.max(lastBatch, lastVersionCheckMs))) {
+				return;
+			}
+			lastVersionCheckMs = now;
 			apiClient.getWebVersion(player, new OSRSCompanionApiClient.RoadmapCallback<Integer>() {
 				@Override
 				public void onSuccess(Integer result) {
