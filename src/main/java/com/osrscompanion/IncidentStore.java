@@ -6,14 +6,18 @@ import java.util.List;
 /**
  * Keeps the last fatal error or freeze in the RuneLite config, written while it happens, so it
  * survives what cannot be caught (the JVM running out of memory, the player killing a frozen
- * client). The next start reports it and clears it ({@link #take()}); a clean plugin stop clears it,
- * since the incident was reported live then.
+ * client). The next start reads it ({@link #peekRaw()}), reports it once a player is logged in and
+ * clears it once that report was sent ({@link #clearIf}); a clean plugin stop clears what this session
+ * saved, since that was reported live.
  *
  * The config is reached through {@link Storage}, so this is unit-testable.
  */
 final class IncidentStore {
 	static final String KEY = "pendingIncident";
-	static final int MAX_STACK = 2_000;
+	/** Room for a client thread stall's {@value #STALL_FRAMES} frames, other plugins' included. */
+	static final int MAX_STACK = 6_000;
+	/** Frames kept of a whole-client-thread stall: enough to see whose code it is. */
+	static final int STALL_FRAMES = 40;
 	static final int MAX_MESSAGE = 300;
 	private static final String VERSION = "v1";
 
@@ -66,6 +70,24 @@ final class IncidentStore {
 		return decode(raw);
 	}
 
+	/** The pending incident as stored (left in place), or null. */
+	String peekRaw() {
+		return storage.get();
+	}
+
+	/**
+	 * Clears the pending incident only if it is still {@code raw} (a newer one saved since is kept).
+	 * True when it was cleared.
+	 */
+	boolean clearIf(String raw) {
+		String now = storage.get();
+		if (raw == null || !raw.equals(now)) {
+			return false;
+		}
+		storage.unset();
+		return true;
+	}
+
 	void clear() {
 		if (storage.get() != null) {
 			storage.unset();
@@ -104,7 +126,12 @@ final class IncidentStore {
 	}
 
 	static String shortStack(StackTraceElement[] frames, int maxFrames) {
-		StringBuilder sb = new StringBuilder("Client thread");
+		return shortStack("Client thread", frames, maxFrames);
+	}
+
+	/** {@code header}, then at most {@code maxFrames} frames (every frame, whoever's code it is). */
+	static String shortStack(String header, StackTraceElement[] frames, int maxFrames) {
+		StringBuilder sb = new StringBuilder(header);
 		appendFrames(sb, frames, maxFrames);
 		return sb.toString();
 	}
