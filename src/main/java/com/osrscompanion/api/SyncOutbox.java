@@ -146,6 +146,12 @@ public final class SyncOutbox {
 	private boolean stopped;
 	private volatile long lastBatchResponseMs = Long.MIN_VALUE;
 	private volatile IntConsumer webVersionListener;
+	private volatile DropListener dropListener;
+
+	/** Hears of each upload the server refused (a non-2xx status for it), so it is not silently lost. */
+	public interface DropListener {
+		void onDropped(Item item, int httpStatus);
+	}
 
 	public SyncOutbox(Sender sender, ScheduledExecutorService executor, LongSupplier clockMs) {
 		this.sender = sender;
@@ -155,6 +161,10 @@ public final class SyncOutbox {
 
 	public void setWebVersionListener(IntConsumer listener) {
 		this.webVersionListener = listener;
+	}
+
+	public void setDropListener(DropListener listener) {
+		this.dropListener = listener;
 	}
 
 	/** When a batch response last arrived (clock ms), or {@link Long#MIN_VALUE} if never. */
@@ -419,6 +429,8 @@ public final class SyncOutbox {
 	 */
 	private void complete(List<Item> chunk, Integer[] results, boolean retry) {
 		List<Runnable> callbacks = new ArrayList<>();
+		List<Runnable> drops = new ArrayList<>();
+		DropListener dropped = dropListener;
 		boolean runNow;
 		synchronized (this) {
 			long now = clockMs.getAsLong();
@@ -439,6 +451,10 @@ public final class SyncOutbox {
 					callbacks.addAll(item.onSuccess);
 				} else {
 					log.warn("OSRS Companion API returned {} for {} sync", status, item.label);
+					if (dropped != null) {
+						int code = status;
+						drops.add(() -> dropped.onDropped(item, code));
+					}
 				}
 			}
 			if (retry && !stopped) {
@@ -468,6 +484,13 @@ public final class SyncOutbox {
 				r.run();
 			} catch (RuntimeException e) {
 				log.warn("Upload callback failed", e);
+			}
+		}
+		for (Runnable r : drops) {
+			try {
+				r.run();
+			} catch (RuntimeException e) {
+				log.debug("Drop listener failed", e);
 			}
 		}
 		if (runNow) {

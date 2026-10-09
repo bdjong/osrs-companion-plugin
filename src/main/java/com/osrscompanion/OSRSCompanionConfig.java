@@ -20,6 +20,8 @@ public interface OSRSCompanionConfig extends Config {
 		+ " server that is not run or checked by the RuneLite developers. Continue?";
 	/** The goal sound switch; replaced the old "goalCompleteSound" choice (In-game / Off). */
 	String GOAL_SOUND_KEY = "goalSoundOn";
+	/** Sends this plugin's errors to the website (see {@link ErrorReporter}). */
+	String SEND_ERROR_REPORTS_KEY = "sendErrorReports";
 	/** The farming cape setting; replaced the "farmingCapeForHerbs" and "forceFarmingCape" switches. */
 	String FARMING_CAPE_KEY = "farmingCapeMode";
 	/** The trip planner per tool; replaced the one "suppliesCheck" switch. */
@@ -209,6 +211,16 @@ public interface OSRSCompanionConfig extends Config {
 			section = SYNC_SECTION,
 			position = 14)
 	default boolean syncFarmRuns() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = SEND_ERROR_REPORTS_KEY,
+			name = "Send error reports",
+			description = "When this plugin hits an error, send a short report to OSRS Companion so the bug can be found and fixed: the error message and stack trace of this plugin's own code, which feature it happened in, the plugin and RuneLite versions and your character name. Nothing else is sent.",
+			section = SYNC_SECTION,
+			position = 15)
+	default boolean sendErrorReports() {
 		return true;
 	}
 
