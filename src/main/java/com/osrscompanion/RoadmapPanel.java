@@ -406,7 +406,7 @@ public class RoadmapPanel extends PluginPanel {
 				configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, "slayerGuide", !config.slayerGuide());
 				deck.repaint();
 			}).withSwitchLabel("Guide"), null);
-		slayerStats = new PanelTiles.Stats("AT THE LOCATION", SLAYER, 9, this::slayerStatRows);
+		slayerStats = new PanelTiles.Stats("AT THE LOCATION", SLAYER, 10, this::slayerStatRows);
 		add(p, slayerStats, "This visit to the task's location: it is sent to the website, which charts it per task.");
 		slayerStatsGap = p.getComponent(p.getComponentCount() - 1);
 		slayerStats.setVisible(false);
@@ -479,8 +479,9 @@ public class RoadmapPanel extends PluginPanel {
 			{"Time at location", SlayerFormat.clock(time)},
 			{"Trip timer", SlayerFormat.clock(s.total(now))},
 			{"Kills", String.valueOf(s.kills)},
-			{"Avg kill time", s.avgKillMs > 0 ? SlayerFormat.seconds(s.avgKillMs) : "-"},
-			{"Kills / hour", s.killsPerHour > 0 ? String.valueOf(Math.round(s.killsPerHour)) : "-"},
+			{"Fight time", s.avgKillMs > 0 ? SlayerFormat.seconds(s.avgKillMs) : "-"},
+			{"Time per kill", s.kills > 0 && time > 0 ? SlayerFormat.seconds(time / s.kills) : "-"},
+			{"Kills/h", s.kills > 0 && time > 0 ? String.valueOf(Math.round(s.kills * 3_600_000.0 / time)) : "-"},
 			{"Est. time left", s.estimatedLeftMs > 0 && t != null ? SlayerFormat.clock(s.estimatedLeftMs) : "-"},
 			{"Loot", SlayerFormat.gp(s.lootGp)},
 			{"Avg loot / kill", s.kills > 0 ? SlayerFormat.gp(s.avgLootGp) : "-"}};
