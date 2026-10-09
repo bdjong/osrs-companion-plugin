@@ -106,6 +106,8 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
 	static final String BATCH_ENDPOINT = "/api/runelite/batch";
 	static final String VERSION_ENDPOINT = "/api/runelite/version";
+	static final String ERRORS_ENDPOINT = "/api/runelite/errors";
+	static final String ERRORS_LABEL = "errors";
 
 	private static final int HTTP_OK_MIN = 200;
 	private static final int HTTP_OK_MAX = 300;
@@ -126,6 +128,17 @@ public class OSRSCompanionApiClient
 	/** The website's data version last seen this login; null until the first answer. */
 	private Integer lastWebVersion;
 	private volatile Runnable webVersionChangedListener;
+	private volatile ErrorListener errorListener;
+
+	/** Hears of failures worth an error report: refused uploads and website answers that could not be read. */
+	public interface ErrorListener
+	{
+		/** An upload the server refused (non-2xx) and that is not retried. */
+		void onUploadDropped(String label, String path, int httpStatus);
+
+		/** A website response that was not the JSON expected. */
+		void onResponseParseFailed(String label, String path, String error);
+	}
 
 	@Inject
 	public OSRSCompanionApiClient(OSRSCompanionConfig config, Gson gson, OkHttpClient okHttpClient)
@@ -628,6 +641,63 @@ public class OSRSCompanionApiClient
 		getAsync(DAILIES_ENDPOINT + "?player=" + urlEncode(playerUsername), "dailies", Dailies.class, callback);
 	}
 
+	/**
+	 * Sends error reports ({@code POST /api/runelite/errors}) through the outbox as a normal upload.
+	 * Their own failures are never reported (no loops).
+	 */
+	public void sendErrorReports(String playerUsername, List<Map<String, Object>> reports)
+	{
+		if (reports == null || reports.isEmpty())
+		{
+			return;
+		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player_username", playerUsername);
+		body.put("reports", reports);
+		postAsync(ERRORS_ENDPOINT, gsonWithNulls.toJson(body), ERRORS_LABEL, false, false, null, false,
+			() -> log.debug("OSRS Companion error reports sent: {}", reports.size()));
+	}
+
+	public void setErrorListener(ErrorListener listener)
+	{
+		this.errorListener = listener;
+	}
+
+	private void notifyDropped(String label, String path, int status)
+	{
+		ErrorListener listener = errorListener;
+		if (listener == null || ERRORS_LABEL.equals(label))
+		{
+			return;
+		}
+		try
+		{
+			listener.onUploadDropped(label, path, status);
+		}
+		catch (RuntimeException e)
+		{
+			log.debug("Error listener failed", e);
+		}
+	}
+
+	private void notifyParseFailed(String label, String path, String error)
+	{
+		ErrorListener listener = errorListener;
+		if (listener == null)
+		{
+			return;
+		}
+		int query = path.indexOf('?');
+		try
+		{
+			listener.onResponseParseFailed(label, query >= 0 ? path.substring(0, query) : path, error);
+		}
+		catch (RuntimeException e)
+		{
+			log.debug("Error listener failed", e);
+		}
+	}
+
 	private <T> void getAsync(String endpoint, String label, Class<T> type, RoadmapCallback<T> callback)
 	{
 		if (!SyncGuard.hasAppKey(config))
@@ -642,7 +712,7 @@ public class OSRSCompanionApiClient
 			.get()
 			.build();
 
-		okHttpClient.newCall(request).enqueue(parsingCallback(label, type, callback));
+		okHttpClient.newCall(request).enqueue(parsingCallback(endpoint, label, type, callback));
 	}
 
 	private <T> void postForResult(String endpoint, String json, String label, Class<T> type,
@@ -661,10 +731,10 @@ public class OSRSCompanionApiClient
 			.post(RequestBody.create(JSON_MEDIA_TYPE, json))
 			.build();
 
-		largeRequestClient.newCall(request).enqueue(parsingCallback(label, type, callback));
+		largeRequestClient.newCall(request).enqueue(parsingCallback(endpoint, label, type, callback));
 	}
 
-	private <T> Callback parsingCallback(String label, Class<T> type, RoadmapCallback<T> callback)
+	private <T> Callback parsingCallback(String endpoint, String label, Class<T> type, RoadmapCallback<T> callback)
 	{
 		return new Callback()
 		{
@@ -695,9 +765,15 @@ public class OSRSCompanionApiClient
 					}
 					callback.onSuccess(parsed);
 				}
-				catch (IOException | JsonSyntaxException e)
+				catch (JsonSyntaxException e)
 				{
 					log.warn("Failed to parse {} response: {}", label, e.getMessage());
+					notifyParseFailed(label, endpoint, e.getMessage());
+					callback.onError("Could not read response");
+				}
+				catch (IOException e)
+				{
+					log.warn("Failed to read {} response: {}", label, e.getMessage());
 					callback.onError("Could not read response");
 				}
 				finally
@@ -783,6 +859,7 @@ public class OSRSCompanionApiClient
 				else
 				{
 					log.warn("OSRS Companion API returned {} for {} sync", httpStatus, syncType);
+					notifyDropped(syncType, endpoint, httpStatus);
 				}
 			}
 
@@ -819,6 +896,7 @@ public class OSRSCompanionApiClient
 				}
 			}, executor, System::currentTimeMillis);
 			box.setWebVersionListener(this::observeWebVersion);
+			box.setDropListener((item, status) -> notifyDropped(item.getLabel(), item.getPath(), status));
 			outbox = box;
 		}
 		outbox.start();
@@ -892,9 +970,17 @@ public class OSRSCompanionApiClient
 						webVersion = parsed.webVersion;
 					}
 				}
-				catch (IOException | RuntimeException e)
+				catch (IOException e)
 				{
 					log.warn("Failed to read the batch response: {}", e.getMessage());
+				}
+				catch (RuntimeException e)
+				{
+					log.warn("Failed to read the batch response: {}", e.getMessage());
+					if (!onlyErrorReports(items))
+					{
+						notifyParseFailed("batch", BATCH_ENDPOINT, e.getMessage());
+					}
 				}
 				finally
 				{
@@ -903,6 +989,19 @@ public class OSRSCompanionApiClient
 				callback.onResponse(code, statuses, webVersion);
 			}
 		});
+	}
+
+	/** True when a batch carries nothing but error reports (their failures are never reported). */
+	static boolean onlyErrorReports(List<SyncOutbox.Item> items)
+	{
+		for (SyncOutbox.Item item : items)
+		{
+			if (!ERRORS_LABEL.equals(item.getLabel()))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** {@code {"requests":[{"path","method","body"}]}}, the bodies spliced in as the JSON they already are. */
@@ -1069,9 +1168,14 @@ public class OSRSCompanionApiClient
 						version = root != null && root.isJsonObject() ? readWebVersion(root.getAsJsonObject()) : null;
 					}
 				}
-				catch (IOException | RuntimeException e)
+				catch (IOException e)
 				{
 					log.debug("Failed to read the web version: {}", e.getMessage());
+				}
+				catch (RuntimeException e)
+				{
+					log.debug("Failed to read the web version: {}", e.getMessage());
+					notifyParseFailed("version", VERSION_ENDPOINT, e.getMessage());
 				}
 				finally
 				{

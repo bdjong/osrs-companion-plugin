@@ -257,6 +257,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private NavigationButton navButton;
 	private java.util.concurrent.ScheduledFuture<?> roadmapWaitingPoll;
 	private java.util.concurrent.ScheduledFuture<?> farmRouteReadyPoll;
+	private ErrorReporter errorReporter;
+	private ErrorLogAppender errorLogAppender;
+	private java.util.concurrent.ScheduledFuture<?> errorReportFlush;
 
 	@Override
 	protected void startUp() throws Exception {
@@ -264,6 +267,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		migrateSettings();
 		// Uploads queue in the outbox and go out batched (first, so the monitors' first syncs use it).
 		apiClient.startOutbox(executorService);
+		startErrorReports();
 
 		TimeTrackingConfig timeTrackingConfig = configManager.getConfig(TimeTrackingConfig.class);
 		FarmingWorld farmingWorld = new FarmingWorld();
@@ -649,9 +653,68 @@ public class OSRSCompanionPlugin extends Plugin {
 		}
 		roadmapManager.clear();
 		webVersionWatcher.stop();
+		stopErrorReports();
 		// The monitors' stop() above queued their last uploads: send them now; nothing is retried after.
 		apiClient.stopOutbox();
 		log.debug("OSRS Companion stopped");
+	}
+
+	/**
+	 * Starts collecting this plugin's errors for the website (only sent while "Send error reports" is
+	 * on, an App Key is set and the world is not a special game mode).
+	 */
+	private void startErrorReports() {
+		ErrorReporter reporter = new ErrorReporter(
+				apiClient::sendErrorReports,
+				System::currentTimeMillis,
+				() -> config.sendErrorReports() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
+				() -> SyncGuard.getPlayerUsername(client),
+				OSRSCompanionApiClient.PLUGIN_VERSION,
+				runeLiteVersion());
+		errorReporter = reporter;
+		apiClient.setErrorListener(new OSRSCompanionApiClient.ErrorListener() {
+			@Override
+			public void onUploadDropped(String label, String path, int httpStatus) {
+				reporter.reportUploadDropped(label, path, httpStatus);
+			}
+
+			@Override
+			public void onResponseParseFailed(String label, String path, String error) {
+				reporter.reportParseFailure(label, path, error);
+			}
+		});
+		errorLogAppender = new ErrorLogAppender(reporter);
+		if (!errorLogAppender.attach()) {
+			errorLogAppender = null;
+		}
+		long every = ErrorReporter.FLUSH_INTERVAL_MS;
+		errorReportFlush = executorService.scheduleWithFixedDelay(reporter::flush, every, every,
+				java.util.concurrent.TimeUnit.MILLISECONDS);
+	}
+
+	private void stopErrorReports() {
+		if (errorLogAppender != null) {
+			errorLogAppender.detach();
+			errorLogAppender = null;
+		}
+		apiClient.setErrorListener(null);
+		if (errorReportFlush != null) {
+			errorReportFlush.cancel(false);
+			errorReportFlush = null;
+		}
+		if (errorReporter != null) {
+			// Queued in the outbox, which sends it with the last uploads.
+			errorReporter.flush(true);
+			errorReporter = null;
+		}
+	}
+
+	private static String runeLiteVersion() {
+		try {
+			return net.runelite.client.RuneLiteProperties.getVersion();
+		} catch (Throwable e) {
+			return null;
+		}
 	}
 
 	/**
