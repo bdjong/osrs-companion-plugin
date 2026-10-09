@@ -30,6 +30,9 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
  */
 @Singleton
 public class SlayerGuideMarkers {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-guide-markers";
+
 	static final Color PIN_COLOR = new Color(0xF87171);
 
 	private final Client client;
@@ -55,14 +58,16 @@ public class SlayerGuideMarkers {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		SlayerGuide.Location l = manager.getLocation();
-		if (!manager.isGuiding() || l == null || !l.hasTile() || client.getGameState() != GameState.LOGGED_IN) {
-			clear();
-			return;
-		}
-		WorldPoint target = new WorldPoint(l.getX(), l.getY(), l.getPlane());
-		updateArrow(target);
-		updateMapPoint(l, target);
+		Guard.run(GUARD_FEATURE, () -> {
+			SlayerGuide.Location l = manager.getLocation();
+			if (!manager.isGuiding() || l == null || !l.hasTile() || client.getGameState() != GameState.LOGGED_IN) {
+				clear();
+				return;
+			}
+			WorldPoint target = new WorldPoint(l.getX(), l.getY(), l.getPlane());
+			updateArrow(target);
+			updateMapPoint(l, target);
+		});
 	}
 
 	/** The hint arrow on the location's tile while it is in the loaded scene (a farm run's arrow goes first). */

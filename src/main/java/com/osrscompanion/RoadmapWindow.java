@@ -47,6 +47,9 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  */
 @Singleton
 public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelListener, KeyListener {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "roadmap-window";
+
 	private static final int MAX_WIDTH = 580;
 	private static final int MAX_HEIGHT = 470;
 	private static final int MIN_WIDTH = 400;
@@ -235,66 +238,68 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 
 	@Override
 	public Dimension render(Graphics2D g) {
-		// Out of the way while the bank is open.
-		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null || !open) {
-			window = null;
-			hits = Collections.emptyList();
-			return null;
-		}
-		int w = Math.min(MAX_WIDTH, client.getCanvasWidth() - 2 * SCREEN_MARGIN);
-		int h = Math.min(MAX_HEIGHT, client.getCanvasHeight() - 2 * SCREEN_MARGIN);
-		if (w < MIN_WIDTH || h < MIN_HEIGHT) {
-			window = null;
-			hits = Collections.emptyList();
-			return null;
-		}
-		int x = (client.getCanvasWidth() - w) / 2;
-		int y = (client.getCanvasHeight() - h) / 2;
-		Rectangle win = new Rectangle(x, y, w, h);
-		List<Hit> newHits = new ArrayList<>();
+		return Guard.render(GUARD_FEATURE, () -> {
+			// Out of the way while the bank is open.
+			if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null || !open) {
+				window = null;
+				hits = Collections.emptyList();
+				return null;
+			}
+			int w = Math.min(MAX_WIDTH, client.getCanvasWidth() - 2 * SCREEN_MARGIN);
+			int h = Math.min(MAX_HEIGHT, client.getCanvasHeight() - 2 * SCREEN_MARGIN);
+			if (w < MIN_WIDTH || h < MIN_HEIGHT) {
+				window = null;
+				hits = Collections.emptyList();
+				return null;
+			}
+			int x = (client.getCanvasWidth() - w) / 2;
+			int y = (client.getCanvasHeight() - h) / 2;
+			Rectangle win = new Rectangle(x, y, w, h);
+			List<Hit> newHits = new ArrayList<>();
 
-		g.setColor(BG);
-		g.fillRect(x, y, w, h);
-		g.setColor(FRAME_DARK);
-		g.setStroke(new BasicStroke(3));
-		g.drawRect(x + 1, y + 1, w - 3, h - 3);
-		g.setStroke(new BasicStroke(1));
-		g.setColor(FRAME_LIGHT);
-		g.drawRect(x + 3, y + 3, w - 7, h - 7);
-		g.setFont(FontManager.getRunescapeBoldFont());
-		centred(g, "Roadmap", x + w / 2, y + 20, ORANGE);
-		Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
-		box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
-		g.setColor(new Color(0xC8A24A));
-		g.setStroke(new BasicStroke(2));
-		g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
-		g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
-		g.setStroke(new BasicStroke(1));
-		newHits.add(new Hit(close, this::close, null));
-		g.setColor(PANEL_EDGE);
-		g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
-		g.setColor(FRAME_LIGHT);
-		g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
+			g.setColor(BG);
+			g.fillRect(x, y, w, h);
+			g.setColor(FRAME_DARK);
+			g.setStroke(new BasicStroke(3));
+			g.drawRect(x + 1, y + 1, w - 3, h - 3);
+			g.setStroke(new BasicStroke(1));
+			g.setColor(FRAME_LIGHT);
+			g.drawRect(x + 3, y + 3, w - 7, h - 7);
+			g.setFont(FontManager.getRunescapeBoldFont());
+			centred(g, "Roadmap", x + w / 2, y + 20, ORANGE);
+			Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
+			box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
+			g.setColor(new Color(0xC8A24A));
+			g.setStroke(new BasicStroke(2));
+			g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
+			g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
+			g.setStroke(new BasicStroke(1));
+			newHits.add(new Hit(close, this::close, null));
+			g.setColor(PANEL_EDGE);
+			g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
+			g.setColor(FRAME_LIGHT);
+			g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
 
-		Roadmap roadmap = roadmapManager.getCurrentRoadmap();
-		Rectangle switchButton = subtitle(g, roadmap, win, newHits);
+			Roadmap roadmap = roadmapManager.getCurrentRoadmap();
+			Rectangle switchButton = subtitle(g, roadmap, win, newHits);
 
-		Rectangle area = new Rectangle(x + 8, y + TITLE_HEIGHT + SUBTITLE_HEIGHT + 6, w - 16, h - TITLE_HEIGHT - SUBTITLE_HEIGHT - 16);
-		panel(g, area);
-		body = area;
-		if (roadmap == null) {
-			message(g, area, loading ? "Loading your roadmap..." : status != null ? status : "Loading your roadmap...");
-		} else {
-			renderGoals(g, roadmap, area, newHits);
-		}
+			Rectangle area = new Rectangle(x + 8, y + TITLE_HEIGHT + SUBTITLE_HEIGHT + 6, w - 16, h - TITLE_HEIGHT - SUBTITLE_HEIGHT - 16);
+			panel(g, area);
+			body = area;
+			if (roadmap == null) {
+				message(g, area, loading ? "Loading your roadmap..." : status != null ? status : "Loading your roadmap...");
+			} else {
+				renderGoals(g, roadmap, area, newHits);
+			}
 
-		if (switcherOpen && switchButton != null) {
-			renderSwitcher(g, switchButton, win, newHits);
-		} else {
-			switcherArea = null;
-		}
-		finish(g, win, newHits);
-		return new Dimension(w, h);
+			if (switcherOpen && switchButton != null) {
+				renderSwitcher(g, switchButton, win, newHits);
+			} else {
+				switcherArea = null;
+			}
+			finish(g, win, newHits);
+			return new Dimension(w, h);
+		});
 	}
 
 	/** Roadmap name, Switch and Refresh, and what is going on. Returns the Switch button. */

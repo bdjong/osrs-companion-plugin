@@ -46,6 +46,9 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  */
 @Singleton
 public class GearProgressionOverlay extends Overlay implements MouseListener, MouseWheelListener, KeyListener {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "gear-progression-window";
+
 	private static final int MAX_WIDTH = 900;
 	private static final int MAX_HEIGHT = 600;
 	private static final int MIN_WIDTH = 420;
@@ -107,100 +110,102 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 
 	@Override
 	public Dimension render(Graphics2D g) {
-		if (!manager.isOpen()) {
-			window = null;
-			stepsArea = null;
-			hits = Collections.emptyList();
-			return null;
-		}
-		manager.refreshIfStale();
+		return Guard.render(GUARD_FEATURE, () -> {
+			if (!manager.isOpen()) {
+				window = null;
+				stepsArea = null;
+				hits = Collections.emptyList();
+				return null;
+			}
+			manager.refreshIfStale();
 
-		int canvasW = client.getCanvasWidth();
-		int canvasH = client.getCanvasHeight();
-		int w = Math.min(MAX_WIDTH, canvasW - 2 * SCREEN_MARGIN);
-		int h = Math.min(MAX_HEIGHT, canvasH - 2 * SCREEN_MARGIN);
-		if (w < MIN_WIDTH || h < MIN_HEIGHT) {
-			window = null;
-			hits = Collections.emptyList();
-			return null;
-		}
-		int x = (canvasW - w) / 2;
-		int y = (canvasH - h) / 2;
-		Rectangle win = new Rectangle(x, y, w, h);
-		List<Hit> newHits = new ArrayList<>();
+			int canvasW = client.getCanvasWidth();
+			int canvasH = client.getCanvasHeight();
+			int w = Math.min(MAX_WIDTH, canvasW - 2 * SCREEN_MARGIN);
+			int h = Math.min(MAX_HEIGHT, canvasH - 2 * SCREEN_MARGIN);
+			if (w < MIN_WIDTH || h < MIN_HEIGHT) {
+				window = null;
+				hits = Collections.emptyList();
+				return null;
+			}
+			int x = (canvasW - w) / 2;
+			int y = (canvasH - h) / 2;
+			Rectangle win = new Rectangle(x, y, w, h);
+			List<Hit> newHits = new ArrayList<>();
 
-		// Frame and title bar.
-		g.setColor(BG);
-		g.fillRect(x, y, w, h);
-		g.setColor(FRAME_DARK);
-		g.setStroke(new BasicStroke(3));
-		g.drawRect(x + 1, y + 1, w - 3, h - 3);
-		g.setStroke(new BasicStroke(1));
-		g.setColor(FRAME_LIGHT);
-		g.drawRect(x + 3, y + 3, w - 7, h - 7);
+			// Frame and title bar.
+			g.setColor(BG);
+			g.fillRect(x, y, w, h);
+			g.setColor(FRAME_DARK);
+			g.setStroke(new BasicStroke(3));
+			g.drawRect(x + 1, y + 1, w - 3, h - 3);
+			g.setStroke(new BasicStroke(1));
+			g.setColor(FRAME_LIGHT);
+			g.drawRect(x + 3, y + 3, w - 7, h - 7);
 
-		g.setFont(FontManager.getRunescapeBoldFont());
-		centred(g, "Gear Progression", x + w / 2, y + 20, ORANGE);
-		Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
-		box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
-		g.setColor(new Color(0xC8A24A));
-		g.setStroke(new BasicStroke(2));
-		g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
-		g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
-		g.setStroke(new BasicStroke(1));
-		newHits.add(new Hit(close, manager::close, null));
-		g.setColor(PANEL_EDGE);
-		g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
-		g.setColor(FRAME_LIGHT);
-		g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
+			g.setFont(FontManager.getRunescapeBoldFont());
+			centred(g, "Gear Progression", x + w / 2, y + 20, ORANGE);
+			Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
+			box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
+			g.setColor(new Color(0xC8A24A));
+			g.setStroke(new BasicStroke(2));
+			g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
+			g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
+			g.setStroke(new BasicStroke(1));
+			newHits.add(new Hit(close, manager::close, null));
+			g.setColor(PANEL_EDGE);
+			g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
+			g.setColor(FRAME_LIGHT);
+			g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
 
-		GearPlan plan = manager.getPlan();
-		if (plan == null) {
-			renderMessage(g, win);
-			finish(g, win, newHits, null);
+			GearPlan plan = manager.getPlan();
+			if (plan == null) {
+				renderMessage(g, win);
+				finish(g, win, newHits, null);
+				return new Dimension(w, h);
+			}
+
+			// Subtitle: active roadmap (with a switcher when there are several) and overall progress.
+			int subY = y + TITLE_HEIGHT + 16;
+			g.setFont(FontManager.getRunescapeSmallFont());
+			int afterName = text(g, "Roadmap: ", x + 12, subY, BEIGE);
+			g.setFont(FontManager.getRunescapeFont());
+			afterName = text(g, truncate(plan.getTitle(), g.getFontMetrics(), w / 3), afterName, subY, Color.WHITE);
+			List<GearPlan.Summary> plans = manager.getPlans();
+			Rectangle switchButton = null;
+			if (plans.size() > 1) {
+				switchButton = new Rectangle(afterName + 8, subY - 13, 62, 17);
+				button(g, switchButton, switcherOpen ? "Close" : "Switch", manager.isBusy());
+				newHits.add(new Hit(switchButton, () -> switcherOpen = !switcherOpen, "Switch to another roadmap"));
+			} else {
+				switcherOpen = false;
+			}
+			int barW = 160;
+			bar(g, x + w - 12 - barW, subY - 7, barW, 7, plan.getDone(), plan.getTotal());
+			String overall = "Overall " + plan.getDone() + " / " + plan.getTotal();
+			g.setFont(FontManager.getRunescapeFont());
+			text(g, overall, x + w - 20 - barW - g.getFontMetrics().stringWidth(overall), subY, Color.WHITE);
+
+			int bodyY = y + TITLE_HEIGHT + SUBTITLE_HEIGHT + 6;
+			int bodyBottom = y + h - 10;
+
+			GearPlan.Tier tier = manager.getSelectedTier();
+			renderTabs(g, plan, tier, new Rectangle(x + 8, bodyY, TAB_WIDTH, bodyBottom - bodyY), newHits);
+
+			int mainX = x + 8 + TAB_WIDTH + 8;
+			int mainW = x + w - 8 - mainX;
+			Rectangle detail = new Rectangle(mainX, bodyBottom - DETAIL_HEIGHT, mainW, DETAIL_HEIGHT);
+			Rectangle steps = new Rectangle(mainX, bodyY, mainW, detail.y - 6 - bodyY);
+			if (tier != null) {
+				renderSteps(g, tier, steps, newHits);
+				renderDetail(g, tier, detail, newHits);
+			}
+			if (switcherOpen && switchButton != null) {
+				renderSwitcher(g, plans, switchButton, newHits);
+			}
+			finish(g, win, newHits, steps);
 			return new Dimension(w, h);
-		}
-
-		// Subtitle: active roadmap (with a switcher when there are several) and overall progress.
-		int subY = y + TITLE_HEIGHT + 16;
-		g.setFont(FontManager.getRunescapeSmallFont());
-		int afterName = text(g, "Roadmap: ", x + 12, subY, BEIGE);
-		g.setFont(FontManager.getRunescapeFont());
-		afterName = text(g, truncate(plan.getTitle(), g.getFontMetrics(), w / 3), afterName, subY, Color.WHITE);
-		List<GearPlan.Summary> plans = manager.getPlans();
-		Rectangle switchButton = null;
-		if (plans.size() > 1) {
-			switchButton = new Rectangle(afterName + 8, subY - 13, 62, 17);
-			button(g, switchButton, switcherOpen ? "Close" : "Switch", manager.isBusy());
-			newHits.add(new Hit(switchButton, () -> switcherOpen = !switcherOpen, "Switch to another roadmap"));
-		} else {
-			switcherOpen = false;
-		}
-		int barW = 160;
-		bar(g, x + w - 12 - barW, subY - 7, barW, 7, plan.getDone(), plan.getTotal());
-		String overall = "Overall " + plan.getDone() + " / " + plan.getTotal();
-		g.setFont(FontManager.getRunescapeFont());
-		text(g, overall, x + w - 20 - barW - g.getFontMetrics().stringWidth(overall), subY, Color.WHITE);
-
-		int bodyY = y + TITLE_HEIGHT + SUBTITLE_HEIGHT + 6;
-		int bodyBottom = y + h - 10;
-
-		GearPlan.Tier tier = manager.getSelectedTier();
-		renderTabs(g, plan, tier, new Rectangle(x + 8, bodyY, TAB_WIDTH, bodyBottom - bodyY), newHits);
-
-		int mainX = x + 8 + TAB_WIDTH + 8;
-		int mainW = x + w - 8 - mainX;
-		Rectangle detail = new Rectangle(mainX, bodyBottom - DETAIL_HEIGHT, mainW, DETAIL_HEIGHT);
-		Rectangle steps = new Rectangle(mainX, bodyY, mainW, detail.y - 6 - bodyY);
-		if (tier != null) {
-			renderSteps(g, tier, steps, newHits);
-			renderDetail(g, tier, detail, newHits);
-		}
-		if (switcherOpen && switchButton != null) {
-			renderSwitcher(g, plans, switchButton, newHits);
-		}
-		finish(g, win, newHits, steps);
-		return new Dimension(w, h);
+		});
 	}
 
 	/** The roadmap list under the Switch button, drawn last so it sits on top. Its hits go first. */

@@ -35,6 +35,9 @@ import net.runelite.client.game.ItemManager;
 @Slf4j
 @Singleton
 public class VaultMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "vault-sync";
+
 	/** Container id to bank-sync source. Each container is its own source:
 	 * the backend replaces a whole source per upload and the plugin can only
 	 * snapshot a container it has seen, so two containers must not share one. */
@@ -101,6 +104,7 @@ public class VaultMonitor {
 			ItemManager itemManager,
 			Gson gson,
 			ScheduledExecutorService executor) {
+		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.itemManager = itemManager;
 		this.syncer = new SourceSyncer("vaults", gson, executor,
@@ -135,70 +139,76 @@ public class VaultMonitor {
 	 */
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event) {
-		if (!BANK_CARGO_OPTION.equalsIgnoreCase(event.getMenuOption())) {
-			return;
-		}
-		String current = currentHoldSource(client.getVarpValue(VarPlayerID.SAILING_BOAT_CARGOHOLD_INV));
-		Map<Integer, Integer> banked = new LinkedHashMap<>();
-		Map<String, Map<Integer, Integer>> emptied = new LinkedHashMap<>();
-		for (Map.Entry<String, Map<Integer, Integer>> e : lastRead.entrySet()) {
-			boolean hold = e.getKey().startsWith("boat_cargo_hold_");
-			if (!hold || e.getValue().isEmpty() || (current != null && !current.equals(e.getKey()))) {
-				continue;
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!BANK_CARGO_OPTION.equalsIgnoreCase(event.getMenuOption())) {
+				return;
 			}
-			e.getValue().forEach((id, qty) -> banked.merge(id, qty, Integer::sum));
-			emptied.put(e.getKey(), new LinkedHashMap<>());
-		}
-		log.debug("Bank-cargo: current hold {} -> banking {} from {}", current, banked, emptied.keySet());
-		if (emptied.isEmpty()) {
-			return;
-		}
-		BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-		for (String source : emptied.keySet()) {
-			lastRead.put(source, new LinkedHashMap<>());
-			if (listener != null) {
-				listener.accept(source, new LinkedHashMap<>());
+			String current = currentHoldSource(client.getVarpValue(VarPlayerID.SAILING_BOAT_CARGOHOLD_INV));
+			Map<Integer, Integer> banked = new LinkedHashMap<>();
+			Map<String, Map<Integer, Integer>> emptied = new LinkedHashMap<>();
+			for (Map.Entry<String, Map<Integer, Integer>> e : lastRead.entrySet()) {
+				boolean hold = e.getKey().startsWith("boat_cargo_hold_");
+				if (!hold || e.getValue().isEmpty() || (current != null && !current.equals(e.getKey()))) {
+					continue;
+				}
+				e.getValue().forEach((id, qty) -> banked.merge(id, qty, Integer::sum));
+				emptied.put(e.getKey(), new LinkedHashMap<>());
 			}
-		}
-		Consumer<Map<Integer, Integer>> bankedListener = cargoBankedListener;
-		if (bankedListener != null) {
-			bankedListener.accept(banked);
-		}
-		syncer.submitSources(emptied, true);
+			log.debug("Bank-cargo: current hold {} -> banking {} from {}", current, banked, emptied.keySet());
+			if (emptied.isEmpty()) {
+				return;
+			}
+			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
+			for (String source : emptied.keySet()) {
+				lastRead.put(source, new LinkedHashMap<>());
+				if (listener != null) {
+					listener.accept(source, new LinkedHashMap<>());
+				}
+			}
+			Consumer<Map<Integer, Integer>> bankedListener = cargoBankedListener;
+			if (bankedListener != null) {
+				bankedListener.accept(banked);
+			}
+			syncer.submitSources(emptied, true);
+		});
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (SyncGuard.isLogout(previousGameState, newState)) {
-			syncer.flushPending();
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (SyncGuard.isLogout(previousGameState, newState)) {
+				syncer.flushPending();
+			}
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		String source = sourceFor(event.getContainerId());
-		if (source == null) {
-			return;
-		}
-		ItemContainer container = client.getItemContainer(event.getContainerId());
-		if (container == null) {
-			return;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			String source = sourceFor(event.getContainerId());
+			if (source == null) {
+				return;
+			}
+			ItemContainer container = client.getItemContainer(event.getContainerId());
+			if (container == null) {
+				return;
+			}
 
-		Map<Integer, Integer> itemQuantities = new LinkedHashMap<>();
-		ItemCollector.collectItems(container, itemManager, itemQuantities);
-		log.debug("Container {} ({}) read: {} distinct items", event.getContainerId(), source, itemQuantities.size());
-		lastRead.put(source, new LinkedHashMap<>(itemQuantities));
+			Map<Integer, Integer> itemQuantities = new LinkedHashMap<>();
+			ItemCollector.collectItems(container, itemManager, itemQuantities);
+			log.debug("Container {} ({}) read: {} distinct items", event.getContainerId(), source, itemQuantities.size());
+			lastRead.put(source, new LinkedHashMap<>(itemQuantities));
 
-		BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-		if (listener != null) {
-			listener.accept(source, itemQuantities);
-		}
+			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
+			if (listener != null) {
+				listener.accept(source, itemQuantities);
+			}
 
-		Map<String, Map<Integer, Integer>> bySource = new LinkedHashMap<>();
-		bySource.put(source, itemQuantities);
-		syncer.submitSources(bySource, false);
+			Map<String, Map<Integer, Integer>> bySource = new LinkedHashMap<>();
+			bySource.put(source, itemQuantities);
+			syncer.submitSources(bySource, false);
+		});
 	}
 }

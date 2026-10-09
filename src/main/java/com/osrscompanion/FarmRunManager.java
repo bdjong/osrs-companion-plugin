@@ -71,6 +71,9 @@ import net.runelite.client.util.QuantityFormatter;
 @Slf4j
 @Singleton
 public class FarmRunManager {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "farm-run";
+
 	/** Re-read the route at most this often while the panel or a run uses it. */
 	/** A backstop: website changes are picked up by the web version check ({@link WebVersionWatcher}). */
 	static final long REFRESH_INTERVAL_MS = 10 * 60_000;
@@ -403,38 +406,40 @@ public class FarmRunManager {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		if (loadLastRun) {
-			loadLastRun = false;
-			loadLastRun();
-		}
-		String popup = readyPopupPending;
-		if (popup != null) {
-			readyPopupPending = null;
-			popups.showMessage(READY_TITLE, "<col=ffffff>" + popup + "</col>");
-		}
-		if (recountPending) {
-			recountPending = false;
-			recount();
-		}
-		if (open || running) {
-			leprechaun = ToolLeprechaun.read(client);
-			updateCompostToBring();
-		}
-		if (!running || route == null) {
-			return;
-		}
-		runTicks++;
-		int xp = client.getSkillExperience(Skill.FARMING);
-		if (xp >= startXp) {
-			lastXp = xp;
-		}
-		if (updateStatuses()) {
-			advance();
-		}
-		remindCape();
-		updateCompost();
-		updateMinigameCooldown();
-		checkFinished();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (loadLastRun) {
+				loadLastRun = false;
+				loadLastRun();
+			}
+			String popup = readyPopupPending;
+			if (popup != null) {
+				readyPopupPending = null;
+				popups.showMessage(READY_TITLE, "<col=ffffff>" + popup + "</col>");
+			}
+			if (recountPending) {
+				recountPending = false;
+				recount();
+			}
+			if (open || running) {
+				leprechaun = ToolLeprechaun.read(client);
+				updateCompostToBring();
+			}
+			if (!running || route == null) {
+				return;
+			}
+			runTicks++;
+			int xp = client.getSkillExperience(Skill.FARMING);
+			if (xp >= startXp) {
+				lastXp = xp;
+			}
+			if (updateStatuses()) {
+				advance();
+			}
+			remindCape();
+			updateCompost();
+			updateMinigameCooldown();
+			checkFinished();
+		});
 	}
 
 	// ---- Finishing -----------------------------------------------------------------------
@@ -543,28 +548,32 @@ public class FarmRunManager {
 	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged e) {
-		if (!OSRSCompanionConfig.CONFIG_GROUP.equals(e.getGroup()) || !"true".equals(e.getNewValue())) {
-			return;
-		}
-		if (BOSS_ACTIVE_KEY.equals(e.getKey())) {
-			turnOff(SLAYER_GUIDE_KEY);
-		} else if (SLAYER_GUIDE_KEY.equals(e.getKey())) {
-			turnOff(BOSS_ACTIVE_KEY);
-		} else {
-			return;
-		}
-		if (running) {
-			stop();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!OSRSCompanionConfig.CONFIG_GROUP.equals(e.getGroup()) || !"true".equals(e.getNewValue())) {
+				return;
+			}
+			if (BOSS_ACTIVE_KEY.equals(e.getKey())) {
+				turnOff(SLAYER_GUIDE_KEY);
+			} else if (SLAYER_GUIDE_KEY.equals(e.getKey())) {
+				turnOff(BOSS_ACTIVE_KEY);
+			} else {
+				return;
+			}
+			if (running) {
+				stop();
+			}
+		});
 	}
 
 	// ---- Route ready again ----------------------------------------------------------------
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged e) {
-		if (e.getGameState() == GameState.LOGGED_IN) {
-			loadLastRun = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (e.getGameState() == GameState.LOGGED_IN) {
+				loadLastRun = true;
+			}
+		});
 	}
 
 	/** The account's last run, as saved (client thread, logged in). */
@@ -817,40 +826,44 @@ public class FarmRunManager {
 	/** Compost (or Fertile Soil) used on a route patch: remember which, until the game's message says it worked. */
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked e) {
-		if (!running || e.getMenuAction() != MenuAction.WIDGET_TARGET_ON_GAME_OBJECT) {
-			return;
-		}
-		Widget selected = client.getSelectedWidget();
-		if (selected == null || (selected.getId() != InterfaceID.MagicSpellbook.FERTILE_SOIL && !isCompostItem(selected.getItemId()))) {
-			return;
-		}
-		ObjectComposition def = client.getObjectDefinition(e.getId());
-		int varbit = def == null ? -1 : def.getVarbitId();
-		compostTarget = null;
-		FarmRoute r = route;
-		int prev = previousStop;
-		FarmRoute.Stop[] near = {getCurrentStop(), r != null && prev >= 0 && prev < r.getStops().size() ? r.getStops().get(prev) : null};
-		for (FarmRoute.Stop s : near) {
-			if (s == null) {
-				continue;
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!running || e.getMenuAction() != MenuAction.WIDGET_TARGET_ON_GAME_OBJECT) {
+				return;
 			}
-			for (FarmRoute.Patch p : s.getPatches()) {
-				if (p.getVarbit() == varbit && compostTarget == null) {
-					compostTarget = p.getKey();
+			Widget selected = client.getSelectedWidget();
+			if (selected == null || (selected.getId() != InterfaceID.MagicSpellbook.FERTILE_SOIL && !isCompostItem(selected.getItemId()))) {
+				return;
+			}
+			ObjectComposition def = client.getObjectDefinition(e.getId());
+			int varbit = def == null ? -1 : def.getVarbitId();
+			compostTarget = null;
+			FarmRoute r = route;
+			int prev = previousStop;
+			FarmRoute.Stop[] near = {getCurrentStop(), r != null && prev >= 0 && prev < r.getStops().size() ? r.getStops().get(prev) : null};
+			for (FarmRoute.Stop s : near) {
+				if (s == null) {
+					continue;
+				}
+				for (FarmRoute.Patch p : s.getPatches()) {
+					if (p.getVarbit() == varbit && compostTarget == null) {
+						compostTarget = p.getKey();
+					}
 				}
 			}
-		}
+		});
 	}
 
 	@Subscribe
 	public void onChatMessage(ChatMessage e) {
-		if (compostTarget == null || (e.getType() != ChatMessageType.GAMEMESSAGE && e.getType() != ChatMessageType.SPAM)) {
-			return;
-		}
-		if (COMPOST_MESSAGE.matcher(e.getMessage()).find()) {
-			composted.add(compostTarget);
-			compostTarget = null;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (compostTarget == null || (e.getType() != ChatMessageType.GAMEMESSAGE && e.getType() != ChatMessageType.SPAM)) {
+				return;
+			}
+			if (COMPOST_MESSAGE.matcher(e.getMessage()).find()) {
+				composted.add(compostTarget);
+				compostTarget = null;
+			}
+		});
 	}
 
 	private static boolean isCompostItem(int itemId) {
@@ -1010,33 +1023,37 @@ public class FarmRunManager {
 	 */
 	@Subscribe(priority = -100)
 	public void onPostMenuSort(PostMenuSort e) {
-		FarmRoute.Stop stop = getCurrentStop();
-		if (!config.autoCapeTeleport() || !running || stop == null || client.isMenuOpen()) {
-			return;
-		}
-		teleports.apply(travelOf(stop), "farm step " + (stopIndex + 1));
+		Guard.run(GUARD_FEATURE, () -> {
+			FarmRoute.Stop stop = getCurrentStop();
+			if (!config.autoCapeTeleport() || !running || stop == null || client.isMenuOpen()) {
+				return;
+			}
+			teleports.apply(travelOf(stop), "farm step " + (stopIndex + 1));
+		});
 	}
 
 	/** "Pick" on a herb patch the cape blocks moves below "Walk here", so a left click walks instead. */
 	@Subscribe
 	public void onMenuEntryAdded(MenuEntryAdded e) {
-		if (!running || capeWorn || config.farmingCapeMode() != FarmingCapeMode.FORCE || !"Pick".equals(e.getOption())) {
-			return;
-		}
-		ObjectComposition def = client.getObjectDefinition(e.getIdentifier());
-		int varbit = def == null ? -1 : def.getVarbitId();
-		FarmRoute r = route;
-		if (varbit < 0 || r == null) {
-			return;
-		}
-		for (FarmRoute.Stop s : r.getStops()) {
-			for (FarmRoute.Patch p : s.getPatches()) {
-				if (p.getVarbit() == varbit && capeBlocks(p)) {
-					e.getMenuEntry().setDeprioritized(true);
-					return;
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!running || capeWorn || config.farmingCapeMode() != FarmingCapeMode.FORCE || !"Pick".equals(e.getOption())) {
+				return;
+			}
+			ObjectComposition def = client.getObjectDefinition(e.getIdentifier());
+			int varbit = def == null ? -1 : def.getVarbitId();
+			FarmRoute r = route;
+			if (varbit < 0 || r == null) {
+				return;
+			}
+			for (FarmRoute.Stop s : r.getStops()) {
+				for (FarmRoute.Patch p : s.getPatches()) {
+					if (p.getVarbit() == varbit && capeBlocks(p)) {
+						e.getMenuEntry().setDeprioritized(true);
+						return;
+					}
 				}
 			}
-		}
+		});
 	}
 
 	private static boolean isHerb(FarmRoute.Patch p) {
@@ -1061,17 +1078,21 @@ public class FarmRunManager {
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		int id = event.getContainerId();
-		if (id == InventoryID.INV || id == InventoryID.WORN) {
-			recount();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			int id = event.getContainerId();
+			if (id == InventoryID.INV || id == InventoryID.WORN) {
+				recount();
+			}
+		});
 	}
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (RunePouchMonitor.isPouchVarbit(event.getVarbitId())) {
-			recountPending = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (RunePouchMonitor.isPouchVarbit(event.getVarbitId())) {
+				recountPending = true;
+			}
+		});
 	}
 
 	/** Counts the inventory and worn items, plus the runes in a carried rune pouch. Client thread. */
@@ -1465,14 +1486,19 @@ public class FarmRunManager {
 
 	/** The loadout entry this item satisfies: the same item, a variant (charges, colours) or one of the same name (filled/empty). */
 	public FarmRoute.Stack neededStack(int itemId) {
+		return neededStack(itemId, loadout());
+	}
+
+	/** {@link #neededStack(int)} against a loadout the caller already has (the item overlay keeps one per frame). */
+	FarmRoute.Stack neededStack(int itemId, List<FarmRoute.Stack> loadout) {
 		int base = ItemVariationMapping.map(itemId);
 		String name = null;
-		for (FarmRoute.Stack s : loadout()) {
+		for (FarmRoute.Stack s : loadout) {
 			if (s.getItem() == itemId || ItemVariationMapping.map(s.getItem()) == base) {
 				return s;
 			}
 		}
-		for (FarmRoute.Stack s : loadout()) {
+		for (FarmRoute.Stack s : loadout) {
 			if (name == null) {
 				name = nameOf(itemId);
 				if (name == null) {

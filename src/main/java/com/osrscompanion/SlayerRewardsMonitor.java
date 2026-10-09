@@ -39,6 +39,9 @@ import net.runelite.client.util.Text;
 @Slf4j
 @Singleton
 public class SlayerRewardsMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-rewards-sync";
+
 	/** "Aberrant Spectres (130-200)" -> name, min, max. */
 	private static final Pattern NAME_WITH_RANGE =
 			Pattern.compile("^(.*?)\\s*\\((\\d+)\\s*-\\s*(\\d+)\\)\\s*$");
@@ -87,11 +90,13 @@ public class SlayerRewardsMonitor {
 
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() != InterfaceID.SLAYER_REWARDS_TASK_LIST) {
-			return;
-		}
-		// Children populate as the interface finishes loading; read next cycle.
-		clientThread.invokeLater(this::scrapeAndSync);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() != InterfaceID.SLAYER_REWARDS_TASK_LIST) {
+				return;
+			}
+			// Children populate as the interface finishes loading; read next cycle.
+			clientThread.invokeLater(this::scrapeAndSync);
+		});
 	}
 
 	/** Reads the task list rows and syncs them. Client thread only. */

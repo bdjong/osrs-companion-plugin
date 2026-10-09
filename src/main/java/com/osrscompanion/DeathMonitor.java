@@ -50,6 +50,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class DeathMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "death-sync";
+
 	private static final String PENDING_CONFIG_KEY = "pendingDeathEvents";
 	// The RSProfile is set a little after LOGGED_IN, so wait before the first read.
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 5;
@@ -83,6 +86,7 @@ public class DeathMonitor {
 			ConfigManager configManager,
 			ScheduledExecutorService executorService,
 			Gson gson) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -107,60 +111,70 @@ public class DeathMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			executorService.schedule(() -> clientThread.invokeLater(() -> {
-				restorePending();
-				sync();
-			}), LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-		} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-			lastAttacker = null;
-			lastTarget = null;
-			if (!pending.isEmpty()) {
-				sync();
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				executorService.schedule(() -> clientThread.invokeLater(() -> {
+					restorePending();
+					sync();
+				}), LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
+				lastAttacker = null;
+				lastTarget = null;
+				if (!pending.isEmpty()) {
+					sync();
+				}
 			}
-		}
-		previousGameState = newState;
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onHitsplatApplied(HitsplatApplied event) {
-		Player local = client.getLocalPlayer();
-		if (local == null || event.getActor() != local) {
-			return;
-		}
-		KillerCandidate attacker = findAttacker(local);
-		if (attacker != null) {
-			lastAttacker = attacker;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			Player local = client.getLocalPlayer();
+			if (local == null || event.getActor() != local) {
+				return;
+			}
+			KillerCandidate attacker = findAttacker(local);
+			if (attacker != null) {
+				lastAttacker = attacker;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onInteractingChanged(InteractingChanged event) {
-		Player local = client.getLocalPlayer();
-		if (local == null || event.getSource() != local || event.getTarget() == null) {
-			return;
-		}
-		KillerCandidate target = candidate(event.getTarget());
-		if (target != null) {
-			lastTarget = target;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			Player local = client.getLocalPlayer();
+			if (local == null || event.getSource() != local || event.getTarget() == null) {
+				return;
+			}
+			KillerCandidate target = candidate(event.getTarget());
+			if (target != null) {
+				lastTarget = target;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onActorDeath(ActorDeath event) {
-		if (event.getActor() == client.getLocalPlayer()) {
-			recordDeath();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getActor() == client.getLocalPlayer()) {
+				recordDeath();
+			}
+		});
 	}
 
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event) {
-		Actor actor = event.getActor();
-		if (actor == client.getLocalPlayer()
-				&& actor.getAnimation() == AnimationID.HUMAN_DOOM_SCORPION_01_PLAYER_DEATH_01) {
-			recordDeath();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			Actor actor = event.getActor();
+			if (actor == client.getLocalPlayer()
+					&& actor.getAnimation() == AnimationID.HUMAN_DOOM_SCORPION_01_PLAYER_DEATH_01) {
+				recordDeath();
+			}
+		});
 	}
 
 	private void recordDeath() {

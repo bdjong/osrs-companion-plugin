@@ -43,6 +43,9 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
  * stop just left counts too while you are still there).
  */
 public class FarmRunSceneOverlay extends Overlay {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "farm-run-markers";
+
 	/** Patch objects further than this from the stop belong to another stop (varbits repeat between regions). */
 	static final int STOP_RADIUS = 32;
 	private static final int SCAN_EVERY_TICKS = 2;
@@ -87,25 +90,27 @@ public class FarmRunSceneOverlay extends Overlay {
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		// A finished run keeps pointing at the last patches while one of them still has no compost.
-		boolean active = manager.isRunning() && (!manager.isComplete() || manager.hasCompostToDo());
-		FarmRoute.Stop stop = active ? manager.getCurrentStop() : null;
-		if (stop == null || client.getGameState() != GameState.LOGGED_IN) {
-			found = Collections.emptyList();
-			houseObject = null;
-			clearPointers();
-			return;
-		}
-		if (++ticks % SCAN_EVERY_TICKS == 0 || found.isEmpty()) {
-			List<Found> all = new ArrayList<>(scan(stop));
-			FarmRoute.Stop behind = manager.compostStopBehind();
-			if (behind != null && behind != stop) {
-				all.addAll(scan(behind));
+		Guard.run(GUARD_FEATURE, () -> {
+			// A finished run keeps pointing at the last patches while one of them still has no compost.
+			boolean active = manager.isRunning() && (!manager.isComplete() || manager.hasCompostToDo());
+			FarmRoute.Stop stop = active ? manager.getCurrentStop() : null;
+			if (stop == null || client.getGameState() != GameState.LOGGED_IN) {
+				found = Collections.emptyList();
+				houseObject = null;
+				clearPointers();
+				return;
 			}
-			found = all;
-			findHouseObject(manager.travelOf(stop));
-		}
-		updatePointers(stop);
+			if (++ticks % SCAN_EVERY_TICKS == 0 || found.isEmpty()) {
+				List<Found> all = new ArrayList<>(scan(stop));
+				FarmRoute.Stop behind = manager.compostStopBehind();
+				if (behind != null && behind != stop) {
+					all.addAll(scan(behind));
+				}
+				found = all;
+				findHouseObject(manager.travelOf(stop));
+			}
+			updatePointers(stop);
+		});
 	}
 
 	/**
@@ -301,50 +306,52 @@ public class FarmRunSceneOverlay extends Overlay {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		GameObject house = houseObject;
-		if (house != null && manager.isRunning()) {
-			outlines.drawOutline(house, 3, HOUSE_COLOR, 4);
-			String label = "Use: " + houseObjectName;
-			Point at = house.getCanvasTextLocation(graphics, label, 200);
-			if (at != null) {
-				OverlayUtil.renderTextLocation(graphics, at, label, HOUSE_COLOR);
+		return Guard.render(GUARD_FEATURE, () -> {
+			GameObject house = houseObject;
+			if (house != null && manager.isRunning()) {
+				outlines.drawOutline(house, 3, HOUSE_COLOR, 4);
+				String label = "Use: " + houseObjectName;
+				Point at = house.getCanvasTextLocation(graphics, label, 200);
+				if (at != null) {
+					OverlayUtil.renderTextLocation(graphics, at, label, HOUSE_COLOR);
+				}
 			}
-		}
-		List<Found> list = found;
-		if (list.isEmpty() || !manager.isRunning()) {
+			List<Found> list = found;
+			if (list.isEmpty() || !manager.isRunning()) {
+				return null;
+			}
+			for (Found f : list) {
+				Status s = manager.statusOf(f.patch);
+				// Still without compost (the compost is highlighted in the inventory too): a patch to do says so
+				// in its label, a planted one turns orange.
+				boolean compost = manager.needsCompost(f.patch);
+				Color color = compost && s != Status.TODO ? FarmRunOverlay.COMPOST_COLOR : s == Status.DONE ? FarmRunOverlay.DONE_COLOR
+					: s == Status.TODO ? FarmRunOverlay.TODO_COLOR : FarmRunOverlay.MUTED_COLOR;
+				outlines.drawOutline(f.object, 2, color, 4);
+				Polygon tile = f.object.getCanvasTilePoly();
+				if (tile != null && (s == Status.TODO || compost)) {
+					graphics.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 40));
+					graphics.fill(tile);
+				}
+				String label = f.patch.getType();
+				if (manager.capeBlocks(f.patch)) {
+					// Farming cape for herbs on Force: no picking (left click walks) until the cape is on.
+					label = "WEAR Farming cape";
+					color = FarmRunOverlay.COMPOST_COLOR;
+				} else if (s == Status.TODO) {
+					label = manager.nextStep(f.patch);
+				} else if (compost) {
+					label += " - compost it";
+				} else {
+					label += s == Status.DONE ? " - done" : " - not ready";
+				}
+				Point at = f.object.getCanvasTextLocation(graphics, label, 160);
+				if (at != null) {
+					OverlayUtil.renderTextLocation(graphics, at, label, color);
+				}
+			}
 			return null;
-		}
-		for (Found f : list) {
-			Status s = manager.statusOf(f.patch);
-			// Still without compost (the compost is highlighted in the inventory too): a patch to do says so
-			// in its label, a planted one turns orange.
-			boolean compost = manager.needsCompost(f.patch);
-			Color color = compost && s != Status.TODO ? FarmRunOverlay.COMPOST_COLOR : s == Status.DONE ? FarmRunOverlay.DONE_COLOR
-				: s == Status.TODO ? FarmRunOverlay.TODO_COLOR : FarmRunOverlay.MUTED_COLOR;
-			outlines.drawOutline(f.object, 2, color, 4);
-			Polygon tile = f.object.getCanvasTilePoly();
-			if (tile != null && (s == Status.TODO || compost)) {
-				graphics.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 40));
-				graphics.fill(tile);
-			}
-			String label = f.patch.getType();
-			if (manager.capeBlocks(f.patch)) {
-				// Farming cape for herbs on Force: no picking (left click walks) until the cape is on.
-				label = "WEAR Farming cape";
-				color = FarmRunOverlay.COMPOST_COLOR;
-			} else if (s == Status.TODO) {
-				label = manager.nextStep(f.patch);
-			} else if (compost) {
-				label += " - compost it";
-			} else {
-				label += s == Status.DONE ? " - done" : " - not ready";
-			}
-			Point at = f.object.getCanvasTextLocation(graphics, label, 160);
-			if (at != null) {
-				OverlayUtil.renderTextLocation(graphics, at, label, color);
-			}
-		}
-		return null;
+		});
 	}
 
 	private BufferedImage pinImage;

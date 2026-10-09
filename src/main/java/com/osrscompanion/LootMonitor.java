@@ -42,6 +42,9 @@ import net.runelite.http.api.loottracker.LootRecordType;
 @Singleton
 public class LootMonitor
 {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "loot-sync";
+
 	private static final int PROFILE_SYNC_DELAY_SECONDS = 5;
 	private static final int FLUSH_INTERVAL_SECONDS = 180;
 	private static final String LOOT_TRACKER_CONFIG_GROUP = "loottracker";
@@ -84,6 +87,7 @@ public class LootMonitor
 		ItemManager itemManager,
 		Gson gson)
 	{
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;
@@ -194,38 +198,40 @@ public class LootMonitor
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
-		GameState newState = event.getGameState();
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
 
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN)
-		{
-			log.debug("Player logged in, waiting for RS profile before loot sync");
-			// Use clientThread.invokeLater to poll each tick until the RS profile
-			// key is available. Returns false to retry, true when done.
-			clientThread.invokeLater(() ->
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN)
 			{
-				if (client.getGameState().getState() < GameState.LOGGED_IN.getState())
+				log.debug("Player logged in, waiting for RS profile before loot sync");
+				// Use clientThread.invokeLater to poll each tick until the RS profile
+				// key is available. Returns false to retry, true when done.
+				clientThread.invokeLater(() ->
 				{
-					// Logged out before profile loaded — abort
+					if (client.getGameState().getState() < GameState.LOGGED_IN.getState())
+					{
+						// Logged out before profile loaded — abort
+						return true;
+					}
+					String profileKey = configManager.getRSProfileKey();
+					if (profileKey == null)
+					{
+						return false; // not ready yet, retry next tick
+					}
+					log.debug("RS profile ready ({}), scheduling loot sync in {}s", profileKey, PROFILE_SYNC_DELAY_SECONDS);
+					executorService.schedule(this::syncLoot, PROFILE_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 					return true;
-				}
-				String profileKey = configManager.getRSProfileKey();
-				if (profileKey == null)
-				{
-					return false; // not ready yet, retry next tick
-				}
-				log.debug("RS profile ready ({}), scheduling loot sync in {}s", profileKey, PROFILE_SYNC_DELAY_SECONDS);
-				executorService.schedule(this::syncLoot, PROFILE_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-				return true;
-			});
-		}
-		else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN)
-		{
-			log.debug("Player logged out, flushing pending drops and syncing loot");
-			flushDrops();
-			syncLoot();
-		}
+				});
+			}
+			else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN)
+			{
+				log.debug("Player logged out, flushing pending drops and syncing loot");
+				flushDrops();
+				syncLoot();
+			}
 
-		previousGameState = newState;
+			previousGameState = newState;
+		});
 	}
 
 	/**
@@ -236,91 +242,95 @@ public class LootMonitor
 	@Subscribe
 	public void onNpcLootReceived(NpcLootReceived event)
 	{
-		NPC npc = event.getNpc();
-		if (npc != null && npc.getName() != null)
-		{
-			recentNpcIds.put(npc.getName(), npc.getId());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			NPC npc = event.getNpc();
+			if (npc != null && npc.getName() != null)
+			{
+				recentNpcIds.put(npc.getName(), npc.getId());
+			}
+		});
 	}
 
 	@Subscribe
 	public void onLootReceived(LootReceived event)
 	{
-		if (event.getType() != LootRecordType.NPC && event.getType() != LootRecordType.EVENT)
-		{
-			return;
-		}
-		if (!config.syncLoot())
-		{
-			return;
-		}
-		if (!SyncGuard.hasAppKey(config))
-		{
-			return;
-		}
-		if (GameModeUtil.isSpecialGameMode(client))
-		{
-			return;
-		}
-
-		String playerUsername = SyncGuard.getPlayerUsername(client);
-		if (playerUsername == null)
-		{
-			return;
-		}
-
-		String npcName = event.getName();
-
-		// event.getAmount() is the number of kills in THIS event (always 1),
-		// not cumulative KC. We track KC ourselves: seed from the loot tracker
-		// config on first kill, then increment locally per kill.
-		int killCount = sessionKillCounts.compute(npcName, (name, current) ->
-		{
-			if (current == null)
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getType() != LootRecordType.NPC && event.getType() != LootRecordType.EVENT)
 			{
-				// First kill this session — seed from loot tracker config.
-				// Config has the count BEFORE this kill, so add the event amount.
-				return readCumulativeKillCount(name) + event.getAmount();
+				return;
 			}
-			return current + event.getAmount();
+			if (!config.syncLoot())
+			{
+				return;
+			}
+			if (!SyncGuard.hasAppKey(config))
+			{
+				return;
+			}
+			if (GameModeUtil.isSpecialGameMode(client))
+			{
+				return;
+			}
+
+			String playerUsername = SyncGuard.getPlayerUsername(client);
+			if (playerUsername == null)
+			{
+				return;
+			}
+
+			String npcName = event.getName();
+
+			// event.getAmount() is the number of kills in THIS event (always 1),
+			// not cumulative KC. We track KC ourselves: seed from the loot tracker
+			// config on first kill, then increment locally per kill.
+			int killCount = sessionKillCounts.compute(npcName, (name, current) ->
+			{
+				if (current == null)
+				{
+					// First kill this session — seed from loot tracker config.
+					// Config has the count BEFORE this kill, so add the event amount.
+					return readCumulativeKillCount(name) + event.getAmount();
+				}
+				return current + event.getAmount();
+			});
+
+			// The metadata contains an NpcMetadata object with the NPC ID.
+			// NpcMetadata is package-private, so we access it via reflection-free approach:
+			// resolve from nearby loaded NPCs by name, or from metadata if castable.
+			int npcId = resolveNpcIdFromEvent(event);
+
+			List<LootSyncPayload.LootItem> items = new ArrayList<>();
+			boolean notable = false;
+			for (ItemStack itemStack : event.getItems())
+			{
+				int itemId = canonicalizeItemId(itemStack.getId());
+				items.add(new LootSyncPayload.LootItem(itemId, itemStack.getQuantity()));
+				notable = notable || isNotable(itemId, itemStack.getQuantity());
+			}
+
+			if (items.isEmpty())
+			{
+				return;
+			}
+
+			String droppedAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC));
+			LootDropPayload payload = new LootDropPayload(playerUsername, clientId, npcId, npcName, killCount, droppedAt, items);
+			log.debug("Loot drop from {} (id={}, kc={}): {} items (queued)", npcName, npcId, killCount, items.size());
+
+			synchronized (pendingDrops)
+			{
+				pendingDrops.add(payload);
+			}
+			DropListener listener = dropListener;
+			if (listener != null)
+			{
+				listener.onDrop(npcId, npcName, event.getAmount(), items);
+			}
+			if (notable)
+			{
+				notableFlusher.request();
+			}
 		});
-
-		// The metadata contains an NpcMetadata object with the NPC ID.
-		// NpcMetadata is package-private, so we access it via reflection-free approach:
-		// resolve from nearby loaded NPCs by name, or from metadata if castable.
-		int npcId = resolveNpcIdFromEvent(event);
-
-		List<LootSyncPayload.LootItem> items = new ArrayList<>();
-		boolean notable = false;
-		for (ItemStack itemStack : event.getItems())
-		{
-			int itemId = canonicalizeItemId(itemStack.getId());
-			items.add(new LootSyncPayload.LootItem(itemId, itemStack.getQuantity()));
-			notable = notable || isNotable(itemId, itemStack.getQuantity());
-		}
-
-		if (items.isEmpty())
-		{
-			return;
-		}
-
-		String droppedAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC));
-		LootDropPayload payload = new LootDropPayload(playerUsername, clientId, npcId, npcName, killCount, droppedAt, items);
-		log.debug("Loot drop from {} (id={}, kc={}): {} items (queued)", npcName, npcId, killCount, items.size());
-
-		synchronized (pendingDrops)
-		{
-			pendingDrops.add(payload);
-		}
-		DropListener listener = dropListener;
-		if (listener != null)
-		{
-			listener.onDrop(npcId, npcName, event.getAmount(), items);
-		}
-		if (notable)
-		{
-			notableFlusher.request();
-		}
 	}
 
 	private boolean isNotable(int itemId, int quantity)

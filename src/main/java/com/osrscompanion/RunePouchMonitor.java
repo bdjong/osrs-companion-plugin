@@ -32,6 +32,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class RunePouchMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "rune-pouch-sync";
+
 	static final String SOURCE = "rune_pouch";
 
 	private static final int[] TYPE_VARBITS = {
@@ -57,6 +60,7 @@ public class RunePouchMonitor {
 			OSRSCompanionApiClient apiClient,
 			Gson gson,
 			ScheduledExecutorService executor) {
+		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.syncer = new SourceSyncer(SOURCE, gson, executor,
 				() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
@@ -88,9 +92,11 @@ public class RunePouchMonitor {
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (isPouchVarbit(event.getVarbitId())) {
-			dirty = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (isPouchVarbit(event.getVarbitId())) {
+				dirty = true;
+			}
+		});
 	}
 
 	/** True for the rune pouch's slot type and quantity varbits. */
@@ -120,31 +126,35 @@ public class RunePouchMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			dirty = true; // push the pouch as it is at login
-		} else if (SyncGuard.isLogout(previousGameState, newState)) {
-			syncer.flushPending();
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				dirty = true; // push the pouch as it is at login
+			} else if (SyncGuard.isLogout(previousGameState, newState)) {
+				syncer.flushPending();
+			}
+			previousGameState = newState;
+		});
 	}
 
 	/** Reads on the game tick so a burst of varbit changes is read once. */
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (!dirty) {
-			return;
-		}
-		dirty = false;
-		if (client.getEnum(EnumID.RUNEPOUCH_RUNE) == null) {
-			return;
-		}
-		Map<Integer, Integer> contents = read(client);
-		BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-		if (listener != null) {
-			listener.accept(SOURCE, contents);
-		}
-		syncer.submit(contents, false);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!dirty) {
+				return;
+			}
+			dirty = false;
+			if (client.getEnum(EnumID.RUNEPOUCH_RUNE) == null) {
+				return;
+			}
+			Map<Integer, Integer> contents = read(client);
+			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
+			if (listener != null) {
+				listener.accept(SOURCE, contents);
+			}
+			syncer.submit(contents, false);
+		});
 	}
 
 	/**

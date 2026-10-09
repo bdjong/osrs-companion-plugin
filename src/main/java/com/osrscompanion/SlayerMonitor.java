@@ -63,6 +63,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class SlayerMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-task-sync";
+
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 5;
 	private static final int RESYNC_THROTTLE_TICKS = 3;
 	/**
@@ -446,6 +449,7 @@ public class SlayerMonitor {
 			ScheduledExecutorService executorService,
 			Gson gson,
 			ConfigManager configManager) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -491,39 +495,45 @@ public class SlayerMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			// Slayer varps and DB tables settle shortly after login.
-			executorService.schedule(() -> clientThread.invokeLater(() -> {
-				previous = null; // don't fabricate a transition across sessions
-				restorePendingEvents();
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				// Slayer varps and DB tables settle shortly after login.
+				executorService.schedule(() -> clientThread.invokeLater(() -> {
+					previous = null; // don't fabricate a transition across sessions
+					restorePendingEvents();
+					readAndSync(true);
+				}), LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
 				readAndSync(true);
-			}), LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
-		} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-			readAndSync(true);
-		}
-		previousGameState = newState;
+			}
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
-		if (event.getType() != ChatMessageType.GAMEMESSAGE) {
-			return;
-		}
-		String message = net.runelite.client.util.Text.removeTags(event.getMessage());
-		if (COMPLETION_CHAT_PATTERN.matcher(message).find()) {
-			lastCompletionChatText = message;
-			lastCompletionChatTick = client.getTickCount();
-			checkPending = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getType() != ChatMessageType.GAMEMESSAGE) {
+				return;
+			}
+			String message = net.runelite.client.util.Text.removeTags(event.getMessage());
+			if (COMPLETION_CHAT_PATTERN.matcher(message).find()) {
+				lastCompletionChatText = message;
+				lastCompletionChatTick = client.getTickCount();
+				checkPending = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onScriptPostFired(ScriptPostFired event) {
-		if (event.getScriptId() == SLAYER_REWARDS_TASKS_INIT_SCRIPT
-				|| event.getScriptId() == SLAYER_REWARDS_TASKS_REDRAW_SCRIPT) {
-			captureStoredTask();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getScriptId() == SLAYER_REWARDS_TASKS_INIT_SCRIPT
+					|| event.getScriptId() == SLAYER_REWARDS_TASKS_REDRAW_SCRIPT) {
+				captureStoredTask();
+			}
+		});
 	}
 
 	/**
@@ -589,13 +599,15 @@ public class SlayerMonitor {
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (event.getVarpId() == VarPlayerID.SLAYER_COUNT) {
-			trackKillMoment(event.getValue());
-		}
-		if (WATCHED_VARPS.contains(event.getVarpId())
-				|| WATCHED_VARBITS.contains(event.getVarbitId())) {
-			checkPending = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getVarpId() == VarPlayerID.SLAYER_COUNT) {
+				trackKillMoment(event.getValue());
+			}
+			if (WATCHED_VARPS.contains(event.getVarpId())
+					|| WATCHED_VARBITS.contains(event.getVarbitId())) {
+				checkPending = true;
+			}
+		});
 	}
 
 	/**
@@ -621,26 +633,28 @@ public class SlayerMonitor {
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (lastOfferScanTick == -1
-				|| client.getTickCount() - lastOfferScanTick >= OFFER_SCAN_INTERVAL_TICKS) {
-			lastOfferScanTick = client.getTickCount();
-			scanForTaskOffers();
-		}
-		if (draft != null
-				&& client.getTickCount() - draft.detectedTick >= EVENT_FINALIZE_DELAY_TICKS) {
-			finalizeDraft();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (lastOfferScanTick == -1
+					|| client.getTickCount() - lastOfferScanTick >= OFFER_SCAN_INTERVAL_TICKS) {
+				lastOfferScanTick = client.getTickCount();
+				scanForTaskOffers();
+			}
+			if (draft != null
+					&& client.getTickCount() - draft.detectedTick >= EVENT_FINALIZE_DELAY_TICKS) {
+				finalizeDraft();
+				readAndSync(false);
+				return;
+			}
+			if (!checkPending) {
+				return;
+			}
+			if (lastReadTick != -1 && client.getTickCount() - lastReadTick < RESYNC_THROTTLE_TICKS) {
+				return;
+			}
+			checkPending = false;
+			lastReadTick = client.getTickCount();
 			readAndSync(false);
-			return;
-		}
-		if (!checkPending) {
-			return;
-		}
-		if (lastReadTick != -1 && client.getTickCount() - lastReadTick < RESYNC_THROTTLE_TICKS) {
-			return;
-		}
-		checkPending = false;
-		lastReadTick = client.getTickCount();
-		readAndSync(false);
+		});
 	}
 
 	/** Reads the snapshot, detects transitions, and syncs. Client thread only. */

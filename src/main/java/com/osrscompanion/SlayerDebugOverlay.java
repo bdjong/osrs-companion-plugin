@@ -22,6 +22,9 @@ import net.runelite.client.ui.overlay.components.TitleComponent;
  * regions) and whether you count as inside it, and the open session.
  */
 public class SlayerDebugOverlay extends OverlayPanel {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-debug-overlay";
+
 	private static final Color KEY = new Color(0x9CA3AF);
 	private static final Color YES = new Color(0x4ADE80);
 	private static final Color NO = new Color(0xF87171);
@@ -41,51 +44,53 @@ public class SlayerDebugOverlay extends OverlayPanel {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		Player me = client.getLocalPlayer();
-		if (!config.slayerDebug() || me == null || !SlayerHelperManager.debugAllowed(me.getName())) {
-			return null;
-		}
-		WorldPoint at = WorldPoint.fromLocalInstance(client, me.getLocalLocation());
-		title("Slayer debug");
-		line("Tile", at.getX() + ", " + at.getY() + ", " + at.getPlane());
-		line("Region", String.valueOf(at.getRegionID()) + (client.isInInstancedRegion() ? " (instance)" : ""));
+		return Guard.render(GUARD_FEATURE, () -> {
+			Player me = client.getLocalPlayer();
+			if (!config.slayerDebug() || me == null || !SlayerHelperManager.debugAllowed(me.getName())) {
+				return null;
+			}
+			WorldPoint at = WorldPoint.fromLocalInstance(client, me.getLocalLocation());
+			title("Slayer debug");
+			line("Tile", at.getX() + ", " + at.getY() + ", " + at.getPlane());
+			line("Region", String.valueOf(at.getRegionID()) + (client.isInInstancedRegion() ? " (instance)" : ""));
 
-		SlayerHelperManager.Task t = manager.getTask();
-		title("Task (game)");
-		if (t == null) {
-			line("Task", "none");
-		} else {
-			line("Name", t.displayName());
-			line("Ids", "task " + t.taskId + " · boss " + t.bossId + " · area " + t.areaId + " · master " + t.masterId);
-			line("Left", t.remaining + " / " + t.original);
-		}
+			SlayerHelperManager.Task t = manager.getTask();
+			title("Task (game)");
+			if (t == null) {
+				line("Task", "none");
+			} else {
+				line("Name", t.displayName());
+				line("Ids", "task " + t.taskId + " · boss " + t.bossId + " · area " + t.areaId + " · master " + t.masterId);
+				line("Left", t.remaining + " / " + t.original);
+			}
 
-		SlayerGuide guide = manager.getGuide();
-		title("Guide (website)");
-		line("State", manager.isLoading() ? "loading" : manager.getError() != null ? manager.getError()
-			: guide == null ? "not loaded" : manager.isGuideForTask() ? "loaded for this task" : "for ANOTHER task");
-		if (guide != null && guide.getTask() != null) {
-			SlayerGuide.Task gt = guide.getTask();
-			line("For", gt.getTaskName() + " · area " + gt.getAreaId() + (gt.getAreaName() != null ? " " + gt.getAreaName() : ""));
-			line("Locations", String.valueOf(guide.getLocations().size()) + (guide.getSelected() != null ? " · picked " + guide.getSelected() : ""));
-		}
-		location("Target", manager.getLocation(), at);
-		location("Here", manager.getHere(), at);
-		line("Guiding", yesNo(manager.isGuiding()) + " · at location " + yesNo(manager.isAtLocation()));
-		if (manager.getDistance() >= 0) {
-			line("Way", manager.getDistance() + " tiles " + (manager.getDirection() == null ? "" : manager.getDirection()));
-		}
+			SlayerGuide guide = manager.getGuide();
+			title("Guide (website)");
+			line("State", manager.isLoading() ? "loading" : manager.getError() != null ? manager.getError()
+				: guide == null ? "not loaded" : manager.isGuideForTask() ? "loaded for this task" : "for ANOTHER task");
+			if (guide != null && guide.getTask() != null) {
+				SlayerGuide.Task gt = guide.getTask();
+				line("For", gt.getTaskName() + " · area " + gt.getAreaId() + (gt.getAreaName() != null ? " " + gt.getAreaName() : ""));
+				line("Locations", String.valueOf(guide.getLocations().size()) + (guide.getSelected() != null ? " · picked " + guide.getSelected() : ""));
+			}
+			location("Target", manager.getLocation(), at);
+			location("Here", manager.getHere(), at);
+			line("Guiding", yesNo(manager.isGuiding()) + " · at location " + yesNo(manager.isAtLocation()));
+			if (manager.getDistance() >= 0) {
+				line("Way", manager.getDistance() + " tiles " + (manager.getDirection() == null ? "" : manager.getDirection()));
+			}
 
-		SlayerHelperManager.Stats s = manager.getStats();
-		title("Session");
-		if (s == null) {
-			line("Session", "none");
-		} else {
-			line("Location", s.locationName == null ? "-" : s.locationName);
-			line("Inside", s.inside ? "yes" : "no", s.inside ? YES : NO);
-			line("Kills", s.kills + " · " + SlayerFormat.clock(s.timeInAreaMs) + " in area");
-		}
-		return super.render(graphics);
+			SlayerHelperManager.Stats s = manager.getStats();
+			title("Session");
+			if (s == null) {
+				line("Session", "none");
+			} else {
+				line("Location", s.locationName == null ? "-" : s.locationName);
+				line("Inside", s.inside ? "yes" : "no", s.inside ? YES : NO);
+				line("Kills", s.kills + " · " + SlayerFormat.clock(s.timeInAreaMs) + " in area");
+			}
+			return super.render(graphics);
+		});
 	}
 
 	private void location(String label, SlayerGuide.Location l, WorldPoint at) {

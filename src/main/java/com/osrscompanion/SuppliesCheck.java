@@ -29,6 +29,9 @@ import net.runelite.client.eventbus.Subscribe;
  */
 @Singleton
 public class SuppliesCheck {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "supplies-check";
+
 	private final Client client;
 	private final OSRSCompanionConfig config;
 	private final BossGearManager bossGear;
@@ -120,59 +123,69 @@ public class SuppliesCheck {
 
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN) {
-			dirty = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN) {
+				dirty = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		int id = event.getContainerId();
-		if (id == InventoryID.BANK || id == InventoryID.INV || id == InventoryID.WORN) {
-			dirty = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			int id = event.getContainerId();
+			if (id == InventoryID.BANK || id == InventoryID.INV || id == InventoryID.WORN) {
+				dirty = true;
+			}
+		});
 	}
 
 	/** A trip planner switch changed: check again. */
 	@Subscribe
 	public void onConfigChanged(net.runelite.client.events.ConfigChanged event) {
-		if (OSRSCompanionConfig.CONFIG_GROUP.equals(event.getGroup()) && event.getKey().startsWith("tripPlanner")) {
-			dirty = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (OSRSCompanionConfig.CONFIG_GROUP.equals(event.getGroup()) && event.getKey().startsWith("tripPlanner")) {
+				dirty = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		if (event.getGameState() == GameState.LOGIN_SCREEN) {
-			clear();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGameState() == GameState.LOGIN_SCREEN) {
+				clear();
+			}
+		});
 	}
 
 	/** At most once a tick, and only while the bank is open and something changed (the bank, what you carry, the setup or route). */
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		if (!(config.tripPlannerBoss() || config.tripPlannerFarm()) || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
-			return;
-		}
-		// For the tool whose trip planner switch is on and that is active (no bank layout needed): the active
-		// boss setup, the farm route of a run that is going.
-		BossGear set = config.tripPlannerBoss() && bossGear.isSetActive() ? bossGear.getSet() : null;
-		FarmRoute route = config.tripPlannerFarm() && farmRun.isRunning() ? farmRun.getRoute() : null;
-		if (!dirty && set == lastSet && route == lastRoute) {
-			return;
-		}
-		Map<String, Long> have = counter.bank();
-		if (have == null) {
-			return;
-		}
-		dirty = false;
-		lastSet = set;
-		lastRoute = route;
-		for (Map.Entry<String, Long> e : counter.carried().entrySet()) {
-			have.merge(e.getKey(), e.getValue(), Long::sum);
-		}
-		boss = set == null ? null : checkBoss(set, have);
-		farm = route == null ? null : checkFarm(route, have);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!(config.tripPlannerBoss() || config.tripPlannerFarm()) || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
+				return;
+			}
+			// For the tool whose trip planner switch is on and that is active (no bank layout needed): the active
+			// boss setup, the farm route of a run that is going.
+			BossGear set = config.tripPlannerBoss() && bossGear.isSetActive() ? bossGear.getSet() : null;
+			FarmRoute route = config.tripPlannerFarm() && farmRun.isRunning() ? farmRun.getRoute() : null;
+			if (!dirty && set == lastSet && route == lastRoute) {
+				return;
+			}
+			Map<String, Long> have = counter.bank();
+			if (have == null) {
+				return;
+			}
+			dirty = false;
+			lastSet = set;
+			lastRoute = route;
+			for (Map.Entry<String, Long> e : counter.carried().entrySet()) {
+				have.merge(e.getKey(), e.getValue(), Long::sum);
+			}
+			boss = set == null ? null : checkBoss(set, have);
+			farm = route == null ? null : checkFarm(route, have);
+		});
 	}
 
 	private Result checkBoss(BossGear set, Map<String, Long> have) {

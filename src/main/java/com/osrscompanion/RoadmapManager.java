@@ -35,6 +35,9 @@ import net.runelite.client.config.ConfigManager;
 @Slf4j
 @Singleton
 public class RoadmapManager {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "roadmap";
+
 	static final String CONFIG_GROUP = "osrscompanion";
 	static final String SELECTED_ROADMAP_KEY = "selectedRoadmapId";
 	static final String COMPLETED_EXPANDED_KEY = "completedGoalsExpanded";
@@ -69,6 +72,7 @@ public class RoadmapManager {
 			OSRSCompanionApiClient apiClient,
 			ConfigManager configManager,
 			ScheduledExecutorService executorService) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;

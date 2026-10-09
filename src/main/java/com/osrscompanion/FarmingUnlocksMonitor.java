@@ -48,6 +48,9 @@ import net.runelite.client.util.Text;
 @Slf4j
 @Singleton
 public class FarmingUnlocksMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "farming-unlocks-sync";
+
 	/** Building a fairy ring takes 85 Construction (boostable); below this it is someone else's. */
 	private static final int MIN_CONSTRUCTION_FOR_RING = 80;
 	private static final int HOUSE_CHECK_DELAY_TICKS = 2;
@@ -123,53 +126,61 @@ public class FarmingUnlocksMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN && trigger.leaveAndShouldFlush()) {
-			sync();
-		}
-		if (newState == GameState.LOGGED_IN) {
-			// A scene finished loading: if it is a house, look around once its objects are in.
-			houseCheckTick = client.getTickCount() + HOUSE_CHECK_DELAY_TICKS;
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN && trigger.leaveAndShouldFlush()) {
+				sync();
+			}
+			if (newState == GameState.LOGGED_IN) {
+				// A scene finished loading: if it is a house, look around once its objects are in.
+				houseCheckTick = client.getTickCount() + HOUSE_CHECK_DELAY_TICKS;
+			}
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event) {
-		String option = Text.removeTags(event.getMenuOption()).toLowerCase();
-		String target = Text.removeTags(event.getMenuTarget()).toLowerCase();
-		if (option.contains("friend") || option.startsWith("visit") || option.equals("enter house")) {
-			visitingFriend = true;
-		} else if (option.equals("home") || option.contains("tele to poh") || option.contains("teleport to house")
-				|| target.contains("teleport to house") || target.contains("house tab")) {
-			visitingFriend = false;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			String option = Text.removeTags(event.getMenuOption()).toLowerCase();
+			String target = Text.removeTags(event.getMenuTarget()).toLowerCase();
+			if (option.contains("friend") || option.startsWith("visit") || option.equals("enter house")) {
+				visitingFriend = true;
+			} else if (option.equals("home") || option.contains("tele to poh") || option.contains("teleport to house")
+					|| target.contains("teleport to house") || target.contains("house tab")) {
+				visitingFriend = false;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.TELENEXUS_TELEPORT) {
-			// Its rows are filled in by a script after it loads.
-			nexusReadTick = client.getTickCount() + 1;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.TELENEXUS_TELEPORT) {
+				// Its rows are filled in by a script after it loads.
+				nexusReadTick = client.getTickCount() + 1;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		int varbit = event.getVarbitId();
-		if (varbit == VarbitID.FARMING_BLOCKWEEDS || varbit == VarbitID.BRUT_FARMING_PLANTING
-				|| varbit == VarbitID.PRAYER_RIGOUR_UNLOCKED || varbit == VarbitID.PRAYER_AUGURY_UNLOCKED
-				|| varbit == VarbitID.PRAYER_PRESERVE_UNLOCKED
-				|| event.getVarpId() == FarmRunManager.LAST_MINIGAME_TELEPORT_VARP) {
-			trigger.varbitChanged();
-			return;
-		}
-		for (int tithe : TITHE_FARM_VARBITS) {
-			if (varbit == tithe) {
+		Guard.run(GUARD_FEATURE, () -> {
+			int varbit = event.getVarbitId();
+			if (varbit == VarbitID.FARMING_BLOCKWEEDS || varbit == VarbitID.BRUT_FARMING_PLANTING
+					|| varbit == VarbitID.PRAYER_RIGOUR_UNLOCKED || varbit == VarbitID.PRAYER_AUGURY_UNLOCKED
+					|| varbit == VarbitID.PRAYER_PRESERVE_UNLOCKED
+					|| event.getVarpId() == FarmRunManager.LAST_MINIGAME_TELEPORT_VARP) {
 				trigger.varbitChanged();
 				return;
 			}
-		}
+			for (int tithe : TITHE_FARM_VARBITS) {
+				if (varbit == tithe) {
+					trigger.varbitChanged();
+					return;
+				}
+			}
+		});
 	}
 
 	/** True once the Tithe Farm was entered (the website keeps it true after that). */
@@ -184,17 +195,19 @@ public class FarmingUnlocksMonitor {
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (houseCheckTick >= 0 && client.getTickCount() >= houseCheckTick) {
-			houseCheckTick = -1;
-			checkHouse();
-		}
-		if (nexusReadTick >= 0 && client.getTickCount() >= nexusReadTick) {
-			nexusReadTick = -1;
-			readNexus();
-		}
-		if (trigger.tick(client.getTickCount(), client.getGameState() == GameState.LOGGED_IN) == DiarySyncTrigger.Decision.SYNC) {
-			sync();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (houseCheckTick >= 0 && client.getTickCount() >= houseCheckTick) {
+				houseCheckTick = -1;
+				checkHouse();
+			}
+			if (nexusReadTick >= 0 && client.getTickCount() >= nexusReadTick) {
+				nexusReadTick = -1;
+				readNexus();
+			}
+			if (trigger.tick(client.getTickCount(), client.getGameState() == GameState.LOGGED_IN) == DiarySyncTrigger.Decision.SYNC) {
+				sync();
+			}
+		});
 	}
 
 	/** True inside your own house (an instance with the exit portal, not entered as a guest). */

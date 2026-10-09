@@ -67,6 +67,9 @@ import net.runelite.client.util.Text;
 @Slf4j
 @Singleton
 public class BankLayoutPrep {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "bank-layout";
+
 	static final String BOSS_TAG = "osrs companion boss gear";
 	static final String FARM_TAG = "osrs companion farm run";
 	static final String SLAYER_TAG = "osrs companion slayer gear";
@@ -160,33 +163,37 @@ public class BankLayoutPrep {
 	/** Turning one bank layout setting on (side panel or config panel) turns the others off. */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
-		if (!OSRSCompanionConfig.CONFIG_GROUP.equals(event.getGroup()) || !bankLayoutSettings.containsKey(event.getKey())
-				|| !"true".equals(event.getNewValue())) {
-			return;
-		}
-		for (Map.Entry<String, java.util.function.BooleanSupplier> e : bankLayoutSettings.entrySet()) {
-			if (!e.getKey().equals(event.getKey()) && e.getValue().getAsBoolean()) {
-				log.debug("Bank layout: '{}' turned on, turning '{}' off (only one bank layout at a time)", event.getKey(), e.getKey());
-				configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, e.getKey(), false);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!OSRSCompanionConfig.CONFIG_GROUP.equals(event.getGroup()) || !bankLayoutSettings.containsKey(event.getKey())
+					|| !"true".equals(event.getNewValue())) {
+				return;
 			}
-		}
+			for (Map.Entry<String, java.util.function.BooleanSupplier> e : bankLayoutSettings.entrySet()) {
+				if (!e.getKey().equals(event.getKey()) && e.getValue().getAsBoolean()) {
+					log.debug("Bank layout: '{}' turned on, turning '{}' off (only one bank layout at a time)", event.getKey(), e.getKey());
+					configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, e.getKey(), false);
+				}
+			}
+		});
 	}
 
 	/** A click on another bank tab / view: the bank is left as the player chose until it is reopened. */
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event) {
-		if (userLeft || (event.getParam1() >>> 16) != InterfaceID.BANKMAIN || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
-			return;
-		}
-		String option = event.getMenuOption() == null ? "" : Text.removeTags(event.getMenuOption());
-		boolean tabClick = option.startsWith("View tab") || option.equals("View all items") || option.startsWith("View tag tab")
-			|| event.getParam1() == InterfaceID.Bankmain.SEARCH || event.getParam1() == InterfaceID.Bankmain.POTIONSTORE_BUTTON;
-		if (tabClick) {
-			userLeft = true;
-			waitingForBuild = false;
-			log.debug("Bank layout: you clicked '{}' in the bank, leaving the bank alone until it is reopened (our layout applied: {})",
-				option, applied != null);
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (userLeft || (event.getParam1() >>> 16) != InterfaceID.BANKMAIN || client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null) {
+				return;
+			}
+			String option = event.getMenuOption() == null ? "" : Text.removeTags(event.getMenuOption());
+			boolean tabClick = option.startsWith("View tab") || option.equals("View all items") || option.startsWith("View tag tab")
+				|| event.getParam1() == InterfaceID.Bankmain.SEARCH || event.getParam1() == InterfaceID.Bankmain.POTIONSTORE_BUTTON;
+			if (tabClick) {
+				userLeft = true;
+				waitingForBuild = false;
+				log.debug("Bank layout: you clicked '{}' in the bank, leaving the bank alone until it is reopened (our layout applied: {})",
+					option, applied != null);
+			}
+		});
 	}
 
 	/** Keeps the "Bank Tag Layouts" hub plugin from laying out (packing) our tag over the Bank Tags layout. */
@@ -245,77 +252,85 @@ public class BankLayoutPrep {
 
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN) {
-			applied = null;
-			retries = 0;
-			userLeft = false;
-			log.debug("Bank layout: bank opened. {}", state());
-			// An active setup / route lays the bank out even with its window closed: make sure it is loaded and current.
-			long now = System.currentTimeMillis();
-			if (config.bossGearBankLayout() && config.bossGearActive() && !bossGear.isOpen() && !bossGear.isLoading()
-					&& (bossGear.getSet() == null || now - lastBossRefresh > AUTO_REFRESH_MS)) {
-				lastBossRefresh = now;
-				log.debug("Bank layout: reloading the boss setup ({})", bossGear.getSet() == null ? "none loaded" : "older than a minute");
-				bossGear.refresh();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN) {
+				applied = null;
+				retries = 0;
+				userLeft = false;
+				log.debug("Bank layout: bank opened. {}", state());
+				// An active setup / route lays the bank out even with its window closed: make sure it is loaded and current.
+				long now = System.currentTimeMillis();
+				if (config.bossGearBankLayout() && config.bossGearActive() && !bossGear.isOpen() && !bossGear.isLoading()
+						&& (bossGear.getSet() == null || now - lastBossRefresh > AUTO_REFRESH_MS)) {
+					lastBossRefresh = now;
+					log.debug("Bank layout: reloading the boss setup ({})", bossGear.getSet() == null ? "none loaded" : "older than a minute");
+					bossGear.refresh();
+				}
+				if (config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isOpen()) {
+					farmRun.refreshIfStale();
+				}
+				if (config.slayerGearBankLayout() && slayer.getTask() != null) {
+					slayer.refreshIfStale();
+				}
+				verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
+				// Not yet: opening our tag before the bank has been built leaves Bank Tags filtering without
+				// drawing the layout. The first build (or two ticks, whichever comes first) lays it out.
+				waitingForBuild = true;
+				bankOpenedTick = client.getTickCount();
 			}
-			if (config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isOpen()) {
-				farmRun.refreshIfStale();
-			}
-			if (config.slayerGearBankLayout() && slayer.getTask() != null) {
-				slayer.refreshIfStale();
-			}
-			verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
-			// Not yet: opening our tag before the bank has been built leaves Bank Tags filtering without
-			// drawing the layout. The first build (or two ticks, whichever comes first) lays it out.
-			waitingForBuild = true;
-			bankOpenedTick = client.getTickCount();
-		}
+		});
 	}
 
 	@Subscribe
 	public void onScriptPostFired(ScriptPostFired event) {
-		if (event.getScriptId() == ScriptID.BANKMAIN_BUILD && waitingForBuild && !userLeft) {
-			waitingForBuild = false;
-			log.debug("Bank layout: bank built, laying it out");
-			clientThread.invokeLater(this::update);
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getScriptId() == ScriptID.BANKMAIN_BUILD && waitingForBuild && !userLeft) {
+				waitingForBuild = false;
+				log.debug("Bank layout: bank built, laying it out");
+				clientThread.invokeLater(this::update);
+			}
+		});
 	}
 
 	@Subscribe
 	public void onWidgetClosed(WidgetClosed event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN) {
-			applied = null;
-			if (userLeft) {
-				log.debug("Bank layout: bank closed, the next bank open is laid out again");
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN) {
+				applied = null;
+				if (userLeft) {
+					log.debug("Bank layout: bank closed, the next bank open is laid out again");
+				}
+				userLeft = false;
 			}
-			userLeft = false;
-		}
+		});
 	}
 
 	/** A window opened or closed, or a set / route (re)loaded, while the bank is open. */
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		preloadBossGear();
-		if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null || userLeft) {
-			return;
-		}
-		if (waitingForBuild) {
-			if (client.getTickCount() - bankOpenedTick < 2) {
+		Guard.run(GUARD_FEATURE, () -> {
+			preloadBossGear();
+			if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null || userLeft) {
 				return;
 			}
-			log.debug("Bank layout: no bank build seen, laying it out anyway");
-			waitingForBuild = false;
-		}
-		if (applied != null && client.getTickCount() <= verifyUntilTick && retries < MAX_RETRIES && bankTagsOn() && !showingOurs()) {
-			log.debug("Bank layout: did not stick (our tag open: {}, Bank Tags tag: {}), applying it again, retry {}/{}",
-				isOurTagOpen(), bankTags.getActiveTag(), retries + 1, MAX_RETRIES);
-			retries++;
-			if (isOurTagOpen()) {
-				bankTags.closeBankTag();
+			if (waitingForBuild) {
+				if (client.getTickCount() - bankOpenedTick < 2) {
+					return;
+				}
+				log.debug("Bank layout: no bank build seen, laying it out anyway");
+				waitingForBuild = false;
 			}
-			applied = null;
-		}
-		update();
+			if (applied != null && client.getTickCount() <= verifyUntilTick && retries < MAX_RETRIES && bankTagsOn() && !showingOurs()) {
+				log.debug("Bank layout: did not stick (our tag open: {}, Bank Tags tag: {}), applying it again, retry {}/{}",
+					isOurTagOpen(), bankTags.getActiveTag(), retries + 1, MAX_RETRIES);
+				retries++;
+				if (isOurTagOpen()) {
+					bankTags.closeBankTag();
+				}
+				applied = null;
+			}
+			update();
+		});
 	}
 
 	/** Bank filler and the empty-slot object: shown in a whole bank, never items of a set. */

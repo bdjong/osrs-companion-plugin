@@ -30,6 +30,9 @@ import net.runelite.client.ui.overlay.components.SplitComponent;
  * (kills left, time at the location, average kill time, estimated time left).
  */
 public class SlayerHelperOverlay extends OverlayPanel {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-helper-overlay";
+
 	private static final int WIDTH = 220;
 	private static final int ICON_GAP = 6;
 	private static final BufferedImage SPACER = new BufferedImage(1, 4, BufferedImage.TYPE_INT_ARGB);
@@ -48,68 +51,70 @@ public class SlayerHelperOverlay extends OverlayPanel {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		SlayerHelperManager.Task task = manager.getTask();
-		if (task == null) {
-			return null;
-		}
-		if (manager.isAtLocation()) {
-			return renderStats(graphics, task);
-		}
-		if (!manager.isGuiding() && !(manager.isGuideOn() && manager.getLocation() == null)) {
-			return null;
-		}
-		SlayerGuide.Location l = manager.getLocation();
-		if (l == null) {
-			// A new task: say the location is on its way (or that none was found) instead of showing nothing.
-			boolean fetching = manager.isFetchingForTask();
-			if (!fetching && manager.getGuide() == null) {
+		return Guard.render(GUARD_FEATURE, () -> {
+			SlayerHelperManager.Task task = manager.getTask();
+			if (task == null) {
 				return null;
 			}
+			if (manager.isAtLocation()) {
+				return renderStats(graphics, task);
+			}
+			if (!manager.isGuiding() && !(manager.isGuideOn() && manager.getLocation() == null)) {
+				return null;
+			}
+			SlayerGuide.Location l = manager.getLocation();
+			if (l == null) {
+				// A new task: say the location is on its way (or that none was found) instead of showing nothing.
+				boolean fetching = manager.isFetchingForTask();
+				if (!fetching && manager.getGuide() == null) {
+					return null;
+				}
+				panelComponent.getChildren().clear();
+				panelComponent.getChildren().add(LineComponent.builder().left("Slayer: " + task.displayName()).leftColor(FarmRunOverlay.TITLE_COLOR)
+					.right(task.remaining + " left").rightColor(FarmRunOverlay.MUTED_COLOR).build());
+				String text = fetching ? "Retrieving location and gear information for the new task..." : "No location data was found for this task.";
+				for (String line : FarmRunOverlay.wrap(text, graphics.getFontMetrics(), WIDTH - 14)) {
+					panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(FarmRunOverlay.MUTED_COLOR).build());
+				}
+				panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
+				return super.render(graphics);
+			}
+			FontMetrics fm = graphics.getFontMetrics();
+			int textWidth = WIDTH - 14;
 			panelComponent.getChildren().clear();
 			panelComponent.getChildren().add(LineComponent.builder().left("Slayer: " + task.displayName()).leftColor(FarmRunOverlay.TITLE_COLOR)
 				.right(task.remaining + " left").rightColor(FarmRunOverlay.MUTED_COLOR).build());
-			String text = fetching ? "Retrieving location and gear information for the new task..." : "No location data was found for this task.";
-			for (String line : FarmRunOverlay.wrap(text, graphics.getFontMetrics(), WIDTH - 14)) {
-				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(FarmRunOverlay.MUTED_COLOR).build());
+			for (String line : FarmRunOverlay.wrap(l.getName() + (l.isMulti() ? " (multi)" : ""), fm, textWidth)) {
+				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(Color.WHITE).build());
+			}
+			String dir = manager.getDirection();
+			int dist = manager.getDistance();
+			if (dir != null && dist > 0) {
+				addIconLine(arrow(dir), "Go " + dir + ", " + dist + (dist == 1 ? " tile" : " tiles"), FarmRunOverlay.TODO_COLOR);
+			}
+			FarmRoute.Travel travel = l.getTravel();
+			if (travel != null) {
+				String via = (travel.isWalk() ? "" : travel.isSpell() ? "Cast " : "Use ") + travel.getName();
+				Integer item = travel.getItems().isEmpty() ? null : travel.getItems().get(0);
+				addIconLine(item == null ? null : icons.computeIfAbsent(item, itemManager::getImage), via, Color.CYAN);
+				for (String line : FarmRunOverlay.wrap(travel.getHow(), fm, textWidth)) {
+					panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(FarmRunOverlay.MUTED_COLOR).build());
+				}
+			}
+			List<String> steps = l.getSteps();
+			if (!steps.isEmpty()) {
+				panelComponent.getChildren().add(new ImageComponent(SPACER));
+			}
+			for (int i = 0; i < steps.size(); i++) {
+				List<String> lines = FarmRunOverlay.wrap((i + 1) + ". " + steps.get(i), fm, textWidth);
+				for (int j = 0; j < lines.size(); j++) {
+					panelComponent.getChildren().add(LineComponent.builder().left(j == 0 ? lines.get(j) : "   " + lines.get(j))
+						.leftColor(FarmRunOverlay.TODO_COLOR).build());
+				}
 			}
 			panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
 			return super.render(graphics);
-		}
-		FontMetrics fm = graphics.getFontMetrics();
-		int textWidth = WIDTH - 14;
-		panelComponent.getChildren().clear();
-		panelComponent.getChildren().add(LineComponent.builder().left("Slayer: " + task.displayName()).leftColor(FarmRunOverlay.TITLE_COLOR)
-			.right(task.remaining + " left").rightColor(FarmRunOverlay.MUTED_COLOR).build());
-		for (String line : FarmRunOverlay.wrap(l.getName() + (l.isMulti() ? " (multi)" : ""), fm, textWidth)) {
-			panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(Color.WHITE).build());
-		}
-		String dir = manager.getDirection();
-		int dist = manager.getDistance();
-		if (dir != null && dist > 0) {
-			addIconLine(arrow(dir), "Go " + dir + ", " + dist + (dist == 1 ? " tile" : " tiles"), FarmRunOverlay.TODO_COLOR);
-		}
-		FarmRoute.Travel travel = l.getTravel();
-		if (travel != null) {
-			String via = (travel.isWalk() ? "" : travel.isSpell() ? "Cast " : "Use ") + travel.getName();
-			Integer item = travel.getItems().isEmpty() ? null : travel.getItems().get(0);
-			addIconLine(item == null ? null : icons.computeIfAbsent(item, itemManager::getImage), via, Color.CYAN);
-			for (String line : FarmRunOverlay.wrap(travel.getHow(), fm, textWidth)) {
-				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(FarmRunOverlay.MUTED_COLOR).build());
-			}
-		}
-		List<String> steps = l.getSteps();
-		if (!steps.isEmpty()) {
-			panelComponent.getChildren().add(new ImageComponent(SPACER));
-		}
-		for (int i = 0; i < steps.size(); i++) {
-			List<String> lines = FarmRunOverlay.wrap((i + 1) + ". " + steps.get(i), fm, textWidth);
-			for (int j = 0; j < lines.size(); j++) {
-				panelComponent.getChildren().add(LineComponent.builder().left(j == 0 ? lines.get(j) : "   " + lines.get(j))
-					.leftColor(FarmRunOverlay.TODO_COLOR).build());
-			}
-		}
-		panelComponent.setPreferredSize(new Dimension(WIDTH, 0));
-		return super.render(graphics);
+		});
 	}
 
 	/**

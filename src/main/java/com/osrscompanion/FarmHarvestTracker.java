@@ -63,6 +63,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class FarmHarvestTracker {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "farm-harvests";
+
 	private static final String CONFIG_GROUP = OSRSCompanionConfig.CONFIG_GROUP;
 	private static final String COMPOST_KEY = "harvestCompost.";
 	private static final String DISEASE_KEY = "harvestDiseased.";
@@ -137,47 +140,51 @@ public class FarmHarvestTracker {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		if (event.getGameState() != GameState.LOGGED_IN && event.getGameState() != GameState.LOADING) {
-			reset();
-		}
-		if (event.getGameState() == GameState.LOGIN_SCREEN) {
-			// Another account may log in next: its compost is read from its own profile.
-			compostSeen.clear();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGameState() != GameState.LOGGED_IN && event.getGameState() != GameState.LOADING) {
+				reset();
+			}
+			if (event.getGameState() == GameState.LOGIN_SCREEN) {
+				// Another account may log in next: its compost is read from its own profile.
+				compostSeen.clear();
+			}
+		});
 	}
 
 	/** Pick / Harvest on a patch starts (or resumes) counting it; Clear on a dead crop records it as lost. */
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event) {
-		if (!isObjectOption(event.getMenuAction()) || event.getMenuOption() == null) {
-			return;
-		}
-		String option = event.getMenuOption().toLowerCase();
-		boolean clear = option.startsWith("clear");
-		if (!clear && !option.startsWith("pick") && !option.startsWith("harvest")) {
-			return;
-		}
-		ObjectComposition def = client.getObjectDefinition(event.getId());
-		if (def == null || def.getVarbitId() <= 0) {
-			return;
-		}
-		WorldPoint at = WorldPoint.fromScene(client, event.getParam0(), event.getParam1(), client.getPlane());
-		FarmingPatch patch = patchAt(def.getVarbitId(), at);
-		if (patch == null || SKIPPED.contains(patch.getImplementation())) {
-			return;
-		}
-		if (active != null && active.patch == patch) {
-			active.lastTick = client.getTickCount();
-			return;
-		}
-		PatchPrediction prediction = predict(patch);
-		CropState wanted = clear ? CropState.DEAD : CropState.HARVESTABLE;
-		if (prediction == null || prediction.getCropState() != wanted) {
-			return;
-		}
-		active = new Harvest(patch, at, prediction.getProduce() == null ? null : prediction.getProduce().getName(),
-			rememberedCompost(patch), clear, client.getTickCount());
-		log.debug("{} started at {} ({})", clear ? "Clearing a dead crop" : "Harvest", patch, active.produce);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!isObjectOption(event.getMenuAction()) || event.getMenuOption() == null) {
+				return;
+			}
+			String option = event.getMenuOption().toLowerCase();
+			boolean clear = option.startsWith("clear");
+			if (!clear && !option.startsWith("pick") && !option.startsWith("harvest")) {
+				return;
+			}
+			ObjectComposition def = client.getObjectDefinition(event.getId());
+			if (def == null || def.getVarbitId() <= 0) {
+				return;
+			}
+			WorldPoint at = WorldPoint.fromScene(client, event.getParam0(), event.getParam1(), client.getPlane());
+			FarmingPatch patch = patchAt(def.getVarbitId(), at);
+			if (patch == null || SKIPPED.contains(patch.getImplementation())) {
+				return;
+			}
+			if (active != null && active.patch == patch) {
+				active.lastTick = client.getTickCount();
+				return;
+			}
+			PatchPrediction prediction = predict(patch);
+			CropState wanted = clear ? CropState.DEAD : CropState.HARVESTABLE;
+			if (prediction == null || prediction.getCropState() != wanted) {
+				return;
+			}
+			active = new Harvest(patch, at, prediction.getProduce() == null ? null : prediction.getProduce().getName(),
+				rememberedCompost(patch), clear, client.getTickCount());
+			log.debug("{} started at {} ({})", clear ? "Clearing a dead crop" : "Harvest", patch, active.produce);
+		});
 	}
 
 	private static boolean isObjectOption(MenuAction action) {
@@ -195,84 +202,90 @@ public class FarmHarvestTracker {
 
 	@Subscribe
 	public void onStatChanged(StatChanged event) {
-		if (event.getSkill() != Skill.FARMING) {
-			return;
-		}
-		if (lastXp >= 0 && event.getXp() > lastXp) {
-			xpThisTick = true;
-		}
-		lastXp = event.getXp();
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getSkill() != Skill.FARMING) {
+				return;
+			}
+			if (lastXp >= 0 && event.getXp() > lastXp) {
+				xpThisTick = true;
+			}
+			lastXp = event.getXp();
+		});
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		if (event.getContainerId() != InventoryID.INV) {
-			return;
-		}
-		Map<Integer, Integer> now = new HashMap<>();
-		ItemContainer inv = event.getItemContainer();
-		if (inv != null) {
-			for (Item item : inv.getItems()) {
-				if (item.getId() > 0) {
-					now.merge(item.getId(), item.getQuantity(), Integer::sum);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getContainerId() != InventoryID.INV) {
+				return;
+			}
+			Map<Integer, Integer> now = new HashMap<>();
+			ItemContainer inv = event.getItemContainer();
+			if (inv != null) {
+				for (Item item : inv.getItems()) {
+					if (item.getId() > 0) {
+						now.merge(item.getId(), item.getQuantity(), Integer::sum);
+					}
 				}
 			}
-		}
-		if (lastInventory != null) {
-			for (Map.Entry<Integer, Integer> e : now.entrySet()) {
-				int gained = e.getValue() - lastInventory.getOrDefault(e.getKey(), 0);
-				if (gained > 0) {
-					gainedThisTick.merge(e.getKey(), gained, Integer::sum);
+			if (lastInventory != null) {
+				for (Map.Entry<Integer, Integer> e : now.entrySet()) {
+					int gained = e.getValue() - lastInventory.getOrDefault(e.getKey(), 0);
+					if (gained > 0) {
+						gainedThisTick.merge(e.getKey(), gained, Integer::sum);
+					}
 				}
 			}
-		}
-		lastInventory = now;
+			lastInventory = now;
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		if (client.getTickCount() % COMPOST_SCAN_TICKS == 0) {
-			noteCompost();
-		}
-		Harvest h = active;
-		if (h != null && h.dead) {
-			// A dead crop is done once the patch no longer shows it (cleared, back to weeds or empty).
-			PatchPrediction now = predict(h.patch);
-			if (now != null && now.getCropState() != CropState.DEAD) {
-				active = null;
-				send(h);
-			} else if (client.getTickCount() - h.lastTick > IDLE_TICKS || tooFar(h)) {
-				active = null;
+		Guard.run(GUARD_FEATURE, () -> {
+			if (client.getTickCount() % COMPOST_SCAN_TICKS == 0) {
+				noteCompost();
 			}
-		} else if (h != null) {
-			if (xpThisTick) {
-				int items = 0;
-				for (Map.Entry<Integer, Integer> e : gainedThisTick.entrySet()) {
-					items += e.getValue();
-					h.items.merge(e.getKey(), e.getValue(), Integer::sum);
+			Harvest h = active;
+			if (h != null && h.dead) {
+				// A dead crop is done once the patch no longer shows it (cleared, back to weeds or empty).
+				PatchPrediction now = predict(h.patch);
+				if (now != null && now.getCropState() != CropState.DEAD) {
+					active = null;
+					send(h);
+				} else if (client.getTickCount() - h.lastTick > IDLE_TICKS || tooFar(h)) {
+					active = null;
 				}
-				h.amount += Math.max(1, items);
-				h.picks++;
-				h.lastTick = client.getTickCount();
-				// Worn for most picks: the cape and secateurs act on every pick.
-				if (farmRunManager.isFarmingCapeWorn()) {
-					h.capePicks++;
+			} else if (h != null) {
+				if (xpThisTick) {
+					int items = 0;
+					for (Map.Entry<Integer, Integer> e : gainedThisTick.entrySet()) {
+						items += e.getValue();
+						h.items.merge(e.getKey(), e.getValue(), Integer::sum);
+					}
+					h.amount += Math.max(1, items);
+					h.picks++;
+					h.lastTick = client.getTickCount();
+					// Worn for most picks: the cape and secateurs act on every pick.
+					if (farmRunManager.isFarmingCapeWorn()) {
+						h.capePicks++;
+					}
+					if (farmRunManager.carried(ItemID.FAIRY_ENCHANTED_SECATEURS) > 0) {
+						h.secateursPicks++;
+					}
 				}
-				if (farmRunManager.carried(ItemID.FAIRY_ENCHANTED_SECATEURS) > 0) {
-					h.secateursPicks++;
+				PatchPrediction now = predict(h.patch);
+				if (h.amount > 0 && now != null && now.getCropState() != CropState.HARVESTABLE) {
+					active = null;
+					send(h);
+				} else if (client.getTickCount() - h.lastTick > IDLE_TICKS || tooFar(h)) {
+					log.debug("Harvest at {} dropped unfinished ({} picked)", h.patch, h.amount);
+					active = null;
 				}
 			}
-			PatchPrediction now = predict(h.patch);
-			if (h.amount > 0 && now != null && now.getCropState() != CropState.HARVESTABLE) {
-				active = null;
-				send(h);
-			} else if (client.getTickCount() - h.lastTick > IDLE_TICKS || tooFar(h)) {
-				log.debug("Harvest at {} dropped unfinished ({} picked)", h.patch, h.amount);
-				active = null;
-			}
-		}
-		xpThisTick = false;
-		gainedThisTick.clear();
+			xpThisTick = false;
+			gainedThisTick.clear();
+		});
 	}
 
 	private boolean tooFar(Harvest h) {

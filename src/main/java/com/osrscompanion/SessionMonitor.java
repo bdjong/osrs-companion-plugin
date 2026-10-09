@@ -22,6 +22,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class SessionMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "play-sessions";
+
 	static final int PING_INTERVAL_MINUTES = 5;
 
 	private final Client client;
@@ -37,6 +40,7 @@ public class SessionMonitor {
 	@Inject
 	public SessionMonitor(Client client, ClientThread clientThread, OSRSCompanionConfig config,
 			OSRSCompanionApiClient apiClient, ScheduledExecutorService executorService) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -64,13 +68,15 @@ public class SessionMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState state = event.getGameState();
-		if (state == GameState.LOGGED_IN && player == null) {
-			begin();
-		} else if (state == GameState.LOGIN_SCREEN && player != null) {
-			// Only the login screen ends a session: HOPPING, LOADING and CONNECTION_LOST come back.
-			finish();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState state = event.getGameState();
+			if (state == GameState.LOGGED_IN && player == null) {
+				begin();
+			} else if (state == GameState.LOGIN_SCREEN && player != null) {
+				// Only the login screen ends a session: HOPPING, LOADING and CONNECTION_LOST come back.
+				finish();
+			}
+		});
 	}
 
 	/** Waits (tick by tick) until the player's name is known, then reports the login. Client thread. */

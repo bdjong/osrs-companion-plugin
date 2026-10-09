@@ -52,6 +52,9 @@ import net.runelite.client.game.ItemManager;
 @Slf4j
 @Singleton
 public class StorageItemMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "storage-items-sync";
+
 	/** Ticks after a Fill / Empty / Check click during which the effect is attributed to it. */
 	private static final int ACTION_TICKS = 3;
 	/** The message-box widget "Check" writes its listing to (interface 193, child 2). */
@@ -144,6 +147,7 @@ public class StorageItemMonitor {
 			Gson gson,
 			ScheduledExecutorService executor,
 			ConfigManager configManager) {
+		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -195,27 +199,31 @@ public class StorageItemMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			clientThread.invokeLater(() -> {
-				readContainer(InventoryID.INV);
-				readContainer(InventoryID.WORN);
-				adoptChargesPluginState(ChargesPluginBridge.readAll(configManager::getConfiguration));
-			});
-		} else if (SyncGuard.isLogout(previousGameState, newState)) {
-			for (Tracked t : tracked) {
-				t.syncer.flushPending();
-				t.ledger.resetSession();
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				clientThread.invokeLater(() -> {
+					readContainer(InventoryID.INV);
+					readContainer(InventoryID.WORN);
+					adoptChargesPluginState(ChargesPluginBridge.readAll(configManager::getConfiguration));
+				});
+			} else if (SyncGuard.isLogout(previousGameState, newState)) {
+				for (Tracked t : tracked) {
+					t.syncer.flushPending();
+					t.ledger.resetSession();
+				}
 			}
-		}
-		previousGameState = newState;
+			previousGameState = newState;
+		});
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		if (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN) {
-			readContainer(event.getContainerId());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN) {
+				readContainer(event.getContainerId());
+			}
+		});
 	}
 
 	/**
@@ -224,30 +232,32 @@ public class StorageItemMonitor {
 	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
-		if (!ChargesPluginBridge.CONFIG_GROUP.equals(event.getGroup())) {
-			return;
-		}
-		String source = ChargesPluginBridge.sourceForConfigKey(event.getKey());
-		if (source == null) {
-			return;
-		}
-		// Re-read every key that folds into the source (the herb sack and its
-		// silk-lined variant share one) so a change to either lands correctly.
-		Map<Integer, Integer> merged = new LinkedHashMap<>();
-		boolean any = false;
-		for (String key : ChargesPluginBridge.keysFor(source)) {
-			Map<Integer, Integer> contents = ChargesPluginBridge.parse(
-					configManager.getConfiguration(ChargesPluginBridge.CONFIG_GROUP, key));
-			if (contents != null) {
-				any = true;
-				contents.forEach((id, qty) -> merged.merge(id, qty, Integer::sum));
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!ChargesPluginBridge.CONFIG_GROUP.equals(event.getGroup())) {
+				return;
 			}
-		}
-		if (any) {
-			Map<String, Map<Integer, Integer>> one = new LinkedHashMap<>();
-			one.put(source, merged);
-			adoptChargesPluginState(one);
-		}
+			String source = ChargesPluginBridge.sourceForConfigKey(event.getKey());
+			if (source == null) {
+				return;
+			}
+			// Re-read every key that folds into the source (the herb sack and its
+			// silk-lined variant share one) so a change to either lands correctly.
+			Map<Integer, Integer> merged = new LinkedHashMap<>();
+			boolean any = false;
+			for (String key : ChargesPluginBridge.keysFor(source)) {
+				Map<Integer, Integer> contents = ChargesPluginBridge.parse(
+						configManager.getConfiguration(ChargesPluginBridge.CONFIG_GROUP, key));
+				if (contents != null) {
+					any = true;
+					contents.forEach((id, qty) -> merged.merge(id, qty, Integer::sum));
+				}
+			}
+			if (any) {
+				Map<String, Map<Integer, Integer>> one = new LinkedHashMap<>();
+				one.put(source, merged);
+				adoptChargesPluginState(one);
+			}
+		});
 	}
 
 	private void adoptChargesPluginState(Map<String, Map<Integer, Integer>> bySource) {
@@ -301,167 +311,179 @@ public class StorageItemMonitor {
 
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
-		String message = event.getMessage();
-		if (event.getType() == ChatMessageType.SPAM) {
-			for (Tracked t : tracked) {
-				if (t.open()) {
-					t.ledger.onGatherMessage(message);
-				}
-			}
-		} else if (event.getType() == ChatMessageType.GAMEMESSAGE) {
-			// Every carried ledger sees the line: "You empty all of your
-			// containers into the bank." applies to all of them at once. Some
-			// store lines ("You put the Grimy X herb into your herb sack.",
-			// thieving into a gem bag) are game messages rather than spam.
-			for (Tracked t : tracked) {
-				if (t.carried()) {
-					t.ledger.onGameMessage(message);
+		Guard.run(GUARD_FEATURE, () -> {
+			String message = event.getMessage();
+			if (event.getType() == ChatMessageType.SPAM) {
+				for (Tracked t : tracked) {
 					if (t.open()) {
 						t.ledger.onGatherMessage(message);
 					}
 				}
-			}
-		}
-	}
-
-	@Subscribe
-	public void onStatChanged(StatChanged event) {
-		Skill skill = event.getSkill();
-		int gained = event.getXp() - lastXp.getOrDefault(skill, event.getXp());
-		lastXp.put(skill, event.getXp());
-		if (gained <= 0) {
-			return;
-		}
-		for (Tracked t : tracked) {
-			if (t.carried()) {
-				t.ledger.onXp(skill, gained);
-			}
-		}
-	}
-
-	private final Map<Skill, Integer> lastXp = new HashMap<>();
-
-	@Subscribe
-	public void onMenuOptionClicked(MenuOptionClicked event) {
-		int itemId = -1;
-		Action action = null;
-		MenuAction menuAction = event.getMenuAction();
-		if (menuAction == MenuAction.WIDGET_TARGET_ON_WIDGET) {
-			// Item used on the container (or the container on an item): a fill.
-			Widget target = event.getWidget();
-			Widget selected = client.getSelectedWidget();
-			int targetId = target == null ? -1 : target.getItemId();
-			int selectedId = selected == null ? -1 : selected.getItemId();
-			for (Tracked t : tracked) {
-				if (t.ledger.spec.isContainerItem(targetId) || t.ledger.spec.isContainerItem(selectedId)) {
-					t.actionTicks.put(Action.FILL, client.getTickCount());
-				}
-			}
-			return;
-		}
-		if (menuAction == MenuAction.CC_OP || menuAction == MenuAction.CC_OP_LOW_PRIORITY) {
-			Widget widget = event.getWidget();
-			if (widget != null) {
-				itemId = widget.getItemId();
-			}
-		}
-		String option = event.getMenuOption();
-		if (option == null) {
-			return;
-		}
-		if (option.equalsIgnoreCase("Pick")) {
-			for (Tracked t : tracked) {
-				t.ledger.onPickTarget(event.getMenuTarget());
-			}
-			return;
-		}
-		if (option.equalsIgnoreCase("Fill")) {
-			action = Action.FILL;
-		} else if (option.equalsIgnoreCase("Empty") || option.equalsIgnoreCase("Empty-to-bank")) {
-			action = Action.EMPTY;
-		} else if (option.equalsIgnoreCase("Check")) {
-			action = Action.CHECK;
-		} else {
-			return;
-		}
-		for (Tracked t : tracked) {
-			if (!t.ledger.spec.isContainerItem(itemId)) {
-				continue;
-			}
-			t.actionTicks.put(action, client.getTickCount());
-			if (action == Action.EMPTY && (bankOpen || depositBoxOpen)) {
-				// Emptied straight into the bank: the bank snapshot (or the
-				// deposit overlay) takes the items, so the ledger lets go of
-				// them now rather than waiting for a message the game may not
-				// send for the item's own Empty option.
-				Map<Integer, Integer> contents = t.ledger.contents();
-				t.ledger.clear();
-				if (!bankOpen && !contents.isEmpty()) {
-					Consumer<Map<Integer, Integer>> listener = emptiedToDepositBoxListener;
-					if (listener != null) {
-						listener.accept(contents);
+			} else if (event.getType() == ChatMessageType.GAMEMESSAGE) {
+				// Every carried ledger sees the line: "You empty all of your
+				// containers into the bank." applies to all of them at once. Some
+				// store lines ("You put the Grimy X herb into your herb sack.",
+				// thieving into a gem bag) are game messages rather than spam.
+				for (Tracked t : tracked) {
+					if (t.carried()) {
+						t.ledger.onGameMessage(message);
+						if (t.open()) {
+							t.ledger.onGatherMessage(message);
+						}
 					}
-				}
-			}
-		}
-	}
-
-	@Subscribe
-	public void onWidgetClosed(WidgetClosed event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN) {
-			bankOpen = false;
-		} else if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
-			depositBoxOpen = false;
-		}
-	}
-
-	/** The Check listing for barrels, baskets and the coal bag arrives in a message box. */
-	@Subscribe
-	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN) {
-			bankOpen = true;
-			return;
-		}
-		if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
-			depositBoxOpen = true;
-			return;
-		}
-		if (event.getGroupId() != MESSAGEBOX_GROUP) {
-			return;
-		}
-		clientThread.invokeLater(() -> {
-			Widget widget = client.getWidget(MESSAGEBOX_TEXT);
-			if (widget == null || widget.getText() == null) {
-				return;
-			}
-			String text = widget.getText();
-			for (Tracked t : tracked) {
-				if (t.recent(Action.CHECK) && t.ledger.onCheckText(text)) {
-					return;
 				}
 			}
 		});
 	}
 
 	@Subscribe
+	public void onStatChanged(StatChanged event) {
+		Guard.run(GUARD_FEATURE, () -> {
+			Skill skill = event.getSkill();
+			int gained = event.getXp() - lastXp.getOrDefault(skill, event.getXp());
+			lastXp.put(skill, event.getXp());
+			if (gained <= 0) {
+				return;
+			}
+			for (Tracked t : tracked) {
+				if (t.carried()) {
+					t.ledger.onXp(skill, gained);
+				}
+			}
+		});
+	}
+
+	private final Map<Skill, Integer> lastXp = new HashMap<>();
+
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked event) {
+		Guard.run(GUARD_FEATURE, () -> {
+			int itemId = -1;
+			Action action = null;
+			MenuAction menuAction = event.getMenuAction();
+			if (menuAction == MenuAction.WIDGET_TARGET_ON_WIDGET) {
+				// Item used on the container (or the container on an item): a fill.
+				Widget target = event.getWidget();
+				Widget selected = client.getSelectedWidget();
+				int targetId = target == null ? -1 : target.getItemId();
+				int selectedId = selected == null ? -1 : selected.getItemId();
+				for (Tracked t : tracked) {
+					if (t.ledger.spec.isContainerItem(targetId) || t.ledger.spec.isContainerItem(selectedId)) {
+						t.actionTicks.put(Action.FILL, client.getTickCount());
+					}
+				}
+				return;
+			}
+			if (menuAction == MenuAction.CC_OP || menuAction == MenuAction.CC_OP_LOW_PRIORITY) {
+				Widget widget = event.getWidget();
+				if (widget != null) {
+					itemId = widget.getItemId();
+				}
+			}
+			String option = event.getMenuOption();
+			if (option == null) {
+				return;
+			}
+			if (option.equalsIgnoreCase("Pick")) {
+				for (Tracked t : tracked) {
+					t.ledger.onPickTarget(event.getMenuTarget());
+				}
+				return;
+			}
+			if (option.equalsIgnoreCase("Fill")) {
+				action = Action.FILL;
+			} else if (option.equalsIgnoreCase("Empty") || option.equalsIgnoreCase("Empty-to-bank")) {
+				action = Action.EMPTY;
+			} else if (option.equalsIgnoreCase("Check")) {
+				action = Action.CHECK;
+			} else {
+				return;
+			}
+			for (Tracked t : tracked) {
+				if (!t.ledger.spec.isContainerItem(itemId)) {
+					continue;
+				}
+				t.actionTicks.put(action, client.getTickCount());
+				if (action == Action.EMPTY && (bankOpen || depositBoxOpen)) {
+					// Emptied straight into the bank: the bank snapshot (or the
+					// deposit overlay) takes the items, so the ledger lets go of
+					// them now rather than waiting for a message the game may not
+					// send for the item's own Empty option.
+					Map<Integer, Integer> contents = t.ledger.contents();
+					t.ledger.clear();
+					if (!bankOpen && !contents.isEmpty()) {
+						Consumer<Map<Integer, Integer>> listener = emptiedToDepositBoxListener;
+						if (listener != null) {
+							listener.accept(contents);
+						}
+					}
+				}
+			}
+		});
+	}
+
+	@Subscribe
+	public void onWidgetClosed(WidgetClosed event) {
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN) {
+				bankOpen = false;
+			} else if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
+				depositBoxOpen = false;
+			}
+		});
+	}
+
+	/** The Check listing for barrels, baskets and the coal bag arrives in a message box. */
+	@Subscribe
+	public void onWidgetLoaded(WidgetLoaded event) {
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN) {
+				bankOpen = true;
+				return;
+			}
+			if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
+				depositBoxOpen = true;
+				return;
+			}
+			if (event.getGroupId() != MESSAGEBOX_GROUP) {
+				return;
+			}
+			clientThread.invokeLater(() -> {
+				Widget widget = client.getWidget(MESSAGEBOX_TEXT);
+				if (widget == null || widget.getText() == null) {
+					return;
+				}
+				String text = widget.getText();
+				for (Tracked t : tracked) {
+					if (t.recent(Action.CHECK) && t.ledger.onCheckText(text)) {
+						return;
+					}
+				}
+			});
+		});
+	}
+
+	@Subscribe
 	public void onGameTick(GameTick event) {
-		boolean push = pushAll;
-		pushAll = false;
-		for (Tracked t : tracked) {
-			boolean changed = t.ledger.settle(t.open());
-			// Nothing is said about a container this session has not observed:
-			// the server's figure stands until there is something better.
-			if (!changed && !(push && t.ledger.isKnown())) {
-				continue;
+		Guard.run(GUARD_FEATURE, () -> {
+			boolean push = pushAll;
+			pushAll = false;
+			for (Tracked t : tracked) {
+				boolean changed = t.ledger.settle(t.open());
+				// Nothing is said about a container this session has not observed:
+				// the server's figure stands until there is something better.
+				if (!changed && !(push && t.ledger.isKnown())) {
+					continue;
+				}
+				Map<Integer, Integer> contents = t.ledger.contents();
+				BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
+				if (listener != null) {
+					listener.accept(t.ledger.spec.source, contents);
+				}
+				// An emptied container is worth telling the server about at once:
+				// its items are about to show up in the bank snapshot.
+				t.syncer.submit(contents, push || contents.isEmpty());
 			}
-			Map<Integer, Integer> contents = t.ledger.contents();
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-			if (listener != null) {
-				listener.accept(t.ledger.spec.source, contents);
-			}
-			// An emptied container is worth telling the server about at once:
-			// its items are about to show up in the bank snapshot.
-			t.syncer.submit(contents, push || contents.isEmpty());
-		}
+		});
 	}
 }

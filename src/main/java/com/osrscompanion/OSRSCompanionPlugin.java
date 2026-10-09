@@ -13,6 +13,8 @@ import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.EventBus;
@@ -44,6 +46,8 @@ import com.osrscompanion.runelite.farming.PaymentTracker;
 	tags = {"farming", "timetracking", "roadmap", "goals", "slayer", "sync"}
 )
 public class OSRSCompanionPlugin extends Plugin {
+	/** The plugin's own handlers' feature for {@link Guard}. */
+	static final String GUARD_FEATURE = "plugin";
 	private static final String TEARS_CAVE_MESSAGE = "Your stories have entertained me. I will let you into the cave for a short time.";
 
 	@Inject
@@ -252,23 +256,197 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private WebVersionWatcher webVersionWatcher;
 
+	@Inject
+	private ChatMessageManager chatMessageManager;
+
 
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
 	private java.util.concurrent.ScheduledFuture<?> roadmapWaitingPoll;
 	private java.util.concurrent.ScheduledFuture<?> farmRouteReadyPoll;
-	private ErrorReporter errorReporter;
+	private volatile ErrorReporter errorReporter;
+	/** Every object registered on the event bus at start, unregistered at stop. */
+	private java.util.List<Object> subscribers;
+	private volatile FreezeWatchdog watchdog;
+	private volatile IncidentStore incidentStore;
+	/** A fatal error or freeze the last session persisted, reported once a player is logged in. */
+	private volatile IncidentStore.Incident previousIncident;
 	private ErrorLogAppender errorLogAppender;
 	private java.util.concurrent.ScheduledFuture<?> errorReportFlush;
 
 	@Override
-	protected void startUp() throws Exception {
+	protected void startUp() {
+		// Never throws: each subsystem starts on its own, so one failure leaves the others working.
 		log.debug("OSRS Companion started");
-		migrateSettings();
+		step("crash safety", this::startCrashSafety);
+		step("settings", this::migrateSettings);
 		// Uploads queue in the outbox and go out batched (first, so the monitors' first syncs use it).
-		apiClient.startOutbox(executorService);
-		startErrorReports();
+		step("outbox", () -> apiClient.startOutbox(GuardedExecutor.wrap("sync", executorService)));
+		step("error reports", this::startErrorReports);
+		step("previous incident", () -> {
+			if (client.getGameState() == GameState.LOGGED_IN) {
+				reportPreviousIncident();
+			}
+		});
+		step("farming timers", this::startFarming);
 
+		subscribers = java.util.Arrays.asList(this, timerMonitor, playerSkillsMonitor, bankMemoryMonitor, vaultMonitor,
+				potionStorageMonitor, runePouchMonitor, plankSackMonitor, storageItemMonitor, loadoutMonitor, lootMonitor,
+				collectionLogMonitor, questMonitor, achievementDiaryMonitor, houseLocationMonitor, farmingUnlocksMonitor,
+				kingdomMonitor, combatAchievementMonitor, killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
+				slayerRewardsMonitor, goalProgressTracker, farmRunManager, farmHarvestTracker, bankLayoutPrep,
+				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
+				bossTripTracker, suppliesCheck, dailiesManager, dailiesSceneOverlay);
+		for (Object subscriber : subscribers) {
+			if (subscriber != null) {
+				step("register " + subscriber.getClass().getSimpleName(), () -> eventBus.register(subscriber));
+			}
+		}
+		step("bank layout", bankLayoutPrep::startUp);
+		step("timers", timerMonitor::start);
+		step("play sessions", sessionMonitor::start);
+		step("loot", lootMonitor::start);
+		step("skills", playerSkillsMonitor::start);
+		step("goal progress", this::connectGoalProgress);
+		step("roadmap", () -> {
+			roadmapManager.startPeriodicRefresh();
+			roadmapWaitingPoll = executorService.scheduleWithFixedDelay(Guard.wrap(RoadmapManager.GUARD_FEATURE, roadmapManager::pollWhileWaiting),
+					RoadmapManager.WAITING_POLL_SECONDS, RoadmapManager.WAITING_POLL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+		});
+		// Website changes: the webVersion from batch answers or a small check every 30 s re-reads what changed.
+		step("web updates", webVersionWatcher::start);
+		// The last farm route ready again (all its patches grown), checked logged in or not.
+		step("farm route ready", () -> farmRouteReadyPoll = executorService.scheduleWithFixedDelay(
+				Guard.wrap(FarmRunManager.GUARD_FEATURE, farmRunManager::checkRouteReady), 30, 30, java.util.concurrent.TimeUnit.SECONDS));
+		step("side panel", this::addSidePanel);
+		step("overlays", this::addOverlays);
+	}
+
+	/** Breakers on, the freeze watchdog running, and a crash the last session could not report reported now. */
+	private void startCrashSafety() {
+		Guard guard = Guard.shared();
+		guard.resetBreakers();
+		incidentStore = new IncidentStore(new IncidentStore.Storage() {
+			@Override
+			public String get() {
+				return configManager.getConfiguration(OSRSCompanionConfig.CONFIG_GROUP, IncidentStore.KEY);
+			}
+
+			@Override
+			public void set(String value) {
+				configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, IncidentStore.KEY, value);
+			}
+
+			@Override
+			public void unset() {
+				configManager.unsetConfiguration(OSRSCompanionConfig.CONFIG_GROUP, IncidentStore.KEY);
+			}
+
+			@Override
+			public void flush() {
+				configManager.sendConfig();
+			}
+		});
+		previousIncident = incidentStore.take();
+		watchdog = new FreezeWatchdog(guard);
+		guard.setListener(new GuardListener());
+		// The watchdog times our sections on the client thread: tell the Guard which thread that is.
+		clientThread.invoke(() -> guard.watchThread(Thread.currentThread()));
+		watchdog.start();
+	}
+
+	/** What the Guard's failures become: reports, a persisted incident when the client may not survive, one chat line. */
+	private final class GuardListener implements Guard.Listener {
+		@Override
+		public void onFailure(String feature, Throwable error) {
+			ErrorReporter reporter = errorReporter;
+			if (reporter != null) {
+				reporter.reportCaught(feature, error);
+			}
+		}
+
+		@Override
+		public void onFatal(String feature, Throwable error) {
+			persist(new IncidentStore.Incident("fatal", feature, String.valueOf(error),
+					IncidentStore.shortStack(error, 20), System.currentTimeMillis()));
+		}
+
+		@Override
+		public void onFreeze(String feature, long elapsedMs, StackTraceElement[] stack) {
+			// First persisted: the player may kill the frozen client any moment now.
+			persist(new IncidentStore.Incident("freeze", feature, "The client froze for " + elapsedMs + " ms in " + feature,
+					IncidentStore.shortStack(stack, 20), System.currentTimeMillis()));
+			ErrorReporter reporter = errorReporter;
+			if (reporter != null) {
+				reporter.reportFreeze(feature, elapsedMs, stack);
+			}
+		}
+
+		@Override
+		public void onDisabled(String feature) {
+			String text = "OSRS Companion: " + Guard.displayName(feature) + " was turned off after an error; it has been reported.";
+			chatMessageManager.queue(QueuedMessage.builder()
+					.type(ChatMessageType.CONSOLE)
+					.runeLiteFormattedMessage(text)
+					.build());
+		}
+
+		private void persist(IncidentStore.Incident incident) {
+			IncidentStore store = incidentStore;
+			FreezeWatchdog dog = watchdog;
+			if (store == null) {
+				return;
+			}
+			// Off the client thread: the config write and flush are file IO.
+			if (dog != null) {
+				dog.execute(() -> store.save(incident));
+			} else {
+				store.save(incident);
+			}
+		}
+	}
+
+	/** The incident the last session persisted but could not report (it ended first): reported once the player is known. */
+	private void reportPreviousIncident() {
+		IncidentStore.Incident incident = previousIncident;
+		ErrorReporter reporter = errorReporter;
+		if (incident == null || reporter == null) {
+			return;
+		}
+		previousIncident = null;
+		reporter.reportPreviousSession(incident.level, incident.feature, incident.message, incident.stack, incident.timeMs);
+	}
+
+	private void stopCrashSafety() {
+		Guard guard = Guard.shared();
+		guard.setListener(null);
+		guard.watchThread(null);
+		if (watchdog != null) {
+			watchdog.stop();
+			watchdog = null;
+		}
+		// A clean stop: whatever this session persisted was reported live.
+		if (incidentStore != null) {
+			incidentStore.clear();
+			incidentStore = null;
+		}
+	}
+
+	/**
+	 * Runs one start or stop step; a failure is logged and reported (like the Guard's, without
+	 * counting towards a breaker) and the next step still runs.
+	 */
+	private static void step(String name, Runnable body) {
+		try {
+			body.run();
+		} catch (ThreadDeath death) {
+			throw death;
+		} catch (Throwable e) {
+			Guard.shared().reportOnly("plugin-" + name.replace(' ', '-'), e);
+		}
+	}
+
+	private void startFarming() {
 		TimeTrackingConfig timeTrackingConfig = configManager.getConfig(TimeTrackingConfig.class);
 		FarmingWorld farmingWorld = new FarmingWorld();
 		CompostTracker compostTracker = new CompostTracker(client, farmingWorld, configManager);
@@ -284,56 +462,17 @@ public class OSRSCompanionPlugin extends Plugin {
 				paymentTracker);
 
 		timerMonitor = new TimerMonitor(
-				client, config, apiClient, configManager, executorService,
+				client, config, apiClient, configManager, GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService),
 				farmingTracker, farmingWorld);
 		farmRunManager.setFarming(farmingWorld, farmingTracker, compostTracker);
 		farmHarvestTracker.setFarming(farmingWorld, farmingTracker, compostTracker);
+	}
 
-		eventBus.register(this);
-		eventBus.register(timerMonitor);
-		eventBus.register(playerSkillsMonitor);
-		eventBus.register(bankMemoryMonitor);
-		eventBus.register(vaultMonitor);
-		eventBus.register(potionStorageMonitor);
-		eventBus.register(runePouchMonitor);
-		eventBus.register(plankSackMonitor);
-		eventBus.register(storageItemMonitor);
-		eventBus.register(loadoutMonitor);
-		eventBus.register(lootMonitor);
-		eventBus.register(collectionLogMonitor);
-		eventBus.register(questMonitor);
-		eventBus.register(achievementDiaryMonitor);
-		eventBus.register(houseLocationMonitor);
-		eventBus.register(farmingUnlocksMonitor);
-		eventBus.register(kingdomMonitor);
-		eventBus.register(combatAchievementMonitor);
-		eventBus.register(killCountMonitor);
-		eventBus.register(deathMonitor);
-		eventBus.register(slayerMonitor);
-		eventBus.register(slayerCatalogMonitor);
-		eventBus.register(slayerRewardsMonitor);
-		eventBus.register(goalProgressTracker);
-		eventBus.register(farmRunManager);
-		eventBus.register(farmHarvestTracker);
-		eventBus.register(bankLayoutPrep);
-		bankLayoutPrep.startUp();
-		eventBus.register(farmRunSceneOverlay);
-		eventBus.register(slayerHelperManager);
-		eventBus.register(slayerGuideMarkers);
-		eventBus.register(slayerGuideHouseOverlay);
-		eventBus.register(sessionMonitor);
-		eventBus.register(bossTripTracker);
-		eventBus.register(suppliesCheck);
-		eventBus.register(dailiesManager);
-		eventBus.register(dailiesSceneOverlay);
-
-		timerMonitor.start();
-		sessionMonitor.start();
-		lootMonitor.start();
-		playerSkillsMonitor.start();
-
-		// Local goal progress: monitors report what they upload, the tracker
-		// layers it on the server's roadmap and asks for a re-read afterwards.
+	/**
+	 * Local goal progress: monitors report what they upload, the tracker
+	 * layers it on the server's roadmap and asks for a re-read afterwards.
+	 */
+	private void connectGoalProgress() {
 		roadmapManager.setRoadmapListener(goalProgressTracker::onServerRoadmap);
 		roadmapManager.setRoadmapSetListener(goalProgressTracker::retainRoadmaps);
 		playerSkillsMonitor.setUploadListener(goalProgressTracker::onSkillsUploaded);
@@ -371,20 +510,9 @@ public class OSRSCompanionPlugin extends Plugin {
 			plankSackMonitor.syncNow();
 			storageItemMonitor.syncNow();
 		});
-		roadmapManager.startPeriodicRefresh();
-		// Website changes: the webVersion from batch answers or a small check every 30 s re-reads what changed.
-		webVersionWatcher.start();
-		roadmapWaitingPoll = executorService.scheduleWithFixedDelay(roadmapManager::pollWhileWaiting,
-				RoadmapManager.WAITING_POLL_SECONDS, RoadmapManager.WAITING_POLL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
-		// The last farm route ready again (all its patches grown), checked logged in or not.
-		farmRouteReadyPoll = executorService.scheduleWithFixedDelay(() -> {
-			try {
-				farmRunManager.checkRouteReady();
-			} catch (RuntimeException e) {
-				log.debug("Farm route ready check failed", e);
-			}
-		}, 30, 30, java.util.concurrent.TimeUnit.SECONDS);
+	}
 
+	private void addSidePanel() {
 		// Side-panel roadmap tab.
 		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
 				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager,
@@ -397,7 +525,9 @@ public class OSRSCompanionPlugin extends Plugin {
 				.panel(roadmapPanel)
 				.build();
 		clientToolbar.addNavigation(navButton);
+	}
 
+	private void addOverlays() {
 		// Next-goal game overlay (rendered only while showNextGoal is enabled), and the
 		// gear roadmap's next step below it (showGearProgress).
 		overlayManager.add(nextGoalOverlay);
@@ -488,54 +618,86 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	@Override
-	protected void shutDown() throws Exception {
-		eventBus.unregister(this);
-		eventBus.unregister(timerMonitor);
-		eventBus.unregister(playerSkillsMonitor);
-		eventBus.unregister(bankMemoryMonitor);
-		eventBus.unregister(vaultMonitor);
-		eventBus.unregister(potionStorageMonitor);
-		eventBus.unregister(runePouchMonitor);
-		eventBus.unregister(plankSackMonitor);
-		eventBus.unregister(storageItemMonitor);
-		eventBus.unregister(loadoutMonitor);
-		eventBus.unregister(lootMonitor);
-		eventBus.unregister(collectionLogMonitor);
-		eventBus.unregister(questMonitor);
-		eventBus.unregister(achievementDiaryMonitor);
-		eventBus.unregister(houseLocationMonitor);
-		eventBus.unregister(farmingUnlocksMonitor);
-		eventBus.unregister(kingdomMonitor);
-		eventBus.unregister(combatAchievementMonitor);
-		eventBus.unregister(killCountMonitor);
-		eventBus.unregister(deathMonitor);
-		eventBus.unregister(slayerMonitor);
-		eventBus.unregister(slayerCatalogMonitor);
-		eventBus.unregister(slayerRewardsMonitor);
-		eventBus.unregister(goalProgressTracker);
-		eventBus.unregister(farmRunManager);
-		eventBus.unregister(farmHarvestTracker);
-		farmHarvestTracker.stop();
-		eventBus.unregister(bankLayoutPrep);
-		bankLayoutPrep.shutDown();
-		eventBus.unregister(farmRunSceneOverlay);
-		eventBus.unregister(slayerHelperManager);
-		eventBus.unregister(slayerGuideMarkers);
-		eventBus.unregister(slayerGuideHouseOverlay);
-		eventBus.unregister(sessionMonitor);
-		sessionMonitor.stop();
-		eventBus.unregister(bossTripTracker);
-		bossTripTracker.stop();
-		eventBus.unregister(suppliesCheck);
-		suppliesCheck.clear();
-		overlayManager.remove(suppliesOverlay);
-		eventBus.unregister(dailiesManager);
-		eventBus.unregister(dailiesSceneOverlay);
-		overlayManager.remove(dailiesOverlay);
-		overlayManager.remove(dailiesSceneOverlay);
-		clientThread.invoke(dailiesSceneOverlay::clearPointers);
-		dailiesManager.clear();
+	protected void shutDown() {
+		// Never throws, and every step runs even when one before it failed: the executor jobs and the
+		// watchdog always stop.
+		if (subscribers != null) {
+			for (Object subscriber : subscribers) {
+				if (subscriber != null) {
+					step("unregister " + subscriber.getClass().getSimpleName(), () -> eventBus.unregister(subscriber));
+				}
+			}
+			subscribers = null;
+		}
+		step("farm harvests", farmHarvestTracker::stop);
+		step("bank layout", bankLayoutPrep::shutDown);
+		step("play sessions", sessionMonitor::stop);
+		step("boss trips", bossTripTracker::stop);
+		step("supplies", () -> {
+			suppliesCheck.clear();
+			overlayManager.remove(suppliesOverlay);
+		});
+		step("dailies", () -> {
+			overlayManager.remove(dailiesOverlay);
+			overlayManager.remove(dailiesSceneOverlay);
+			clientThread.invoke(() -> step("dailies markers", dailiesSceneOverlay::clearPointers));
+			dailiesManager.clear();
+		});
+		step("goal progress", this::disconnectGoalProgress);
 
+		step("stop timerMonitor", () -> timerMonitor.stop());
+		step("stop playerSkillsMonitor", () -> playerSkillsMonitor.stop());
+		step("stop bankMemoryMonitor", () -> bankMemoryMonitor.stop());
+		step("stop vaultMonitor", () -> vaultMonitor.stop());
+		step("stop potionStorageMonitor", () -> potionStorageMonitor.stop());
+		step("stop runePouchMonitor", () -> runePouchMonitor.stop());
+		step("stop plankSackMonitor", () -> plankSackMonitor.stop());
+		step("stop storageItemMonitor", () -> storageItemMonitor.stop());
+		step("stop loadoutMonitor", () -> loadoutMonitor.stop());
+		step("stop lootMonitor", () -> lootMonitor.stop());
+		step("stop collectionLogMonitor", () -> collectionLogMonitor.stop());
+		step("stop questMonitor", () -> questMonitor.stop());
+		step("stop achievementDiaryMonitor", () -> achievementDiaryMonitor.stop());
+		step("stop houseLocationMonitor", () -> houseLocationMonitor.stop());
+		step("stop farmingUnlocksMonitor", () -> farmingUnlocksMonitor.stop());
+		step("stop kingdomMonitor", () -> kingdomMonitor.stop());
+		step("stop combatAchievementMonitor", () -> combatAchievementMonitor.stop());
+		step("stop killCountMonitor", () -> killCountMonitor.stop());
+		step("stop deathMonitor", () -> deathMonitor.stop());
+		step("stop slayerMonitor", () -> slayerMonitor.stop());
+		step("stop slayerCatalogMonitor", () -> slayerCatalogMonitor.stop());
+		step("stop slayerRewardsMonitor", () -> slayerRewardsMonitor.stop());
+
+		step("side panel", () -> {
+			if (navButton != null) {
+				clientToolbar.removeNavigation(navButton);
+				navButton = null;
+			}
+			roadmapPanel = null;
+		});
+		step("overlays", this::removeOverlays);
+		step("polls", () -> {
+			if (roadmapWaitingPoll != null) {
+				roadmapWaitingPoll.cancel(false);
+				roadmapWaitingPoll = null;
+			}
+			if (farmRouteReadyPoll != null) {
+				farmRouteReadyPoll.cancel(false);
+				farmRouteReadyPoll = null;
+			}
+		});
+		step("roadmap", roadmapManager::clear);
+		step("web updates", webVersionWatcher::stop);
+		step("error reports", this::stopErrorReports);
+		// The monitors' stop() above queued their last uploads: send them now; nothing is retried after.
+		step("outbox", apiClient::stopOutbox);
+		// Whatever periodic job a feature left behind (the shared executor is RuneLite's: only ours stop).
+		step("executor jobs", GuardedExecutor::cancelAllPeriodic);
+		step("crash safety", this::stopCrashSafety);
+		log.debug("OSRS Companion stopped");
+	}
+
+	private void disconnectGoalProgress() {
 		roadmapManager.stopPeriodicRefresh();
 		roadmapManager.setRoadmapListener(null);
 		roadmapManager.setRoadmapSetListener(null);
@@ -573,35 +735,9 @@ public class OSRSCompanionPlugin extends Plugin {
 		goalCompletionNotifier.clear();
 		goalProgressTracker.clear();
 		goalImageCache.clear();
+	}
 
-		timerMonitor.stop();
-		playerSkillsMonitor.stop();
-		bankMemoryMonitor.stop();
-		vaultMonitor.stop();
-		potionStorageMonitor.stop();
-		runePouchMonitor.stop();
-		plankSackMonitor.stop();
-		storageItemMonitor.stop();
-		loadoutMonitor.stop();
-		lootMonitor.stop();
-		collectionLogMonitor.stop();
-		questMonitor.stop();
-		achievementDiaryMonitor.stop();
-		houseLocationMonitor.stop();
-		farmingUnlocksMonitor.stop();
-		kingdomMonitor.stop();
-		combatAchievementMonitor.stop();
-		killCountMonitor.stop();
-		deathMonitor.stop();
-		slayerMonitor.stop();
-		slayerCatalogMonitor.stop();
-		slayerRewardsMonitor.stop();
-
-		if (navButton != null) {
-			clientToolbar.removeNavigation(navButton);
-			navButton = null;
-		}
-		roadmapPanel = null;
+	private void removeOverlays() {
 		overlayManager.remove(nextGoalOverlay);
 		overlayManager.remove(gearNextOverlay);
 		overlayManager.remove(goalCompletionOverlay);
@@ -617,16 +753,16 @@ public class OSRSCompanionPlugin extends Plugin {
 		overlayManager.remove(farmRunOverlay);
 		overlayManager.remove(farmRunSceneOverlay);
 		overlayManager.remove(farmRunItemOverlay);
-		clientThread.invoke(farmRunSceneOverlay::clearPointers);
+		clientThread.invoke(() -> step("farm run markers", farmRunSceneOverlay::clearPointers));
 		overlayManager.remove(slayerHelperOverlay);
 		overlayManager.remove(slayerDebugOverlay);
 		overlayManager.remove(slayerGuideHouseOverlay);
 		// The open slayer session is stored and sent before it is forgotten.
-		clientThread.invoke(() -> {
+		clientThread.invoke(() -> step("slayer helper", () -> {
 			slayerGuideMarkers.clear();
 			slayerGuideHouseOverlay.clear();
 			slayerHelperManager.shutDown();
-		});
+		}));
 		farmRunManager.clear();
 		overlayManager.remove(bossGearWindow);
 		roadmapWindow.close();
@@ -643,20 +779,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		mouseManager.unregisterMouseWheelListener(slayerGearWindow);
 		keyManager.unregisterKeyListener(slayerGearWindow);
 		bossGearManager.clear();
-		if (roadmapWaitingPoll != null) {
-			roadmapWaitingPoll.cancel(false);
-			roadmapWaitingPoll = null;
-		}
-		if (farmRouteReadyPoll != null) {
-			farmRouteReadyPoll.cancel(false);
-			farmRouteReadyPoll = null;
-		}
-		roadmapManager.clear();
-		webVersionWatcher.stop();
-		stopErrorReports();
-		// The monitors' stop() above queued their last uploads: send them now; nothing is retried after.
-		apiClient.stopOutbox();
-		log.debug("OSRS Companion stopped");
 	}
 
 	/**
@@ -688,7 +810,15 @@ public class OSRSCompanionPlugin extends Plugin {
 			errorLogAppender = null;
 		}
 		long every = ErrorReporter.FLUSH_INTERVAL_MS;
-		errorReportFlush = executorService.scheduleWithFixedDelay(reporter::flush, every, every,
+		// Not through the Guard: the reporter's own failures are never reported. Never throws either,
+		// so the periodic job cannot be cancelled by an exception.
+		errorReportFlush = executorService.scheduleWithFixedDelay(() -> {
+			try {
+				reporter.flush();
+			} catch (RuntimeException e) {
+				log.debug("Error report flush failed", e);
+			}
+		}, every, every,
 				java.util.concurrent.TimeUnit.MILLISECONDS);
 	}
 
@@ -749,20 +879,26 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
+		Guard.run(GUARD_FEATURE, () -> gameStateChanged(event));
+	}
+
+	private void gameStateChanged(GameStateChanged event) {
 		if (event.getGameState() == GameState.LOGGED_IN) {
+			reportPreviousIncident();
 			// Load the roadmap almost immediately so it shows right after login
 			// (a plain read, NOT a forced re-sync), then again once this session's
 			// login syncs have landed so completion/progress is fresh.
-			executorService.schedule(
-					this::loadRoadmapQuietly, 1, java.util.concurrent.TimeUnit.SECONDS);
-			executorService.schedule(
-					this::loadRoadmapQuietly, 8, java.util.concurrent.TimeUnit.SECONDS);
-			executorService.schedule(farmRunManager::refresh, 9, java.util.concurrent.TimeUnit.SECONDS);
+			executorService.schedule(Guard.wrap(RoadmapManager.GUARD_FEATURE, this::loadRoadmapQuietly),
+					1, java.util.concurrent.TimeUnit.SECONDS);
+			executorService.schedule(Guard.wrap(RoadmapManager.GUARD_FEATURE, this::loadRoadmapQuietly),
+					8, java.util.concurrent.TimeUnit.SECONDS);
+			executorService.schedule(Guard.wrap(FarmRunManager.GUARD_FEATURE, farmRunManager::refresh),
+					9, java.util.concurrent.TimeUnit.SECONDS);
 		} else if (event.getGameState() == GameState.LOGIN_SCREEN) {
 			webVersionWatcher.onLoggedOut();
 			// The monitors queue their logout uploads (some via the client thread / executor):
 			// send everything shortly after, without waiting for the batch interval or a backoff.
-			executorService.schedule(apiClient::flushOutbox, 2, java.util.concurrent.TimeUnit.SECONDS);
+			executorService.schedule(Guard.wrap("sync", apiClient::flushOutbox), 2, java.util.concurrent.TimeUnit.SECONDS);
 		}
 	}
 
@@ -776,6 +912,10 @@ public class OSRSCompanionPlugin extends Plugin {
 	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
+		Guard.run(GUARD_FEATURE, () -> configChanged(event));
+	}
+
+	private void configChanged(ConfigChanged event) {
 		if (!SyncGuard.isCompleteAppKeyEntry(event.getGroup(), event.getKey(), event.getNewValue())) {
 			return;
 		}
@@ -796,6 +936,10 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
+		Guard.run(GUARD_FEATURE, () -> chatMessage(event));
+	}
+
+	private void chatMessage(ChatMessage event) {
 		if (event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.DIALOG) {
 			return;
 		}

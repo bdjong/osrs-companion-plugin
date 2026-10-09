@@ -20,6 +20,9 @@ import net.runelite.api.GameState;
 @Slf4j
 @Singleton
 public class WebVersionWatcher {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "web-updates";
+
 	static final int CHECK_SECONDS = 30;
 	/** A batch response this recent already carried the webVersion. */
 	static final long RECENT_BATCH_MS = TimeUnit.SECONDS.toMillis(CHECK_SECONDS);
@@ -42,6 +45,7 @@ public class WebVersionWatcher {
 			ScheduledExecutorService executor, RoadmapManager roadmapManager, FarmRunManager farmRunManager,
 			SlayerHelperManager slayerHelperManager, BossGearManager bossGearManager,
 			GearProgressionManager gearProgressionManager, DailiesManager dailiesManager) {
+		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;

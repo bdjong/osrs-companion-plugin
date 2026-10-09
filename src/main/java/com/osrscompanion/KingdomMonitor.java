@@ -39,6 +39,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class KingdomMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "kingdom-sync";
+
 	/** Miscellania and Etceteria. */
 	static final Set<Integer> KINGDOM_REGIONS = Collections.unmodifiableSet(
 			new HashSet<>(java.util.Arrays.asList(10044, 10300)));
@@ -114,40 +117,46 @@ public class KingdomMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		boolean wasLoggedIn = previousGameState == GameState.LOGGED_IN;
-		boolean nowLoggedIn = newState == GameState.LOGGED_IN;
-		if (wasLoggedIn && !nowLoggedIn) {
-			if (trigger.leaveAndShouldFlush()) {
-				syncKingdom();
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			boolean wasLoggedIn = previousGameState == GameState.LOGGED_IN;
+			boolean nowLoggedIn = newState == GameState.LOGGED_IN;
+			if (wasLoggedIn && !nowLoggedIn) {
+				if (trigger.leaveAndShouldFlush()) {
+					syncKingdom();
+				}
+				// Every login re-sends once so the server's capture time stays fresh even
+				// when nothing changed.
+				lastSyncJson = null;
+				wasInKingdom = false;
 			}
-			// Every login re-sends once so the server's capture time stays fresh even
-			// when nothing changed.
-			lastSyncJson = null;
-			wasInKingdom = false;
-		}
-		previousGameState = newState;
+			previousGameState = newState;
+		});
 	}
 
 	/** Only the kingdom varbits matter here; every other change is ignored. */
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (KINGDOM_VARBITS.contains(event.getVarbitId())) {
-			trigger.varbitChanged();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (KINGDOM_VARBITS.contains(event.getVarbitId())) {
+				trigger.varbitChanged();
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
-		boolean inKingdom = loggedIn && isInKingdom();
-		if (inKingdom && !wasInKingdom) {
-			trigger.varbitChanged();
-		}
-		wasInKingdom = inKingdom;
-		if (trigger.tick(client.getTickCount(), loggedIn) == DiarySyncTrigger.Decision.SYNC) {
-			syncKingdom();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
+			boolean inKingdom = loggedIn && isInKingdom();
+			if (inKingdom && !wasInKingdom) {
+				trigger.varbitChanged();
+			}
+			wasInKingdom = inKingdom;
+			if (trigger.tick(client.getTickCount(), loggedIn) == DiarySyncTrigger.Decision.SYNC) {
+				syncKingdom();
+			}
+		});
 	}
 
 	static boolean isKingdomRegion(int regionId) {

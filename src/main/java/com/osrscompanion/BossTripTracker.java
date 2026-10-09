@@ -67,6 +67,9 @@ import net.runelite.http.api.loottracker.LootRecordType;
 @Slf4j
 @Singleton
 public class BossTripTracker {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "boss-trips";
+
 	private static final Pattern KILL_COUNT = Pattern.compile(
 		"^Your (?:completion count for |subdued |completed )?(.+?) (?:(kill|harvest|lap|completion) )?(?:count )?is: ?([0-9,]+)");
 	/** Kill counts that are not boss trips (skilling bosses). */
@@ -142,30 +145,36 @@ public class BossTripTracker {
 
 	@Subscribe
 	public void onWidgetLoaded(WidgetLoaded event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN) {
-			if (state == State.ACTIVE) {
-				finish("bank", false);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN) {
+				if (state == State.ACTIVE) {
+					finish("bank", false);
+				}
+				state = State.IDLE;
 			}
-			state = State.IDLE;
-		}
+		});
 	}
 
 	@Subscribe
 	public void onWidgetClosed(WidgetClosed event) {
-		if (event.getGroupId() == InterfaceID.BANKMAIN && config.bossTrips()) {
-			arm(System.currentTimeMillis());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == InterfaceID.BANKMAIN && config.bossTrips()) {
+				arm(System.currentTimeMillis());
+			}
+		});
 	}
 
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
-		if (event.getType() != ChatMessageType.GAMEMESSAGE || !config.bossTrips()) {
-			return;
-		}
-		String name = killCountBoss(Text.removeTags(event.getMessage()));
-		if (name != null) {
-			onKill(name);
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getType() != ChatMessageType.GAMEMESSAGE || !config.bossTrips()) {
+				return;
+			}
+			String name = killCountBoss(Text.removeTags(event.getMessage()));
+			if (name != null) {
+				onKill(name);
+			}
+		});
 	}
 
 	/** The boss of a kill count message, or null when it is none (lap counts, skilling bosses, other messages). */
@@ -183,92 +192,104 @@ public class BossTripTracker {
 
 	@Subscribe
 	public void onLootReceived(LootReceived event) {
-		if (event.getType() != LootRecordType.NPC && event.getType() != LootRecordType.EVENT) {
-			return;
-		}
-		for (ItemStack stack : event.getItems()) {
-			int id = canonical(stack.getId());
-			if (state == State.ACTIVE) {
-				loot.merge(id, (long) stack.getQuantity(), Long::sum);
-			} else {
-				recentLoot.addLast(new Object[]{client.getTickCount(), id, (long) stack.getQuantity()});
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getType() != LootRecordType.NPC && event.getType() != LootRecordType.EVENT) {
+				return;
 			}
-		}
+			for (ItemStack stack : event.getItems()) {
+				int id = canonical(stack.getId());
+				if (state == State.ACTIVE) {
+					loot.merge(id, (long) stack.getQuantity(), Long::sum);
+				} else {
+					recentLoot.addLast(new Object[]{client.getTickCount(), id, (long) stack.getQuantity()});
+				}
+			}
+		});
 	}
 
 	@Subscribe
 	public void onActorDeath(ActorDeath event) {
-		if (event.getActor() != client.getLocalPlayer()) {
-			return;
-		}
-		// Ended before the items are lost, so they do not count as used.
-		if (state == State.ACTIVE) {
-			finish("death", true);
-		}
-		state = State.IDLE;
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getActor() != client.getLocalPlayer()) {
+				return;
+			}
+			// Ended before the items are lost, so they do not count as used.
+			if (state == State.ACTIVE) {
+				finish("death", true);
+			}
+			state = State.IDLE;
+		});
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		if (event.getGameState() == GameState.LOGIN_SCREEN) {
-			if (state == State.ACTIVE) {
-				finish("logout", false);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGameState() == GameState.LOGIN_SCREEN) {
+				if (state == State.ACTIVE) {
+					finish("logout", false);
+				}
+				state = State.IDLE;
+				resetTrip();
 			}
-			state = State.IDLE;
-			resetTrip();
-		}
+		});
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event) {
-		if (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN) {
-			dirty = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN) {
+				dirty = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (RunePouchMonitor.isPouchVarbit(event.getVarbitId())) {
-			dirty = true;
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (RunePouchMonitor.isPouchVarbit(event.getVarbitId())) {
+				dirty = true;
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {
-		int now = client.getTickCount();
-		while (!recentLoot.isEmpty() && now - (int) recentLoot.peekFirst()[0] > LOOT_BUFFER_TICKS) {
-			recentLoot.pollFirst();
-		}
-		if (state == State.IDLE) {
-			return;
-		}
-		if (dirty) {
-			dirty = false;
-			recount();
-		}
-		if (state != State.ACTIVE) {
-			return;
-		}
-		WorldPoint here = position();
-		if (here != null && lastPoint != null && leftTick < 0
-			&& Math.max(Math.abs(here.getX() - lastPoint.getX()), Math.abs(here.getY() - lastPoint.getY())) > TELEPORT_TILES) {
-			leftTick = now;
-			leftAt = System.currentTimeMillis();
-			usedAtLeave = new HashMap<>(used);
-		}
-		if (here != null) {
-			lastPoint = here;
-		}
-		if (leftTick >= 0 && now - leftTick > TELEPORT_GRACE_TICKS) {
-			long at = leftAt;
-			used.clear();
-			used.putAll(usedAtLeave);
-			finishAt("teleport", false, at);
-			arm(at);
-		} else if (now - lastKillTick > IDLE_TICKS) {
-			finishAt("idle", false, lastKillAt);
-			arm(System.currentTimeMillis());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			int now = client.getTickCount();
+			while (!recentLoot.isEmpty() && now - (int) recentLoot.peekFirst()[0] > LOOT_BUFFER_TICKS) {
+				recentLoot.pollFirst();
+			}
+			if (state == State.IDLE) {
+				return;
+			}
+			if (dirty) {
+				dirty = false;
+				recount();
+			}
+			if (state != State.ACTIVE) {
+				return;
+			}
+			WorldPoint here = position();
+			if (here != null && lastPoint != null && leftTick < 0
+				&& Math.max(Math.abs(here.getX() - lastPoint.getX()), Math.abs(here.getY() - lastPoint.getY())) > TELEPORT_TILES) {
+				leftTick = now;
+				leftAt = System.currentTimeMillis();
+				usedAtLeave = new HashMap<>(used);
+			}
+			if (here != null) {
+				lastPoint = here;
+			}
+			if (leftTick >= 0 && now - leftTick > TELEPORT_GRACE_TICKS) {
+				long at = leftAt;
+				used.clear();
+				used.putAll(usedAtLeave);
+				finishAt("teleport", false, at);
+				arm(at);
+			} else if (now - lastKillTick > IDLE_TICKS) {
+				finishAt("idle", false, lastKillAt);
+				arm(System.currentTimeMillis());
+			}
+		});
 	}
 
 	// ---- The trip ----------------------------------------------------------------------

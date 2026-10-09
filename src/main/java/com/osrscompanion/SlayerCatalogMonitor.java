@@ -38,6 +38,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class SlayerCatalogMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-catalog-sync";
+
 	private static final int LOGIN_DUMP_DELAY_SECONDS = 12;
 	private static final int MAX_TASK_ID = 512;
 	private static final int MAX_MASTER_ID = 32;
@@ -67,6 +70,7 @@ public class SlayerCatalogMonitor {
 			OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executorService,
 			Gson gson) {
+		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
@@ -89,14 +93,16 @@ public class SlayerCatalogMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-			// Late enough that the cache DB tables are certainly readable, and
-			// well behind the state monitors' own login syncs.
-			executorService.schedule(() -> clientThread.invokeLater(this::dumpAndUpload),
-					LOGIN_DUMP_DELAY_SECONDS, TimeUnit.SECONDS);
-		}
-		previousGameState = newState;
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
+				// Late enough that the cache DB tables are certainly readable, and
+				// well behind the state monitors' own login syncs.
+				executorService.schedule(() -> clientThread.invokeLater(this::dumpAndUpload),
+						LOGIN_DUMP_DELAY_SECONDS, TimeUnit.SECONDS);
+			}
+			previousGameState = newState;
+		});
 	}
 
 	/** Dumps the tables and uploads when the server lacks this hash. Client thread only. */

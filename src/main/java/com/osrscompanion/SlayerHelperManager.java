@@ -63,6 +63,9 @@ import net.runelite.client.util.Text;
 @Slf4j
 @Singleton
 public class SlayerHelperManager {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "slayer-helper";
+
 	/**
 	 * Re-read the guide at most this often (the panel opening, the guide running): a backstop, as a
 	 * change on the website is picked up by the web version check ({@link WebVersionWatcher}).
@@ -504,22 +507,26 @@ public class SlayerHelperManager {
 	/** A bank opened: if the player is away from the task's area, the time away counts as a bank trip once back. */
 	@Subscribe
 	public void onWidgetLoaded(net.runelite.api.events.WidgetLoaded event) {
-		if (event.getGroupId() == net.runelite.api.gameval.InterfaceID.BANKMAIN && session != null && session.isOpen()) {
-			session.bankOpened();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGroupId() == net.runelite.api.gameval.InterfaceID.BANKMAIN && session != null && session.isOpen()) {
+				session.bankOpened();
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged e) {
-		GameState s = e.getGameState();
-		if (s == GameState.LOGGED_IN && !loggedIn) {
-			loggedIn = true;
-			ticksLoggedIn = 0;
-			lastSlayerXp = 0;
-			taskRead = false;
-		} else if (loggedIn && (s == GameState.LOGIN_SCREEN || s == GameState.HOPPING || s == GameState.CONNECTION_LOST)) {
-			loggedOut();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState s = e.getGameState();
+			if (s == GameState.LOGGED_IN && !loggedIn) {
+				loggedIn = true;
+				ticksLoggedIn = 0;
+				lastSlayerXp = 0;
+				taskRead = false;
+			} else if (loggedIn && (s == GameState.LOGIN_SCREEN || s == GameState.HOPPING || s == GameState.CONNECTION_LOST)) {
+				loggedOut();
+			}
+		});
 	}
 
 	/** Sends and stores the open session, then forgets everything about this login. Client thread. */
@@ -548,64 +555,66 @@ public class SlayerHelperManager {
 
 	@Subscribe
 	public void onGameTick(GameTick e) {
-		if (client.getGameState() != GameState.LOGGED_IN) {
-			return;
-		}
-		if (!loggedIn) {
-			// The plugin was turned on while logged in: no login event came.
-			loggedIn = true;
-			ticksLoggedIn = 0;
-			taskRead = false;
-		}
-		String name = SyncGuard.getPlayerUsername(client);
-		if (name != null) {
-			player = name;
-		}
-		if (++ticksLoggedIn < LOGIN_GRACE_TICKS) {
-			return;
-		}
-		long now = System.currentTimeMillis();
-		Task before = task;
-		Task now0 = readTask();
-		if (!taskRead) {
-			// First read of this login: pick the stored session back up and load the guide.
-			taskRead = true;
-			task = now0;
-			if (now0 != null) {
-				rememberStartXp(now0);
+		Guard.run(GUARD_FEATURE, () -> {
+			if (client.getGameState() != GameState.LOGGED_IN) {
+				return;
 			}
-			restore(now0, now);
-			fetchAtMs = now;
-			retriesLeft = GUIDE_RETRIES;
-		} else {
-			task = now0;
-			taskChanges(before, now0, now);
-		}
-		logKills(killMatcher.expire(client.getTickCount(), false), now);
-		if (closeAtTick >= 0 && client.getTickCount() >= closeAtTick) {
-			closeSession(closeCompleted, now);
-		}
-		showFinishedPopup();
-		updateLocation();
-		if (fetchAtMs > 0 && now >= fetchAtMs && !loading) {
-			fetchAtMs = 0;
-			refresh();
-		} else if (config.slayerGuide() && now0 != null) {
-			refreshIfStale();
-		}
-		updateArea(now);
-		if (session != null) {
-			if (ticksLoggedIn % 100 == 0) {
-				timer.prune(now);
+			if (!loggedIn) {
+				// The plugin was turned on while logged in: no login event came.
+				loggedIn = true;
+				ticksLoggedIn = 0;
+				taskRead = false;
 			}
-			persist(false);
-			if (session.inside && now - lastSyncMs >= SYNC_INTERVAL_MS) {
-				sync(false);
+			String name = SyncGuard.getPlayerUsername(client);
+			if (name != null) {
+				player = name;
 			}
-			stats = new Stats(session, now);
-		} else {
-			stats = null;
-		}
+			if (++ticksLoggedIn < LOGIN_GRACE_TICKS) {
+				return;
+			}
+			long now = System.currentTimeMillis();
+			Task before = task;
+			Task now0 = readTask();
+			if (!taskRead) {
+				// First read of this login: pick the stored session back up and load the guide.
+				taskRead = true;
+				task = now0;
+				if (now0 != null) {
+					rememberStartXp(now0);
+				}
+				restore(now0, now);
+				fetchAtMs = now;
+				retriesLeft = GUIDE_RETRIES;
+			} else {
+				task = now0;
+				taskChanges(before, now0, now);
+			}
+			logKills(killMatcher.expire(client.getTickCount(), false), now);
+			if (closeAtTick >= 0 && client.getTickCount() >= closeAtTick) {
+				closeSession(closeCompleted, now);
+			}
+			showFinishedPopup();
+			updateLocation();
+			if (fetchAtMs > 0 && now >= fetchAtMs && !loading) {
+				fetchAtMs = 0;
+				refresh();
+			} else if (config.slayerGuide() && now0 != null) {
+				refreshIfStale();
+			}
+			updateArea(now);
+			if (session != null) {
+				if (ticksLoggedIn % 100 == 0) {
+					timer.prune(now);
+				}
+				persist(false);
+				if (session.inside && now - lastSyncMs >= SYNC_INTERVAL_MS) {
+					sync(false);
+				}
+				stats = new Stats(session, now);
+			} else {
+				stats = null;
+			}
+		});
 	}
 
 	/** The task from the varps; null without one. Client thread. */
@@ -1180,45 +1189,53 @@ public class SlayerHelperManager {
 
 	@Subscribe
 	public void onInteractingChanged(InteractingChanged e) {
-		Actor target = e.getTarget();
-		if (e.getSource() == client.getLocalPlayer() && target instanceof NPC) {
-			noteArea((NPC) target);
-		}
-		if (e.getSource() == client.getLocalPlayer() && target instanceof NPC && isTaskNpc((NPC) target)) {
-			showDebugTile();
-		}
-		if (timing() && e.getSource() == client.getLocalPlayer() && target instanceof NPC && isTaskNpc((NPC) target)) {
-			timer.attacked(((NPC) target).getIndex(), System.currentTimeMillis());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			Actor target = e.getTarget();
+			if (e.getSource() == client.getLocalPlayer() && target instanceof NPC) {
+				noteArea((NPC) target);
+			}
+			if (e.getSource() == client.getLocalPlayer() && target instanceof NPC && isTaskNpc((NPC) target)) {
+				showDebugTile();
+			}
+			if (timing() && e.getSource() == client.getLocalPlayer() && target instanceof NPC && isTaskNpc((NPC) target)) {
+				timer.attacked(((NPC) target).getIndex(), System.currentTimeMillis());
+			}
+		});
 	}
 
 	@Subscribe
 	public void onHitsplatApplied(HitsplatApplied e) {
-		Actor actor = e.getActor();
-		if (actor instanceof NPC && e.getHitsplat() != null && e.getHitsplat().isMine()) {
-			noteArea((NPC) actor);
-		}
-		if (timing() && actor instanceof NPC && e.getHitsplat() != null && e.getHitsplat().isMine() && isTaskNpc((NPC) actor)) {
-			timer.hit(((NPC) actor).getIndex(), System.currentTimeMillis());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			Actor actor = e.getActor();
+			if (actor instanceof NPC && e.getHitsplat() != null && e.getHitsplat().isMine()) {
+				noteArea((NPC) actor);
+			}
+			if (timing() && actor instanceof NPC && e.getHitsplat() != null && e.getHitsplat().isMine() && isTaskNpc((NPC) actor)) {
+				timer.hit(((NPC) actor).getIndex(), System.currentTimeMillis());
+			}
+		});
 	}
 
 	@Subscribe
 	public void onActorDeath(ActorDeath e) {
-		if (e.getActor() instanceof NPC) {
-			died((NPC) e.getActor());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (e.getActor() instanceof NPC) {
+				died((NPC) e.getActor());
+			}
+		});
 	}
 
 	@Subscribe
 	public void onNpcDespawned(NpcDespawned e) {
-		NPC npc = e.getNpc();
-		if (npc.isDead()) {
-			// Also for deaths without an ActorDeath; the timer only counts each NPC once.
-			died(npc);
-		} else {
-			timer.forget(npc.getIndex());
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			NPC npc = e.getNpc();
+			if (npc.isDead()) {
+				// Also for deaths without an ActorDeath; the timer only counts each NPC once.
+				died(npc);
+			} else {
+				timer.forget(npc.getIndex());
+			}
+		});
 	}
 
 	private void died(NPC npc) {
@@ -1257,14 +1274,16 @@ public class SlayerHelperManager {
 
 	@Subscribe
 	public void onNpcLootReceived(NpcLootReceived e) {
-		if (!timing() || !isTaskNpc(e.getNpc())) {
-			return;
-		}
-		long gp = 0;
-		for (ItemStack item : e.getItems()) {
-			gp += itemManager.getItemPrice(item.getId()) * (long) item.getQuantity();
-		}
-		session.addLoot(gp, System.currentTimeMillis());
+		Guard.run(GUARD_FEATURE, () -> {
+			if (!timing() || !isTaskNpc(e.getNpc())) {
+				return;
+			}
+			long gp = 0;
+			for (ItemStack item : e.getItems()) {
+				gp += itemManager.getItemPrice(item.getId()) * (long) item.getQuantity();
+			}
+			session.addLoot(gp, System.currentTimeMillis());
+		});
 	}
 
 	/** Slayer XP at the last stat change (0: not seen yet this login). */
@@ -1273,22 +1292,26 @@ public class SlayerHelperManager {
 	/** Slayer XP gained while a session is open counts for it (the website shows it per task, and per hour). */
 	@Subscribe
 	public void onStatChanged(StatChanged e) {
-		if (e.getSkill() != Skill.SLAYER) {
-			return;
-		}
-		int xp = e.getXp();
-		SlayerSession s = session;
-		if (lastSlayerXp > 0 && xp > lastSlayerXp && s != null && s.isOpen()) {
-			s.addSlayerXp(xp - lastSlayerXp, System.currentTimeMillis());
-		}
-		lastSlayerXp = xp;
+		Guard.run(GUARD_FEATURE, () -> {
+			if (e.getSkill() != Skill.SLAYER) {
+				return;
+			}
+			int xp = e.getXp();
+			SlayerSession s = session;
+			if (lastSlayerXp > 0 && xp > lastSlayerXp && s != null && s.isOpen()) {
+				s.addSlayerXp(xp - lastSlayerXp, System.currentTimeMillis());
+			}
+			lastSlayerXp = xp;
+		});
 	}
 
 	@Subscribe
 	public void onChatMessage(ChatMessage e) {
-		if (e.getType() == ChatMessageType.GAMEMESSAGE && SlayerMonitor.COMPLETION_CHAT_PATTERN.matcher(Text.removeTags(e.getMessage())).find()) {
-			completionChatTick = client.getTickCount();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (e.getType() == ChatMessageType.GAMEMESSAGE && SlayerMonitor.COMPLETION_CHAT_PATTERN.matcher(Text.removeTags(e.getMessage())).find()) {
+				completionChatTick = client.getTickCount();
+			}
+		});
 	}
 
 	// ---- The guide: map point name, teleport left click ------------------------------------------
@@ -1303,22 +1326,26 @@ public class SlayerHelperManager {
 	 */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged e) {
-		if (OSRSCompanionConfig.CONFIG_GROUP.equals(e.getGroup()) && "slayerGuide".equals(e.getKey())
-			&& "true".equals(e.getNewValue()) && location == null) {
-			refreshIfStale();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (OSRSCompanionConfig.CONFIG_GROUP.equals(e.getGroup()) && "slayerGuide".equals(e.getKey())
+				&& "true".equals(e.getNewValue()) && location == null) {
+				refreshIfStale();
+			}
+		});
 	}
 
 	/** "Auto set teleport left click" for the way to the location, while the guide leads you there (a farm run goes first). */
 	@Subscribe(priority = -100)
 	public void onPostMenuSort(PostMenuSort e) {
-		SlayerGuide.Location l = location;
-		if (!config.autoCapeTeleport() || !isGuiding() || l == null || l.getTravel() == null || farmRun.isRunning() || client.isMenuOpen()) {
-			return;
-		}
-		SlayerGear.Set set = getGearSet();
-		teleports.apply(l.getTravel(), "slayer " + l.getName(),
-			m -> keepsWornLeftClick(m.getItemId(), m.getTarget(), set));
+		Guard.run(GUARD_FEATURE, () -> {
+			SlayerGuide.Location l = location;
+			if (!config.autoCapeTeleport() || !isGuiding() || l == null || l.getTravel() == null || farmRun.isRunning() || client.isMenuOpen()) {
+				return;
+			}
+			SlayerGear.Set set = getGearSet();
+			teleports.apply(l.getTravel(), "slayer " + l.getName(),
+				m -> keepsWornLeftClick(m.getItemId(), m.getTarget(), set));
+		});
 	}
 
 	/**

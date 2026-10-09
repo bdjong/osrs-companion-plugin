@@ -19,6 +19,9 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  * ("done / total goals" plus percent) into that space, anchored to the widget.
  */
 public class GoalCompletionOverlay extends Overlay {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "goal-completion-overlay";
+
 	/** Inset from the popup's frame on each side. */
 	private static final int SIDE_PAD = 14;
 	/**
@@ -44,31 +47,33 @@ public class GoalCompletionOverlay extends Overlay {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		GoalCompletionNotifier.Popup popup = notifier.getActive();
-		if (popup == null || popup.getGoalsTotal() <= 0) {
-			return null;
-		}
-		Widget container = client.getWidget(InterfaceID.NotificationDisplay.CONTAINER);
-		if (container == null || container.isHidden()) {
-			return null;
-		}
-		Rectangle bounds = container.getBounds();
-		if (bounds == null || bounds.width <= 2 * SIDE_PAD || bounds.height < MIN_BOX_HEIGHT) {
-			return null;
-		}
+		return Guard.render(GUARD_FEATURE, () -> {
+			GoalCompletionNotifier.Popup popup = notifier.getActive();
+			if (popup == null || popup.getGoalsTotal() <= 0) {
+				return null;
+			}
+			Widget container = client.getWidget(InterfaceID.NotificationDisplay.CONTAINER);
+			if (container == null || container.isHidden()) {
+				return null;
+			}
+			Rectangle bounds = container.getBounds();
+			if (bounds == null || bounds.width <= 2 * SIDE_PAD || bounds.height < MIN_BOX_HEIGHT) {
+				return null;
+			}
 
-		int done = popup.getGoalsDone();
-		int total = popup.getGoalsTotal();
-		int percent = (int) Math.min(100, Math.max(0, (long) done * 100L / total));
-		GoalProgressBarComponent bar = new GoalProgressBarComponent(
-				percent / 100d, done + " / " + total + " goals", percent + "%");
+			int done = popup.getGoalsDone();
+			int total = popup.getGoalsTotal();
+			int percent = (int) Math.min(100, Math.max(0, (long) done * 100L / total));
+			GoalProgressBarComponent bar = new GoalProgressBarComponent(
+					percent / 100d, done + " / " + total + " goals", percent + "%");
 
-		// Bar block height: top gap + bar + gap + one text line.
-		int height = GoalProgressBarComponent.TOP_GAP + GoalProgressBarComponent.BAR_HEIGHT
-				+ GoalProgressBarComponent.BAR_TEXT_GAP + graphics.getFontMetrics().getHeight();
-		int width = bounds.width - 2 * SIDE_PAD;
-		bar.setPreferredLocation(new Point(bounds.x + SIDE_PAD, bounds.y + bounds.height - BOTTOM_PAD - height));
-		bar.setPreferredSize(new Dimension(width, 0));
-		return bar.render(graphics);
+			// Bar block height: top gap + bar + gap + one text line.
+			int height = GoalProgressBarComponent.TOP_GAP + GoalProgressBarComponent.BAR_HEIGHT
+					+ GoalProgressBarComponent.BAR_TEXT_GAP + graphics.getFontMetrics().getHeight();
+			int width = bounds.width - 2 * SIDE_PAD;
+			bar.setPreferredLocation(new Point(bounds.x + SIDE_PAD, bounds.y + bounds.height - BOTTOM_PAD - height));
+			bar.setPreferredSize(new Dimension(width, 0));
+			return bar.render(graphics);
+		});
 	}
 }

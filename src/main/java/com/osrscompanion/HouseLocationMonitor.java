@@ -29,6 +29,9 @@ import net.runelite.client.eventbus.Subscribe;
 @Slf4j
 @Singleton
 public class HouseLocationMonitor {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "house-location-sync";
+
 	private final Client client;
 	private final ClientThread clientThread;
 	private final OSRSCompanionConfig config;
@@ -76,31 +79,37 @@ public class HouseLocationMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
-		GameState newState = event.getGameState();
-		boolean wasLoggedIn = previousGameState == GameState.LOGGED_IN;
-		boolean nowLoggedIn = newState == GameState.LOGGED_IN;
-		if (wasLoggedIn && !nowLoggedIn) {
-			if (trigger.leaveAndShouldFlush()) {
-				syncHouseLocation();
+		Guard.run(GUARD_FEATURE, () -> {
+			GameState newState = event.getGameState();
+			boolean wasLoggedIn = previousGameState == GameState.LOGGED_IN;
+			boolean nowLoggedIn = newState == GameState.LOGGED_IN;
+			if (wasLoggedIn && !nowLoggedIn) {
+				if (trigger.leaveAndShouldFlush()) {
+					syncHouseLocation();
+				}
 			}
-		}
-		previousGameState = newState;
+			previousGameState = newState;
+		});
 	}
 
 	/** Only the house-location varbit matters here; every other change is ignored. */
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		if (event.getVarbitId() == VarbitID.POH_HOUSE_LOCATION) {
-			trigger.varbitChanged();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getVarbitId() == VarbitID.POH_HOUSE_LOCATION) {
+				trigger.varbitChanged();
+			}
+		});
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
-		if (trigger.tick(client.getTickCount(), loggedIn) == DiarySyncTrigger.Decision.SYNC) {
-			syncHouseLocation();
-		}
+		Guard.run(GUARD_FEATURE, () -> {
+			boolean loggedIn = client.getGameState() == GameState.LOGGED_IN;
+			if (trigger.tick(client.getTickCount(), loggedIn) == DiarySyncTrigger.Decision.SYNC) {
+				syncHouseLocation();
+			}
+		});
 	}
 
 	/** Reads the varbit and syncs it (deduped). Client thread only. */

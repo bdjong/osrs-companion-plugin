@@ -30,6 +30,9 @@ import net.runelite.client.ui.overlay.components.SplitComponent;
  * minutes; no network work runs on the render thread.
  */
 public class GearNextOverlay extends OverlayPanel {
+	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
+	static final String GUARD_FEATURE = "gear-next-overlay";
+
 	private static final Color TITLE_COLOR = new Color(0xF2, 0x8C, 0x28); // OSRS Companion orange
 	private static final Color MUTED_COLOR = new Color(0xA5, 0xA5, 0xA5);
 	private static final Color DONE_COLOR = new Color(0x0D, 0xC1, 0x0D);
@@ -58,79 +61,81 @@ public class GearNextOverlay extends OverlayPanel {
 
 	@Override
 	public Dimension render(Graphics2D graphics) {
-		if (!config.showGearProgress()) {
-			return null;
-		}
-		manager.refreshForOverlay();
-		GearPlan plan = manager.getPlan();
-		if (plan == null || plan.getTotal() <= 0) {
-			return null;
-		}
+		return Guard.render(GUARD_FEATURE, () -> {
+			if (!config.showGearProgress()) {
+				return null;
+			}
+			manager.refreshForOverlay();
+			GearPlan plan = manager.getPlan();
+			if (plan == null || plan.getTotal() <= 0) {
+				return null;
+			}
 
-		FontMetrics metrics = graphics.getFontMetrics();
-		panelComponent.getChildren().clear();
-		int widest = 0;
-		// Title: "[roadmap] - Next gear" on one line when it fits; otherwise the roadmap
-		// name (wrapped) with "Next gear" kept together on its own line.
-		String oneLine = plan.getTitle() + " - Next gear";
-		List<String> titleLines = new ArrayList<>();
-		if (metrics.stringWidth(oneLine) <= MAX_TEXT_WIDTH) {
-			titleLines.add(oneLine);
-		} else {
-			titleLines.addAll(GameUi.wrap(plan.getTitle(), metrics, MAX_TEXT_WIDTH));
-			titleLines.add("Next gear");
-		}
-		for (String line : titleLines) {
-			panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(TITLE_COLOR).build());
-			widest = Math.max(widest, metrics.stringWidth(line));
-		}
-		panelComponent.getChildren().add(new ImageComponent(SPACER));
+			FontMetrics metrics = graphics.getFontMetrics();
+			panelComponent.getChildren().clear();
+			int widest = 0;
+			// Title: "[roadmap] - Next gear" on one line when it fits; otherwise the roadmap
+			// name (wrapped) with "Next gear" kept together on its own line.
+			String oneLine = plan.getTitle() + " - Next gear";
+			List<String> titleLines = new ArrayList<>();
+			if (metrics.stringWidth(oneLine) <= MAX_TEXT_WIDTH) {
+				titleLines.add(oneLine);
+			} else {
+				titleLines.addAll(GameUi.wrap(plan.getTitle(), metrics, MAX_TEXT_WIDTH));
+				titleLines.add("Next gear");
+			}
+			for (String line : titleLines) {
+				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(TITLE_COLOR).build());
+				widest = Math.max(widest, metrics.stringWidth(line));
+			}
+			panelComponent.getChildren().add(new ImageComponent(SPACER));
 
-		Next next = findNext(plan);
-		if (next == null) {
-			String done = "Every step is done!";
-			panelComponent.getChildren().add(LineComponent.builder().left(done).leftColor(DONE_COLOR).build());
-			widest = Math.max(widest, metrics.stringWidth(done));
-		} else {
-			int shown = Math.min(MAX_ITEMS, next.items.size());
-			for (int i = 0; i < shown; i++) {
-				GearPlan.Item item = next.items.get(i);
-				String name = truncate(item.getName(), metrics, MAX_TEXT_WIDTH - 32 - ICON_GAP);
-				BufferedImage icon = iconFor(item);
-				LineComponent line = LineComponent.builder().left(name).build();
-				if (icon != null) {
-					panelComponent.getChildren().add(SplitComponent.builder()
-							.first(new ImageComponent(icon))
-							.second(line)
-							.orientation(ComponentOrientation.HORIZONTAL)
-							.gap(new Point(ICON_GAP, 0))
-							.build());
-					widest = Math.max(widest, icon.getWidth() + ICON_GAP + metrics.stringWidth(name));
-				} else {
-					panelComponent.getChildren().add(line);
-					widest = Math.max(widest, metrics.stringWidth(name));
+			Next next = findNext(plan);
+			if (next == null) {
+				String done = "Every step is done!";
+				panelComponent.getChildren().add(LineComponent.builder().left(done).leftColor(DONE_COLOR).build());
+				widest = Math.max(widest, metrics.stringWidth(done));
+			} else {
+				int shown = Math.min(MAX_ITEMS, next.items.size());
+				for (int i = 0; i < shown; i++) {
+					GearPlan.Item item = next.items.get(i);
+					String name = truncate(item.getName(), metrics, MAX_TEXT_WIDTH - 32 - ICON_GAP);
+					BufferedImage icon = iconFor(item);
+					LineComponent line = LineComponent.builder().left(name).build();
+					if (icon != null) {
+						panelComponent.getChildren().add(SplitComponent.builder()
+								.first(new ImageComponent(icon))
+								.second(line)
+								.orientation(ComponentOrientation.HORIZONTAL)
+								.gap(new Point(ICON_GAP, 0))
+								.build());
+						widest = Math.max(widest, icon.getWidth() + ICON_GAP + metrics.stringWidth(name));
+					} else {
+						panelComponent.getChildren().add(line);
+						widest = Math.max(widest, metrics.stringWidth(name));
+					}
 				}
+				if (next.items.size() > shown) {
+					String more = "+" + (next.items.size() - shown) + " more on this step";
+					panelComponent.getChildren().add(LineComponent.builder().left(more).leftColor(MUTED_COLOR).build());
+					widest = Math.max(widest, metrics.stringWidth(more));
+				}
+				String where = "Tier " + next.tier + " - step " + next.step + (next.items.size() > 1 ? " - any order" : "");
+				panelComponent.getChildren().add(LineComponent.builder().left(where).leftColor(MUTED_COLOR).build());
+				widest = Math.max(widest, metrics.stringWidth(where));
 			}
-			if (next.items.size() > shown) {
-				String more = "+" + (next.items.size() - shown) + " more on this step";
-				panelComponent.getChildren().add(LineComponent.builder().left(more).leftColor(MUTED_COLOR).build());
-				widest = Math.max(widest, metrics.stringWidth(more));
+
+			if (config.showGoalProgress()) {
+				int percent = (int) Math.min(100, (long) plan.getDone() * 100L / plan.getTotal());
+				GoalProgressBarComponent bar = new GoalProgressBarComponent(
+						percent / 100d, plan.getDone() + " / " + plan.getTotal() + " steps", percent + "%");
+				panelComponent.getChildren().add(bar);
+				widest = Math.max(widest, bar.minWidth(metrics));
 			}
-			String where = "Tier " + next.tier + " - step " + next.step + (next.items.size() > 1 ? " - any order" : "");
-			panelComponent.getChildren().add(LineComponent.builder().left(where).leftColor(MUTED_COLOR).build());
-			widest = Math.max(widest, metrics.stringWidth(where));
-		}
 
-		if (config.showGoalProgress()) {
-			int percent = (int) Math.min(100, (long) plan.getDone() * 100L / plan.getTotal());
-			GoalProgressBarComponent bar = new GoalProgressBarComponent(
-					percent / 100d, plan.getDone() + " / " + plan.getTotal() + " steps", percent + "%");
-			panelComponent.getChildren().add(bar);
-			widest = Math.max(widest, bar.minWidth(metrics));
-		}
-
-		panelComponent.setPreferredSize(new Dimension(Math.max(MIN_WIDTH, widest + WIDTH_PADDING), 0));
-		return super.render(graphics);
+			panelComponent.setPreferredSize(new Dimension(Math.max(MIN_WIDTH, widest + WIDTH_PADDING), 0));
+			return super.render(graphics);
+		});
 	}
 
 	/** The next open step: its tier and step number as the window shows them, and its open items. */
