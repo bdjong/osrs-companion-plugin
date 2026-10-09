@@ -127,7 +127,7 @@ public class CombatAchievementMonitor {
 	 * still sends.
 	 */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			lastSyncJson = null;
 			syncCombatAchievements();
 		});
@@ -139,7 +139,7 @@ public class CombatAchievementMonitor {
 			GameState newState = event.getGameState();
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
 				// CA varps load shortly after LOGGED_IN, so wait before reading.
-				executorService.schedule(() -> clientThread.invokeLater(this::syncCombatAchievements),
+				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncCombatAchievements),
 						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
 				// Logging out: flush final state (this handler runs on the client thread).

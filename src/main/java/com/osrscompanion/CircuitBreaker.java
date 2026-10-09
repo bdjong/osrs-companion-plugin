@@ -5,21 +5,34 @@ package com.osrscompanion;
  * open it, and an open breaker stays open for the rest of the session. A fatal error or a freeze
  * opens it at once ({@link #trip()}). Thread-safe; {@link #isOpen()} is a plain volatile read, so it
  * is cheap enough to check on every frame.
+ *
+ * An exempt breaker ({@link Guard#NEVER_DISABLED}) counts failures but never opens.
  */
 final class CircuitBreaker {
 	private final int limit;
 	private final long windowMs;
 	/** The last {@link #limit} failure times, a ring: {@code next} is where the next one goes (and the oldest). */
 	private final long[] times;
+	private final boolean exempt;
 	private int next;
 	private int count;
 	private int total;
 	private volatile boolean open;
 
 	CircuitBreaker(int limit, long windowMs) {
+		this(limit, windowMs, false);
+	}
+
+	/** @param exempt never opens: failures are counted, {@link #trip()} does nothing */
+	CircuitBreaker(int limit, long windowMs, boolean exempt) {
 		this.limit = Math.max(1, limit);
 		this.windowMs = windowMs;
 		this.times = new long[this.limit];
+		this.exempt = exempt;
+	}
+
+	boolean isExempt() {
+		return exempt;
 	}
 
 	boolean isOpen() {
@@ -33,7 +46,7 @@ final class CircuitBreaker {
 	 */
 	synchronized boolean recordFailure(long nowMs) {
 		total++;
-		if (open) {
+		if (open || exempt) {
 			return false;
 		}
 		times[next] = nowMs;
@@ -49,9 +62,9 @@ final class CircuitBreaker {
 		return false;
 	}
 
-	/** Opens the breaker now (a fatal error or a freeze); true when it was still closed. */
+	/** Opens the breaker now (a fatal error or a freeze); true when it was still closed. Never for an exempt one. */
 	synchronized boolean trip() {
-		if (open) {
+		if (open || exempt) {
 			return false;
 		}
 		open = true;

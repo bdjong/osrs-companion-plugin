@@ -215,7 +215,7 @@ public class GoalProgressTracker implements GoalProgressState.SyncHooks {
 	 * on the client thread as a fallback (multi-form NPCs resolve to "null").
 	 */
 	private void resolveNpcNames(Roadmap roadmap) {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			for (RoadmapGoal goal : roadmap.getGoals()) {
 				Integer npcId = goal.getNpcId();
 				if (npcId == null || goal.getNpcName() != null) {

@@ -52,22 +52,28 @@ final class PanelTiles {
 			addMouseListener(new MouseAdapter() {
 				@Override
 				public void mouseEntered(MouseEvent e) {
-					hover = true;
-					repaint();
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						hover = true;
+						repaint();
+					});
 				}
 
 				@Override
 				public void mouseExited(MouseEvent e) {
-					hover = false;
-					repaint();
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						hover = false;
+						repaint();
+					});
 				}
 
 				@Override
 				public void mouseReleased(MouseEvent e) {
-					if (contains(e.getPoint())) {
-						flip.run();
-						repaint();
-					}
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						if (contains(e.getPoint())) {
+							flip.run();
+							repaint();
+						}
+					});
 				}
 			});
 		}
@@ -153,26 +159,32 @@ final class PanelTiles {
 			MouseAdapter mouse = new MouseAdapter() {
 				@Override
 				public void mouseMoved(MouseEvent e) {
-					int at = chipAt(e.getX(), e.getY());
-					if (at != hover) {
-						hover = at;
-						repaint();
-					}
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						int at = chipAt(e.getX(), e.getY());
+						if (at != hover) {
+							hover = at;
+							repaint();
+						}
+					});
 				}
 
 				@Override
 				public void mouseExited(MouseEvent e) {
-					hover = -1;
-					repaint();
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						hover = -1;
+						repaint();
+					});
 				}
 
 				@Override
 				public void mouseReleased(MouseEvent e) {
-					int at = chipAt(e.getX(), e.getY());
-					if (at >= 0) {
-						pick.accept(Choice.this.values[at]);
-						repaint();
-					}
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						int at = chipAt(e.getX(), e.getY());
+						if (at >= 0) {
+							pick.accept(Choice.this.values[at]);
+							repaint();
+						}
+					});
 				}
 			};
 			addMouseListener(mouse);
@@ -286,17 +298,21 @@ final class PanelTiles {
 			addMouseListener(new MouseAdapter() {
 				@Override
 				public void mouseReleased(MouseEvent e) {
-					if (hasSet.getAsBoolean() && SWITCH_AREA.contains(e.getPoint())) {
-						flip.run();
-						repaint();
-					}
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						if (hasSet.getAsBoolean() && SWITCH_AREA.contains(e.getPoint())) {
+							flip.run();
+							repaint();
+						}
+					});
 				}
 			});
 			addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
 				@Override
 				public void mouseMoved(MouseEvent e) {
-					boolean over = hasSet.getAsBoolean() && SWITCH_AREA.contains(e.getPoint());
-					setCursor(Cursor.getPredefinedCursor(over ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						boolean over = hasSet.getAsBoolean() && SWITCH_AREA.contains(e.getPoint());
+						setCursor(Cursor.getPredefinedCursor(over ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+					});
 				}
 			});
 		}

@@ -106,7 +106,7 @@ public class DeathMonitor {
 
 	/** Resends anything still queued (and the tracking handshake) on the client thread. */
 	public void forceSync() {
-		clientThread.invokeLater(this::sync);
+		Guard.invokeLater(clientThread, GUARD_FEATURE, this::sync);
 	}
 
 	@Subscribe
@@ -114,7 +114,7 @@ public class DeathMonitor {
 		Guard.run(GUARD_FEATURE, () -> {
 			GameState newState = event.getGameState();
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-				executorService.schedule(() -> clientThread.invokeLater(() -> {
+				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 					restorePending();
 					sync();
 				}), LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
@@ -233,7 +233,7 @@ public class DeathMonitor {
 		}
 		List<DeathEvent> sent = new ArrayList<>(pending);
 		apiClient.sendDeathsSync(new DeathSyncPayload(playerUsername, sent),
-				() -> clientThread.invokeLater(() -> onAcknowledged(sent)));
+				() -> Guard.invokeLater(clientThread, GUARD_FEATURE, () -> onAcknowledged(sent)));
 	}
 
 	private void onAcknowledged(List<DeathEvent> sent) {

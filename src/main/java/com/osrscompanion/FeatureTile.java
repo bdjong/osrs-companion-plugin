@@ -83,31 +83,39 @@ class FeatureTile extends JComponent {
 		MouseAdapter mouse = new MouseAdapter() {
 			@Override
 			public void mouseEntered(MouseEvent e) {
-				hover = true;
-				repaint();
+				Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+					hover = true;
+					repaint();
+				});
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e) {
-				hover = false;
-				pressed = false;
-				repaint();
+				Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+					hover = false;
+					pressed = false;
+					repaint();
+				});
 			}
 
 			@Override
 			public void mousePressed(MouseEvent e) {
-				pressed = true;
-				repaint();
+				Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+					pressed = true;
+					repaint();
+				});
 			}
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				boolean click = pressed && contains(e.getPoint());
-				pressed = false;
-				repaint();
-				if (click && action != null) {
-					action.run();
-				}
+				Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+					boolean click = pressed && contains(e.getPoint());
+					pressed = false;
+					repaint();
+					if (click && action != null) {
+						action.run();
+					}
+				});
 			}
 		};
 		addMouseListener(mouse);

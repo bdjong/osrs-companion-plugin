@@ -280,7 +280,7 @@ public class SlayerHelperManager {
 				loadGear(name);
 				log.debug("Slayer guide: task {}, {} locations", result.getTask() == null ? null : result.getTask().getTaskName(),
 					result.getLocations().size());
-				clientThread.invokeLater(() -> onGuide(result));
+				Guard.invokeLater(clientThread, GUARD_FEATURE, () -> onGuide(result));
 			}
 
 			@Override
@@ -921,7 +921,7 @@ public class SlayerHelperManager {
 	/** Sends the finished sessions not yet acknowledged by the website; each is dropped once it is. Client thread. */
 	private void sendUnsent() {
 		for (SlayerSession s : new ArrayList<>(unsent)) {
-			apiClient.sendSlayerSession(s.payload(s.player), () -> clientThread.invokeLater(() -> {
+			apiClient.sendSlayerSession(s.payload(s.player), () -> Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 				unsent.remove(s);
 				saveUnsent();
 			}));

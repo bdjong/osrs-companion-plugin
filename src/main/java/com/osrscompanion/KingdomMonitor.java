@@ -106,7 +106,7 @@ public class KingdomMonitor {
 	 * the session has settled, so it can never sample the post-login replay window.
 	 */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			if (client.getGameState() != GameState.LOGGED_IN || !trigger.isBaselineSynced()) {
 				return;
 			}

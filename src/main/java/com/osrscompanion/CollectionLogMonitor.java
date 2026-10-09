@@ -115,7 +115,7 @@ public class CollectionLogMonitor {
 	 * opened at least once this session (nothing is captured before then).
 	 */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			lastSyncJson = null;
 			syncCollectionLog();
 		});
@@ -170,7 +170,7 @@ public class CollectionLogMonitor {
 			}
 			fullReadTriggeredThisSession = true;
 			captureActive = true;
-			clientThread.invokeLater(this::triggerFullRead);
+			Guard.invokeLater(clientThread, GUARD_FEATURE, this::triggerFullRead);
 		});
 	}
 

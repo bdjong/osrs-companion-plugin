@@ -115,7 +115,7 @@ public class FarmingUnlocksMonitor {
 
 	/** Re-pushes the unlocks (the panel's "Sync &amp; refresh"). No-op until the session has settled. */
 	public void forceSync() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			if (client.getGameState() != GameState.LOGGED_IN || !trigger.isBaselineSynced()) {
 				return;
 			}

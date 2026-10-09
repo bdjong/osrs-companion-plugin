@@ -48,28 +48,34 @@ class DailiesListView extends JComponent {
 		MouseAdapter mouse = new MouseAdapter() {
 			@Override
 			public void mouseMoved(MouseEvent e) {
-				int row = rowAt(e.getY());
-				if (row != hoverRow) {
-					hoverRow = row;
-					DailiesManager.Entry en = row >= 0 && row < shown.size() ? shown.get(row) : null;
-					setCursor(Cursor.getPredefinedCursor(en != null && en.state != State.LOCKED ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
-					repaint();
-				}
+				Guard.run(DailiesManager.GUARD_FEATURE, () -> {
+					int row = rowAt(e.getY());
+					if (row != hoverRow) {
+						hoverRow = row;
+						DailiesManager.Entry en = row >= 0 && row < shown.size() ? shown.get(row) : null;
+						setCursor(Cursor.getPredefinedCursor(en != null && en.state != State.LOCKED ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+						repaint();
+					}
+				});
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e) {
-				hoverRow = -1;
-				repaint();
+				Guard.run(DailiesManager.GUARD_FEATURE, () -> {
+					hoverRow = -1;
+					repaint();
+				});
 			}
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				int row = rowAt(e.getY());
-				if (row >= 0 && row < shown.size()) {
-					manager.toggleTick(shown.get(row).id);
-					repaint();
-				}
+				Guard.run(DailiesManager.GUARD_FEATURE, () -> {
+					int row = rowAt(e.getY());
+					if (row >= 0 && row < shown.size()) {
+						manager.toggleTick(shown.get(row).id);
+						repaint();
+					}
+				});
 			}
 		};
 		addMouseListener(mouse);

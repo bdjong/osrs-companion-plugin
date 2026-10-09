@@ -281,7 +281,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("crash safety", this::startCrashSafety);
 		step("settings", this::migrateSettings);
 		// Uploads queue in the outbox and go out batched (first, so the monitors' first syncs use it).
-		step("outbox", () -> apiClient.startOutbox(GuardedExecutor.wrap("sync", executorService)));
+		step("outbox", () -> apiClient.startOutbox(GuardedExecutor.wrap(Guard.SYNC_FEATURE, executorService)));
 		step("error reports", this::startErrorReports);
 		step("previous incident", () -> {
 			if (client.getGameState() == GameState.LOGGED_IN) {
@@ -640,7 +640,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("dailies", () -> {
 			overlayManager.remove(dailiesOverlay);
 			overlayManager.remove(dailiesSceneOverlay);
-			clientThread.invoke(() -> step("dailies markers", dailiesSceneOverlay::clearPointers));
+			clientThread.invoke(Guard.wrapCleanup(DailiesSceneOverlay.GUARD_FEATURE,
+					() -> step("dailies markers", dailiesSceneOverlay::clearPointers)));
 			dailiesManager.clear();
 		});
 		step("goal progress", this::disconnectGoalProgress);
@@ -753,16 +754,17 @@ public class OSRSCompanionPlugin extends Plugin {
 		overlayManager.remove(farmRunOverlay);
 		overlayManager.remove(farmRunSceneOverlay);
 		overlayManager.remove(farmRunItemOverlay);
-		clientThread.invoke(() -> step("farm run markers", farmRunSceneOverlay::clearPointers));
+		clientThread.invoke(Guard.wrapCleanup(FarmRunSceneOverlay.GUARD_FEATURE,
+				() -> step("farm run markers", farmRunSceneOverlay::clearPointers)));
 		overlayManager.remove(slayerHelperOverlay);
 		overlayManager.remove(slayerDebugOverlay);
 		overlayManager.remove(slayerGuideHouseOverlay);
 		// The open slayer session is stored and sent before it is forgotten.
-		clientThread.invoke(() -> step("slayer helper", () -> {
+		clientThread.invoke(Guard.wrapCleanup(SlayerHelperManager.GUARD_FEATURE, () -> step("slayer helper", () -> {
 			slayerGuideMarkers.clear();
 			slayerGuideHouseOverlay.clear();
 			slayerHelperManager.shutDown();
-		}));
+		})));
 		farmRunManager.clear();
 		overlayManager.remove(bossGearWindow);
 		roadmapWindow.close();
@@ -898,7 +900,7 @@ public class OSRSCompanionPlugin extends Plugin {
 			webVersionWatcher.onLoggedOut();
 			// The monitors queue their logout uploads (some via the client thread / executor):
 			// send everything shortly after, without waiting for the batch interval or a backoff.
-			executorService.schedule(Guard.wrap("sync", apiClient::flushOutbox), 2, java.util.concurrent.TimeUnit.SECONDS);
+			executorService.schedule(Guard.wrap(Guard.SYNC_FEATURE, apiClient::flushOutbox), 2, java.util.concurrent.TimeUnit.SECONDS);
 		}
 	}
 

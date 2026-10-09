@@ -1,11 +1,17 @@
 package com.osrscompanion;
 
 import java.awt.Dimension;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.callback.ClientThread;
 
 /**
  * Runs the plugin's code so a bug in one feature can never break or freeze the RuneLite client.
@@ -18,9 +24,16 @@ import lombok.extern.slf4j.Slf4j;
  *       {@value #FAILURE_WINDOW_MS} ms, a fatal error ({@link VirtualMachineError}, such as
  *       OutOfMemoryError or StackOverflowError) or a freeze turn the feature off for the rest of the
  *       session: its sections are skipped (renders draw nothing). The listener hears it once.</li>
+ *   <li>The features in {@link #NEVER_DISABLED} (uploads, error reports, the website version
+ *       watcher) are exempt: their failures, fatal errors and freezes are still caught, logged and
+ *       reported, but they are never turned off, so one bad upload cannot stop every upload and
+ *       every error report for the session.</li>
  *   <li>On the watched thread (the client thread), the outermost running section's feature and
  *       start time are published for the {@link FreezeWatchdog}; in debug logging, any section over
  *       {@value #SLOW_MS} ms is logged as slow.</li>
+ *   <li>Under tests (system property {@value #RETHROW_TEST_FAILURES_PROPERTY}, set by build.gradle's
+ *       {@code test} task), {@link AssertionError} is rethrown, so a failing assertion inside guarded
+ *       code fails the test instead of being swallowed. Never in production.</li>
  * </ul>
  *
  * The static methods use one shared instance; tests make their own (fake clocks, no client).
@@ -33,6 +46,18 @@ public final class Guard {
 	/** More distinct features than this share one breaker, so the map stays bounded. */
 	static final int MAX_FEATURES = 256;
 	static final String OTHER_FEATURE = "other";
+	/** The outbox, upload and error report jobs ({@code GuardedExecutor.wrap(SYNC_FEATURE, ...)}). */
+	public static final String SYNC_FEATURE = "sync";
+	/**
+	 * Features that are never turned off: every upload and every error report goes through them, so
+	 * turning them off would silence the plugin for the session. Their failures are still reported.
+	 */
+	static final Set<String> NEVER_DISABLED = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+		SYNC_FEATURE, WebVersionWatcher.GUARD_FEATURE)));
+	/** {@code -D} switch the test task sets: rethrow {@link AssertionError} (see the class comment). */
+	static final String RETHROW_TEST_FAILURES_PROPERTY = "osrscompanion.guard.rethrowTestFailures";
+
+	private static volatile boolean rethrowTestFailures = Boolean.getBoolean(RETHROW_TEST_FAILURES_PROPERTY);
 
 	/** What the plugin does with failures: report them, persist fatal ones, tell the player. Called on any thread. */
 	public interface Listener {
@@ -119,6 +144,45 @@ public final class Guard {
 		return () -> shared.runIn(feature, body);
 	}
 
+	/**
+	 * A {@code clientThread.invokeLater} poll, guarded. It returns false to run again next tick; when
+	 * the feature is off or the body throws it returns true (done), so a broken poll never retries
+	 * forever.
+	 */
+	public static BooleanSupplier wrapBool(String feature, BooleanSupplier body) {
+		return () -> shared.callIn(feature, body::getAsBoolean, Boolean.TRUE);
+	}
+
+	/**
+	 * A clean-up (plugin stop, unregistering what a feature registered), guarded: caught, reported and
+	 * timed like the others, but it runs even when the feature is off, so nothing is left behind.
+	 */
+	public static Runnable wrapCleanup(String feature, Runnable body) {
+		return () -> shared.callIn(feature, () -> {
+			body.run();
+			return null;
+		}, null, true);
+	}
+
+	// The client thread's queue, each task run in its feature's section. The overloads mirror
+	// ClientThread's own, so a lambda or method reference picks the same one it picked there.
+
+	public static void invoke(ClientThread clientThread, String feature, Runnable body) {
+		clientThread.invoke(wrap(feature, body));
+	}
+
+	public static void invoke(ClientThread clientThread, String feature, BooleanSupplier body) {
+		clientThread.invoke(wrapBool(feature, body));
+	}
+
+	public static void invokeLater(ClientThread clientThread, String feature, Runnable body) {
+		clientThread.invokeLater(wrap(feature, body));
+	}
+
+	public static void invokeLater(ClientThread clientThread, String feature, BooleanSupplier body) {
+		clientThread.invokeLater(wrapBool(feature, body));
+	}
+
 	public static boolean isEnabled(String feature) {
 		return !shared.isDisabled(feature);
 	}
@@ -157,11 +221,19 @@ public final class Guard {
 	}
 
 	<T> T callIn(String feature, Supplier<T> body, T fallback) {
+		return callIn(feature, body, fallback, false);
+	}
+
+	/** @param evenIfOff run the body even when the feature is off (clean-ups) */
+	<T> T callIn(String feature, Supplier<T> body, T fallback, boolean evenIfOff) {
 		CircuitBreaker breaker = breaker(feature);
-		if (breaker.isOpen()) {
+		if (breaker.isOpen() && !evenIfOff) {
 			return fallback;
 		}
-		boolean tracked = Thread.currentThread() == watched && depth++ == 0;
+		// Counted on entry, so the matching exit undoes exactly this entry even if the watched
+		// thread changes in between (plugin stop clears it while a section may still be running).
+		boolean counted = Thread.currentThread() == watched;
+		boolean tracked = counted && depth++ == 0;
 		long start = nanoTime.getAsLong();
 		if (tracked) {
 			sectionFeature = feature;
@@ -173,10 +245,13 @@ public final class Guard {
 		} catch (ThreadDeath death) {
 			throw death;
 		} catch (Throwable error) {
+			if (isTestFailure(error)) {
+				throw (AssertionError) error;
+			}
 			failed(feature, breaker, error);
 			return fallback;
 		} finally {
-			if (Thread.currentThread() == watched && depth > 0 && --depth == 0 && (seq & 1) == 1) {
+			if (counted && depth > 0 && --depth == 0 && (seq & 1) == 1) {
 				seq++;
 			}
 			if (log.isDebugEnabled()) {
@@ -248,6 +323,9 @@ public final class Guard {
 		} catch (ThreadDeath death) {
 			throw death;
 		} catch (Throwable e) {
+			if (isTestFailure(e)) {
+				throw (AssertionError) e;
+			}
 			try {
 				log.debug("Guard listener failed", e);
 			} catch (Throwable ignored) {
@@ -262,10 +340,30 @@ public final class Guard {
 		if (b != null) {
 			return b;
 		}
-		if (breakers.size() >= MAX_FEATURES) {
+		boolean exempt = isExempt(key);
+		if (breakers.size() >= MAX_FEATURES && !exempt) {
 			key = OTHER_FEATURE;
 		}
-		return breakers.computeIfAbsent(key, k -> new CircuitBreaker(FAILURE_LIMIT, FAILURE_WINDOW_MS));
+		return breakers.computeIfAbsent(key, k -> new CircuitBreaker(FAILURE_LIMIT, FAILURE_WINDOW_MS, exempt));
+	}
+
+	/** True for the features that are never turned off ({@link #NEVER_DISABLED}). */
+	static boolean isExempt(String feature) {
+		return feature != null && NEVER_DISABLED.contains(feature);
+	}
+
+	/** A test's failed assertion, rethrown only while running under tests. */
+	private static boolean isTestFailure(Throwable error) {
+		return rethrowTestFailures && error instanceof AssertionError;
+	}
+
+	/** Tests switch the rethrow off to check the production behaviour (swallow and report). */
+	static void setRethrowTestFailures(boolean rethrow) {
+		rethrowTestFailures = rethrow;
+	}
+
+	static boolean rethrowsTestFailures() {
+		return rethrowTestFailures;
 	}
 
 	private static String key(String feature) {

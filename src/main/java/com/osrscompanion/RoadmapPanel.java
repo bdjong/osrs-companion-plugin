@@ -41,6 +41,8 @@ import net.runelite.client.util.QuantityFormatter;
  * bank lays out the boss setup or farm route) and a tile to open its window over the game.
  */
 public class RoadmapPanel extends PluginPanel {
+	/** The side panel's feature for {@link Guard}: its tiles' mouse listeners and its refresh timer. */
+	static final String GUARD_FEATURE = "side-panel";
 	private static final Color ROADMAP = new Color(0x60A5FA);
 	private static final Color GEAR = new Color(0xFB923C);
 	private static final Color FARM = new Color(0x4ADE80);
@@ -89,7 +91,7 @@ public class RoadmapPanel extends PluginPanel {
 	/** The Slayer skill icon, loaded in the background (the task card's picture). */
 	private volatile java.awt.image.BufferedImage slayerIcon;
 	/** Keeps the live cards (current roadmap, route, setup) and switches up to date while the panel is open. */
-	private final Timer refresh = new Timer(1000, e -> tick());
+	private final Timer refresh = new Timer(1000, e -> Guard.run(GUARD_FEATURE, this::tick));
 
 	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear, Runnable openSlayerGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
@@ -279,7 +281,7 @@ public class RoadmapPanel extends PluginPanel {
 			return item == null ? null : itemManager.getImage(item);
 		}, () -> farmRun.getRoute() != null, farmRun::isRunning, () -> {
 			// Starting reads the patches' state from the game: on the client thread.
-			clientThread.invoke(() -> {
+			Guard.invoke(clientThread, FarmRunManager.GUARD_FEATURE, () -> {
 				if (farmRun.isRunning()) {
 					farmRun.stop();
 				} else {

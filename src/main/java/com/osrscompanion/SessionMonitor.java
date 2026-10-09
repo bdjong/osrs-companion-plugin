@@ -51,7 +51,7 @@ public class SessionMonitor {
 	public void start() {
 		pingTask = executorService.scheduleAtFixedRate(this::ping, PING_INTERVAL_MINUTES, PING_INTERVAL_MINUTES, TimeUnit.MINUTES);
 		// Enabled (or rebuilt) while already in game: that is a session too.
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			if (client.getGameState() == GameState.LOGGED_IN) {
 				begin();
 			}
@@ -81,7 +81,7 @@ public class SessionMonitor {
 
 	/** Waits (tick by tick) until the player's name is known, then reports the login. Client thread. */
 	private void begin() {
-		clientThread.invokeLater(() -> {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 			if (client.getGameState() != GameState.LOGGED_IN) {
 				return true;
 			}

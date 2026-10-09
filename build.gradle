@@ -30,6 +30,12 @@ dependencies {
 group = 'com.osrscompanion'
 version = '1.0-SNAPSHOT'
 
+test {
+	// Guard rethrows a failed assertion inside guarded code under tests instead of swallowing it,
+	// so a failing test cannot pass. Production never sets this.
+	systemProperty 'osrscompanion.guard.rethrowTestFailures', 'true'
+}
+
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
 	options.release.set(11)
