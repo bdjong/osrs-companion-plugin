@@ -182,4 +182,27 @@ public class SourceSyncerTest {
 		syncer.flushPending();
 		assertEquals(2, flushes[0]);
 	}
+
+	@Test
+	public void aPendingUploadStillGoesUpWhenTheMonitorsFeatureWasTurnedOff() {
+		Guard guard = new Guard(() -> now, System::nanoTime);
+		Guard previous = Guard.shared();
+		Guard.setShared(guard);
+		try {
+			// As BankMemoryMonitor builds it: the shared executor wrapped in its own feature.
+			SourceSyncer bank = new SourceSyncer("bank memory", new Gson(), GuardedExecutor.wrap("bank-sync", executor),
+				() -> now, () -> enabled, () -> "Zezima", sent::add);
+			bank.submit(qty(13124, 1), false);
+			assertEquals(1, sent.size());
+			bank.submit(qty(13124, 2), false);
+			// The bank sync tripped its breaker (a freeze while loading, five errors...).
+			guard.frozen("bank-sync", 5_000, new StackTraceElement[0]);
+			assertTrue(guard.isDisabled("bank-sync"));
+			advance(DEFAULT_MS);
+			assertEquals("what was already read is not dropped", 2, sent.size());
+			assertEquals(2, quantity(sent.get(1), "bank memory", 13124));
+		} finally {
+			Guard.setShared(previous);
+		}
+	}
 }

@@ -35,6 +35,13 @@ import net.runelite.client.game.ItemManager;
  * up on the short one, and logout always flushes. The bank container only
  * updates while the bank is open, so its last-seen contents are cached and
  * re-sent with the inventory (the dedupe makes that free).
+ *
+ * <p>The website replaces each source it receives, so a source is only read when the read is
+ * reliable ({@link CarriedReadGate}): logged in, the player loaded, the containers present, and for
+ * the inventory both INV and WORN arrived since the last login or hop. Uploading never depends on
+ * this feature's breaker: the syncer's timer, the logout flush, the bank-close flush and the flush
+ * when the client thread died all run as {@link Guard#SYNC_FEATURE}, which is never turned off, so a
+ * change already read is not lost when this feature is turned off.
  */
 @Slf4j
 @Singleton
@@ -55,6 +62,8 @@ public class BankMemoryMonitor {
 	private volatile Function<String, Map<Integer, Integer>> seedSupplier;
 
 	private GameState previousGameState = GameState.UNKNOWN;
+	/** When INV / WORN / the bank may be read (see the class comment). */
+	private final CarriedReadGate gate = new CarriedReadGate();
 	/** Inventory + gear as last read, for deposit diffs. */
 	private Map<Integer, Integer> lastCarried = new LinkedHashMap<>();
 
@@ -110,6 +119,20 @@ public class BankMemoryMonitor {
 				deposits.onDepositInterface(false);
 			}
 		});
+		if (event.getGroupId() == InterfaceID.BANKMAIN || event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
+			// Leaving the bank: what moved between the bank and the inventory goes up now, not after the
+			// debounce, so a client killed (or crashed) a few seconds later cannot lose it. A lost bank
+			// upload is what makes the next session's inventory upload look like the items are gone.
+			flushPending();
+		}
+	}
+
+	/**
+	 * Sends what is pending now (already read while it was reliable). Used when leaving the bank and
+	 * when the client thread died. Runs as {@link Guard#SYNC_FEATURE}, never skipped.
+	 */
+	public void flushPending() {
+		Guard.run(Guard.SYNC_FEATURE, syncer::flushPending);
 	}
 
 
@@ -155,17 +178,25 @@ public class BankMemoryMonitor {
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
+		GameState newState = event.getGameState();
+		if (SyncGuard.isLogout(previousGameState, newState)) {
+			// A final sync, always (even when this feature was turned off): whatever changed since
+			// the last upload was captured while logged in. Do not re-read the client here: the
+			// player name is already gone and the containers may read empty.
+			flushPending();
+		}
 		Guard.run(GUARD_FEATURE, () -> {
-			GameState newState = event.getGameState();
+			gate.onGameState(newState);
 			if (SyncGuard.isLogout(previousGameState, newState)) {
-				// A final sync, always: whatever changed since the last upload was
-				// captured while logged in. Do not re-read the client here: the
-				// player name is already gone and the containers may read empty.
-				syncer.flushPending();
 				deposits.resetSession();
 				lastCarried = new LinkedHashMap<>();
 			}
 			previousGameState = newState;
+			if (newState == GameState.LOGGED_IN) {
+				// The containers may have arrived while still loading (nothing was read then): read them
+				// now that the player is in game. Unchanged contents are not re-sent.
+				push(true, false);
+			}
 		});
 	}
 
@@ -181,6 +212,7 @@ public class BankMemoryMonitor {
 			if (id != InventoryID.BANK && id != InventoryID.INV && id != InventoryID.WORN) {
 				return;
 			}
+			gate.onContainerChanged(id, client.getItemContainer(id) != null);
 			push(true, false);
 		});
 	}
@@ -212,13 +244,16 @@ public class BankMemoryMonitor {
 	private void trackDeposits(Map<String, Map<Integer, Integer>> bySource) {
 		Map<Integer, Integer> carried = bySource.get(SOURCE_INVENTORY);
 		Map<Integer, Integer> removed = new LinkedHashMap<>();
-		for (Map.Entry<Integer, Integer> e : lastCarried.entrySet()) {
-			int delta = e.getValue() - carried.getOrDefault(e.getKey(), 0);
-			if (delta > 0) {
-				removed.put(e.getKey(), delta);
+		if (carried != null) {
+			// Only a reliable read of the carried items is diffed (no inventory: nothing to compare).
+			for (Map.Entry<Integer, Integer> e : lastCarried.entrySet()) {
+				int delta = e.getValue() - carried.getOrDefault(e.getKey(), 0);
+				if (delta > 0) {
+					removed.put(e.getKey(), delta);
+				}
 			}
+			lastCarried = new LinkedHashMap<>(carried);
 		}
-		lastCarried = new LinkedHashMap<>(carried);
 		boolean changed = false;
 		if (bySource.containsKey(SOURCE_BANK)) {
 			changed = deposits.onBankRead();
@@ -236,21 +271,34 @@ public class BankMemoryMonitor {
 			log.debug("Bank sync skipped: special game mode detected");
 			return null;
 		}
+		GameState state = client.getGameState();
+		boolean playerLoaded = SyncGuard.getPlayerUsername(client) != null;
+		if (!CarriedReadGate.inGame(state, playerLoaded)) {
+			// Logging in, hopping, loading or the login screen: the containers may read null or empty.
+			return null;
+		}
 		ItemContainer bankContainer = client.getItemContainer(InventoryID.BANK);
 		if (bankContainer == null && !inventoryOnlyOk) {
 			return null;
 		}
 		Map<String, Map<Integer, Integer>> bySource = new LinkedHashMap<>();
-		if (bankContainer != null) {
+		if (gate.canReadBank(state, playerLoaded, bankContainer != null)) {
 			Map<Integer, Integer> bankQuantities = new LinkedHashMap<>();
 			ItemCollector.collectBankItems(bankContainer, itemManager, bankQuantities);
 			bySource.put(SOURCE_BANK, bankQuantities);
 		}
-		Map<Integer, Integer> invQuantities = new LinkedHashMap<>();
-		collectContainerItems(InventoryID.INV, invQuantities);
-		collectContainerItems(InventoryID.WORN, invQuantities);
-		bySource.put(SOURCE_INVENTORY, invQuantities);
-		return bySource;
+		ItemContainer inv = client.getItemContainer(InventoryID.INV);
+		ItemContainer worn = client.getItemContainer(InventoryID.WORN);
+		if (gate.canReadCarried(state, playerLoaded, inv != null, worn != null)) {
+			Map<Integer, Integer> invQuantities = new LinkedHashMap<>();
+			ItemCollector.collectItems(inv, itemManager, invQuantities);
+			ItemCollector.collectItems(worn, itemManager, invQuantities);
+			bySource.put(SOURCE_INVENTORY, invQuantities);
+		} else {
+			// Not known (yet): leave the server's inventory as it is rather than send a partial one.
+			log.debug("Bank sync: inventory/worn not read (containers not both loaded yet)");
+		}
+		return bySource.isEmpty() ? null : bySource;
 	}
 
 	private void notifyPayload(Map<String, Map<Integer, Integer>> bySource) {
@@ -265,13 +313,5 @@ public class BankMemoryMonitor {
 		Map<String, List<BankSyncPayload.BankItem>> itemsBySource = new LinkedHashMap<>();
 		bySource.forEach((source, quantities) -> itemsBySource.put(source, ItemCollector.toBankItemList(quantities)));
 		listener.accept(new BankSyncPayload(playerUsername, itemsBySource));
-	}
-
-	private void collectContainerItems(int containerId, Map<Integer, Integer> itemQuantities) {
-		ItemContainer container = client.getItemContainer(containerId);
-		if (container == null) {
-			return;
-		}
-		ItemCollector.collectItems(container, itemManager, itemQuantities);
 	}
 }
