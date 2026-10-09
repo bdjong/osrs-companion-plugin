@@ -1048,7 +1048,33 @@ public class SlayerHelperManager {
 		if (!config.autoCapeTeleport() || !isGuiding() || l == null || l.getTravel() == null || farmRun.isRunning() || client.isMenuOpen()) {
 			return;
 		}
-		teleports.apply(l.getTravel(), "slayer " + l.getName());
+		SlayerGear.Set set = getGearSet();
+		teleports.apply(l.getTravel(), "slayer " + l.getName(),
+			m -> keepsWornLeftClick(m.getItemId(), m.getTarget(), set));
+	}
+
+	/**
+	 * Whether a menu entry's item is worn by the suggested setup (the item, another version of it, or the
+	 * same name): its left click stays "Wear" instead of the teleport. False without a setup (as before).
+	 */
+	static boolean keepsWornLeftClick(int menuItemId, String menuTarget, SlayerGear.Set set) {
+		if (set == null) {
+			return false;
+		}
+		int base = menuItemId > 0 ? net.runelite.client.game.ItemVariationMapping.map(menuItemId) : -1;
+		String target = TeleportLeftClick.baseName(menuTarget);
+		for (SlayerGear.Piece p : set.getEquipment()) {
+			if (p.getItem() <= 0) {
+				continue;
+			}
+			if (menuItemId > 0 && (p.getItem() == menuItemId || net.runelite.client.game.ItemVariationMapping.map(p.getItem()) == base)) {
+				return true;
+			}
+			if (!target.isEmpty() && target.equals(TeleportLeftClick.baseName(p.getName()))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// ---- Read by the panel and overlays -------------------------------------------------------
