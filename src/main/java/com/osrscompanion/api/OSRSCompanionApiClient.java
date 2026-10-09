@@ -713,6 +713,12 @@ public class OSRSCompanionApiClient
 	 */
 	public void sendErrorReports(String playerUsername, List<Map<String, Object>> reports)
 	{
+		sendErrorReports(playerUsername, reports, null);
+	}
+
+	/** As above; {@code onSent} runs once the website accepted them (a 2xx answer). */
+	public void sendErrorReports(String playerUsername, List<Map<String, Object>> reports, Runnable onSent)
+	{
 		if (reports == null || reports.isEmpty())
 		{
 			return;
@@ -721,7 +727,13 @@ public class OSRSCompanionApiClient
 		body.put("player_username", playerUsername);
 		body.put("reports", reports);
 		postAsync(ERRORS_ENDPOINT, gsonWithNulls.toJson(body), ERRORS_LABEL, false, false, null, false,
-			() -> log.debug("OSRS Companion error reports sent: {}", reports.size()));
+			() -> {
+				log.debug("OSRS Companion error reports sent: {}", reports.size());
+				if (onSent != null)
+				{
+					onSent.run();
+				}
+			});
 	}
 
 	public void setErrorListener(ErrorListener listener)

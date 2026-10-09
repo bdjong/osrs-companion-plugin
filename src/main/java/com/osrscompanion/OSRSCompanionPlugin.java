@@ -9,7 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.events.BeforeRender;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
@@ -273,7 +275,11 @@ public class OSRSCompanionPlugin extends Plugin {
 	private volatile FreezeWatchdog watchdog;
 	private volatile IncidentStore incidentStore;
 	/** A fatal error or freeze the last session persisted, reported once a player is logged in. */
-	private volatile IncidentStore.Incident previousIncident;
+	private volatile PreviousIncident previousIncident;
+	/** Whole-client-thread stalls the watchdog sees: persisted and reported. */
+	private volatile ClientStallReporter stallReporter;
+	/** A player was logged in since the last login screen: later LOGGED_IN events are region loads. */
+	private boolean sessionLoaded;
 	private ErrorLogAppender errorLogAppender;
 	private java.util.concurrent.ScheduledFuture<?> errorReportFlush;
 
@@ -313,7 +319,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("goal progress", this::connectGoalProgress);
 		step("roadmap", () -> {
 			roadmapManager.startPeriodicRefresh();
-			roadmapWaitingPoll = executorService.scheduleWithFixedDelay(Guard.wrap(RoadmapManager.GUARD_FEATURE, roadmapManager::pollWhileWaiting),
+			// On the roadmap's own thread (guarded there), never RuneLite's shared executor.
+			roadmapWaitingPoll = roadmapManager.executor().scheduleWithFixedDelay(roadmapManager::pollWhileWaiting,
 					RoadmapManager.WAITING_POLL_SECONDS, RoadmapManager.WAITING_POLL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
 		});
 		// Live activity: every batch carries the status; the watcher below sends the heartbeat.
@@ -352,9 +359,13 @@ public class OSRSCompanionPlugin extends Plugin {
 				configManager.sendConfig();
 			}
 		});
-		previousIncident = incidentStore.take();
+		previousIncident = new PreviousIncident(incidentStore);
 		watchdog = new FreezeWatchdog(guard);
 		guard.setListener(new GuardListener());
+		// The whole client thread too, wherever it is stuck: a heartbeat on every tick and frame.
+		stallReporter = new ClientStallReporter(() -> incidentStore, () -> errorReporter, System::currentTimeMillis);
+		watchdog.setStallListener(stallReporter);
+		watchdog.setInGame(() -> isInGame(client.getGameState()));
 		// The watchdog times our sections on the client thread: tell the Guard which thread that is.
 		clientThread.invoke(() -> guard.watchThread(Thread.currentThread()));
 		watchdog.start();
@@ -411,15 +422,38 @@ public class OSRSCompanionPlugin extends Plugin {
 		}
 	}
 
-	/** The incident the last session persisted but could not report (it ended first): reported once the player is known. */
-	private void reportPreviousIncident() {
-		IncidentStore.Incident incident = previousIncident;
-		ErrorReporter reporter = errorReporter;
-		if (incident == null || reporter == null) {
-			return;
+	/** In game, when the client thread's heartbeat is expected (a stall there is a freeze). */
+	static boolean isInGame(GameState state) {
+		return state == GameState.LOGGED_IN || state == GameState.LOADING || state == GameState.HOPPING
+				|| state == GameState.CONNECTION_LOST;
+	}
+
+	/** The client thread's heartbeat for the watchdog: one volatile write, nothing else. */
+	@Subscribe(priority = Float.MAX_VALUE)
+	public void onClientTick(ClientTick event) {
+		FreezeWatchdog dog = watchdog;
+		if (dog != null) {
+			dog.beat();
 		}
-		previousIncident = null;
-		reporter.reportPreviousSession(incident.level, incident.feature, incident.message, incident.stack, incident.timeMs);
+	}
+
+	@Subscribe(priority = Float.MAX_VALUE)
+	public void onBeforeRender(BeforeRender event) {
+		FreezeWatchdog dog = watchdog;
+		if (dog != null) {
+			dog.beat();
+		}
+	}
+
+	/**
+	 * The incident the last session persisted but could not report (it ended first): reported once the
+	 * player is known, and cleared once that report was sent.
+	 */
+	private void reportPreviousIncident() {
+		PreviousIncident previous = previousIncident;
+		if (previous != null) {
+			previous.report(errorReporter);
+		}
 	}
 
 	private void stopCrashSafety() {
@@ -427,14 +461,24 @@ public class OSRSCompanionPlugin extends Plugin {
 		guard.setListener(null);
 		guard.watchThread(null);
 		if (watchdog != null) {
+			watchdog.setStallListener(null);
 			watchdog.stop();
 			watchdog = null;
 		}
-		// A clean stop: whatever this session persisted was reported live.
-		if (incidentStore != null) {
-			incidentStore.clear();
+		// A clean stop: whatever this session persisted was reported live. An earlier session's
+		// incident not sent yet, or a stall report still on its way, stays for the next start.
+		IncidentStore store = incidentStore;
+		if (store != null) {
+			PreviousIncident previous = previousIncident;
+			ClientStallReporter stalls = stallReporter;
+			boolean keep = previous != null && previous.isStillStored()
+					|| stalls != null && stalls.holds(store.peekRaw());
+			if (!keep) {
+				store.clear();
+			}
 			incidentStore = null;
 		}
+		stallReporter = null;
 	}
 
 	/**
@@ -892,15 +936,22 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	private void gameStateChanged(GameStateChanged event) {
+		if (event.getGameState() == GameState.LOGIN_SCREEN) {
+			sessionLoaded = false;
+		}
 		if (event.getGameState() == GameState.LOGGED_IN) {
 			reportPreviousIncident();
-			// Load the roadmap almost immediately so it shows right after login
-			// (a plain read, NOT a forced re-sync), then again once this session's
-			// login syncs have landed so completion/progress is fresh.
-			executorService.schedule(Guard.wrap(RoadmapManager.GUARD_FEATURE, this::loadRoadmapQuietly),
-					1, java.util.concurrent.TimeUnit.SECONDS);
-			executorService.schedule(Guard.wrap(RoadmapManager.GUARD_FEATURE, this::loadRoadmapQuietly),
-					8, java.util.concurrent.TimeUnit.SECONDS);
+			// LOGGED_IN also follows every region load (LOADING): the roadmap loads only on a real login.
+			boolean login = !sessionLoaded;
+			sessionLoaded = true;
+			if (login) {
+				// Load the roadmap almost immediately so it shows right after login
+				// (a plain read, NOT a forced re-sync), then again once this session's
+				// login syncs have landed so completion/progress is fresh. On the
+				// roadmap's own thread, never RuneLite's shared executor.
+				roadmapManager.executor().schedule(this::loadRoadmapQuietly, 1, java.util.concurrent.TimeUnit.SECONDS);
+				roadmapManager.executor().schedule(this::loadRoadmapQuietly, 8, java.util.concurrent.TimeUnit.SECONDS);
+			}
 			executorService.schedule(Guard.wrap(FarmRunManager.GUARD_FEATURE, farmRunManager::refresh),
 					9, java.util.concurrent.TimeUnit.SECONDS);
 		} else if (event.getGameState() == GameState.LOGIN_SCREEN) {

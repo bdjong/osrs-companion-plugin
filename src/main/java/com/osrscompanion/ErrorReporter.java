@@ -61,6 +61,17 @@ public final class ErrorReporter {
 	/** Hands one call's reports (already in the contract's shape) to the network. */
 	public interface Sender {
 		void send(String playerUsername, List<Map<String, Object>> reports);
+
+		/**
+		 * Sends, then runs {@code onSent} once the website accepted the call. This default (tests, a
+		 * synchronous sender) counts handing them over as sent.
+		 */
+		default void send(String playerUsername, List<Map<String, Object>> reports, Runnable onSent) {
+			send(playerUsername, reports);
+			if (onSent != null) {
+				onSent.run();
+			}
+		}
 	}
 
 	private static final class Pending {
@@ -71,6 +82,8 @@ public final class ErrorReporter {
 		final String stack;
 		final String feature;
 		final Map<String, Object> context;
+		/** Run once this report reached the website. */
+		final List<Runnable> onSent = new ArrayList<>();
 		long firstMs;
 		int count;
 
@@ -204,32 +217,126 @@ public final class ErrorReporter {
 
 	/** A fatal error or freeze an earlier session persisted, maybe its last act (see {@link IncidentStore}). */
 	public void reportPreviousSession(String kind, String feature, String message, String stack, long occurredMs) {
+		reportPreviousSession(kind, feature, message, stack, occurredMs, null);
+	}
+
+	/**
+	 * As above; {@code onSent} runs once the report reached the website. False when nothing was queued
+	 * (reports are off, or the session's cap is reached), so {@code onSent} never runs.
+	 */
+	public boolean reportPreviousSession(String kind, String feature, String message, String stack, long occurredMs,
+		Runnable onSent) {
 		if (!isEnabled()) {
-			return;
+			return false;
 		}
 		Map<String, Object> context = new LinkedHashMap<>();
 		context.put("guard", feature);
 		context.put("kind", kind);
 		context.put("previous_session", true);
-		add(hash("fatal|" + kind + "|" + feature + "|" + normalize(message)), LEVEL_FATAL,
+		Pending p = add(hash("fatal|" + kind + "|" + feature + "|" + normalize(message)), LEVEL_FATAL,
 			message == null ? kind + " in " + feature : message, stack, feature, context, occurredMs);
+		return whenSent(p, onSent);
+	}
+
+	/**
+	 * The whole client thread stopped ticking ({@link FreezeWatchdog#checkClient}), wherever it was: a
+	 * "freeze" whose stack is the client thread's first {@code maxFrames} frames, every plugin's code
+	 * included, so the report shows whose code it is. Returns the report's fingerprint (for
+	 * {@link #reportStallEnded}), or null when nothing was queued.
+	 *
+	 * @param terminated the client thread is no longer alive (the stack is the last one seen)
+	 */
+	public String reportClientStall(String feature, long elapsedMs, StackTraceElement[] stack, boolean terminated,
+		String threadState, int maxFrames) {
+		if (!isEnabled()) {
+			return null;
+		}
+		StackTraceElement[] frames = stack == null ? new StackTraceElement[0] : stack;
+		Map<String, Object> context = new LinkedHashMap<>();
+		context.put("guard", feature);
+		context.put("elapsed_ms", elapsedMs);
+		context.put("thread_state", threadState);
+		context.put("terminated", terminated);
+		StringBuilder fp = new StringBuilder(terminated ? "terminated|" : "stall|").append(feature);
+		for (int i = 0; i < frames.length && i < FINGERPRINT_FRAMES; i++) {
+			fp.append('|').append(frames[i].getClassName()).append('.').append(frames[i].getMethodName());
+		}
+		String fingerprint = hash(fp.toString());
+		Pending p = add(fingerprint, LEVEL_FREEZE, stallMessage(feature, elapsedMs, terminated),
+			IncidentStore.shortStack(stallHeader(frames, terminated, threadState), frames, maxFrames), feature, context);
+		return p == null ? null : fingerprint;
+	}
+
+	static String stallMessage(String feature, long elapsedMs, boolean terminated) {
+		if (terminated) {
+			return "The client thread has terminated (no heartbeat for " + elapsedMs + " ms)";
+		}
+		return "The client thread froze for " + elapsedMs + " ms"
+			+ (FreezeWatchdog.CLIENT_FEATURE.equals(feature) ? "" : " in " + feature);
+	}
+
+	static String stallHeader(StackTraceElement[] stack, boolean terminated, String threadState) {
+		if (terminated) {
+			return stack == null || stack.length == 0 ? "Client thread terminated" : "Client thread terminated; last stack seen";
+		}
+		return "Client thread (" + threadState + ")";
+	}
+
+	/**
+	 * The client thread is running again after the stall {@link #reportClientStall} reported as
+	 * {@code fingerprint}: adds {@code stalled_ms} to that report while it waits, or sends a short
+	 * follow-up when it already went. {@code onSent} runs once that reached the website. False when
+	 * nothing was queued ({@code onSent} never runs).
+	 */
+	public synchronized boolean reportStallEnded(String fingerprint, String feature, long stalledMs, Runnable onSent) {
+		if (fingerprint == null || !isEnabled()) {
+			return false;
+		}
+		for (Pending p : pending.values()) {
+			if (p.fingerprint.equals(fingerprint) && p.context != null) {
+				p.context.put("stalled_ms", stalledMs);
+				return whenSent(p, onSent);
+			}
+		}
+		// Already sent: a short follow-up of its own.
+		return whenSent(addResumed(fingerprint + "|resumed", feature, stalledMs), onSent);
+	}
+
+	private Pending addResumed(String fp, String feature, long stalledMs) {
+		Map<String, Object> context = new LinkedHashMap<>();
+		context.put("guard", feature);
+		context.put("stalled_ms", stalledMs);
+		context.put("resumed", true);
+		return add(hash(fp), LEVEL_FREEZE, "The client thread is running again after " + stalledMs + " ms",
+			null, feature, context);
+	}
+
+	private synchronized boolean whenSent(Pending p, Runnable onSent) {
+		if (p == null) {
+			return false;
+		}
+		if (onSent != null) {
+			p.onSent.add(onSent);
+		}
+		return true;
 	}
 
 	static boolean isErrorReport(String label, String path) {
 		return "errors".equals(label) || (path != null && path.contains("/api/runelite/errors"));
 	}
 
-	private void add(String fp, String level, String message, String stack, String feature,
+	private Pending add(String fp, String level, String message, String stack, String feature,
 		Map<String, Object> context) {
-		add(fp, level, message, stack, feature, context, clockMs.getAsLong());
+		return add(fp, level, message, stack, feature, context, clockMs.getAsLong());
 	}
 
-	private synchronized void add(String fp, String level, String message, String stack, String feature,
+	/** The report it was counted in, or null when the session's cap dropped it. */
+	private synchronized Pending add(String fp, String level, String message, String stack, String feature,
 		Map<String, Object> context, long occurredMs) {
 		String who = currentPlayer();
 		if (!seenFingerprints.contains(fp)) {
 			if (seenFingerprints.size() >= MAX_DISTINCT_PER_SESSION) {
-				return;
+				return null;
 			}
 			seenFingerprints.add(fp);
 		}
@@ -241,6 +348,7 @@ public final class ErrorReporter {
 			pending.put(key, p);
 		}
 		p.count++;
+		return p;
 	}
 
 	private String currentPlayer() {
@@ -267,6 +375,7 @@ public final class ErrorReporter {
 	 */
 	public void flush(boolean force) {
 		List<Map.Entry<String, List<Map<String, Object>>>> calls = new ArrayList<>();
+		List<List<Runnable>> callbacks = new ArrayList<>();
 		synchronized (this) {
 			if (pending.isEmpty()) {
 				return;
@@ -280,7 +389,7 @@ public final class ErrorReporter {
 				return;
 			}
 			String fallback = currentPlayer();
-			Map<String, List<Map<String, Object>>> byPlayer = new LinkedHashMap<>();
+			Map<String, List<Pending>> byPlayer = new LinkedHashMap<>();
 			for (java.util.Iterator<Pending> it = pending.values().iterator(); it.hasNext(); ) {
 				Pending p = it.next();
 				String who = p.player != null ? p.player : fallback;
@@ -291,25 +400,43 @@ public final class ErrorReporter {
 					continue;
 				}
 				it.remove();
-				byPlayer.computeIfAbsent(who, k -> new ArrayList<>()).add(toReport(p));
+				byPlayer.computeIfAbsent(who, k -> new ArrayList<>()).add(p);
 			}
 			if (byPlayer.isEmpty()) {
 				return;
 			}
 			lastFlushMs = now;
-			for (Map.Entry<String, List<Map<String, Object>>> e : byPlayer.entrySet()) {
-				List<Map<String, Object>> all = e.getValue();
+			for (Map.Entry<String, List<Pending>> e : byPlayer.entrySet()) {
+				List<Pending> all = e.getValue();
 				for (int i = 0; i < all.size(); i += MAX_PER_CALL) {
-					calls.add(new java.util.AbstractMap.SimpleEntry<>(e.getKey(),
-						new ArrayList<>(all.subList(i, Math.min(all.size(), i + MAX_PER_CALL)))));
+					List<Map<String, Object>> reports = new ArrayList<>();
+					List<Runnable> sent = new ArrayList<>();
+					for (Pending p : all.subList(i, Math.min(all.size(), i + MAX_PER_CALL))) {
+						reports.add(toReport(p));
+						sent.addAll(p.onSent);
+					}
+					calls.add(new java.util.AbstractMap.SimpleEntry<>(e.getKey(), reports));
+					callbacks.add(sent);
 				}
 			}
 		}
-		for (Map.Entry<String, List<Map<String, Object>>> call : calls) {
+		for (int i = 0; i < calls.size(); i++) {
+			Map.Entry<String, List<Map<String, Object>>> call = calls.get(i);
+			List<Runnable> sent = callbacks.get(i);
 			try {
-				sender.send(call.getKey(), call.getValue());
+				sender.send(call.getKey(), call.getValue(), sent.isEmpty() ? null : () -> runAll(sent));
 			} catch (RuntimeException e) {
 				// Never report on our own report's failure.
+			}
+		}
+	}
+
+	private static void runAll(List<Runnable> callbacks) {
+		for (Runnable r : callbacks) {
+			try {
+				r.run();
+			} catch (RuntimeException e) {
+				// one callback's failure never stops the others
 			}
 		}
 	}

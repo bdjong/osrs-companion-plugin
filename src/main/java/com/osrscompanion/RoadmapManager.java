@@ -8,6 +8,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import javax.inject.Inject;
@@ -31,6 +33,11 @@ import net.runelite.client.config.ConfigManager;
  * uploads, so the server's view of goal progress reaches the plugin without the
  * panel open. Every fetched roadmap is handed to the roadmap listener (the goal
  * tracker); only the selected one becomes the overlay's current roadmap.
+ *
+ * <p>The roadmap's background work runs on its own small daemon thread ({@link #executor()}), never
+ * on RuneLite's shared executor: every plugin's scheduled jobs share that one thread, so a slow
+ * roadmap pass there (a "Slow: roadmap took 4667 ms on pool-2-thread-1") held all of them up. The
+ * thread exists only while roadmap work is scheduled.
  */
 @Slf4j
 @Singleton
@@ -41,11 +48,15 @@ public class RoadmapManager {
 	static final String CONFIG_GROUP = "osrscompanion";
 	static final String SELECTED_ROADMAP_KEY = "selectedRoadmapId";
 	static final String COMPLETED_EXPANDED_KEY = "completedGoalsExpanded";
+	static final String THREAD_NAME = "osrs-companion-roadmap";
+	/** The roadmap thread ends after this long without work. */
+	static final long IDLE_SECONDS = 30;
 
 	private final Client client;
 	private final OSRSCompanionConfig config;
 	private final OSRSCompanionApiClient apiClient;
 	private final ConfigManager configManager;
+	private final ScheduledExecutorService executor;
 	private final ReconcileScheduler scheduler;
 	private final RoadmapListCache listCache = new RoadmapListCache();
 
@@ -70,14 +81,35 @@ public class RoadmapManager {
 			Client client,
 			OSRSCompanionConfig config,
 			OSRSCompanionApiClient apiClient,
-			ConfigManager configManager,
-			ScheduledExecutorService executorService) {
-		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
+			ConfigManager configManager) {
+		this.executor = GuardedExecutor.wrap(GUARD_FEATURE, newOwnExecutor());
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;
 		this.configManager = configManager;
-		this.scheduler = new ReconcileScheduler(executorService, this::refreshAllQuietly);
+		this.scheduler = new ReconcileScheduler(executor, this::refreshAllQuietly);
+	}
+
+	/**
+	 * The roadmap's own executor: one daemon thread, started on demand and ended after
+	 * {@value #IDLE_SECONDS} s without work, so nothing is left running once the plugin stops (its
+	 * periodic jobs are cancelled then). Its tasks are run through the {@link Guard}.
+	 */
+	ScheduledExecutorService executor() {
+		return executor;
+	}
+
+	static ScheduledThreadPoolExecutor newOwnExecutor() {
+		ScheduledThreadPoolExecutor ex = new ScheduledThreadPoolExecutor(1, r -> {
+			Thread t = new Thread(r, THREAD_NAME);
+			t.setDaemon(true);
+			t.setUncaughtExceptionHandler((th, e) -> log.debug("Roadmap thread failed", e));
+			return t;
+		});
+		ex.setKeepAliveTime(IDLE_SECONDS, TimeUnit.SECONDS);
+		ex.allowCoreThreadTimeOut(true);
+		ex.setRemoveOnCancelPolicy(true);
+		return ex;
 	}
 
 	/** The logged-in RS username, or null if not logged in. */
