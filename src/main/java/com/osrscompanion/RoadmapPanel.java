@@ -26,6 +26,7 @@ import javax.swing.Timer;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.util.LinkBrowser;
 import net.runelite.api.SpriteID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SpriteManager;
@@ -200,7 +201,16 @@ public class RoadmapPanel extends PluginPanel {
 		add(p, dailiesTile(() -> show("dailies")), "Dailies: today's open dailies and the guided run.");
 		add(p, slayerTile(() -> show("slayer")), "Slayer helper: your task, the best place to do it, a guide there and your kill stats.");
 		add(p, tripsTile(() -> show("trips")), "Trip planner: how many boss trips and farm runs the supplies in your bank last.");
+		add(p, websiteTile(), "Open the OSRS Companion website in your browser.");
 		return p;
+	}
+
+	/** Opens the website (the configured base URL) in the browser. */
+	private FeatureTile websiteTile() {
+		String base = config.apiBaseUrl().replaceAll("/+$", "");
+		String host = base.replaceFirst("^https?://", "");
+		return FeatureTile.banner("OPEN", "WEBSITE", host, new Color(0x60A5FA), new Color(0x0B1220), new Color(0x1D4ED8), null,
+			() -> LinkBrowser.browse(base + "/home"));
 	}
 
 	private JPanel roadmapPage(Runnable openWindow) {
