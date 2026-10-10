@@ -30,6 +30,8 @@ final class LiveActivity {
 	static final long COMBAT_GRACE_MS = 20_000L;
 	/** Still at the boss this long after the last attack on it, while in the same map region (between kills). */
 	static final long BOSS_GRACE_MS = 90_000L;
+	/** A teleport stays the detail this long (a short event: no segment of its own on the website). */
+	static final long TELEPORT_SHOW_MS = 60_000L;
 
 	/** The activity kinds the website knows (CharacterActivity.activity). */
 	enum Kind {
@@ -65,21 +67,46 @@ final class LiveActivity {
 		int farmDone;
 		int farmTotal;
 		String combatNpc;
+		/** Magic XP came with the Hitpoints XP lately: the fight is trained with Magic. */
+		boolean combatMagic;
+		/** The offensive spell last cast, when known (not with autocast). */
+		String combatSpell;
+		/** The slayer monster being fought ("Abyssal demon"), for its picture. */
+		String slayerNpc;
+		/** The farm run's picture: the route's most planted crop ("Ranarr weed"). */
+		String farmItem;
 		String skill;
+		/** The item the skill last gave ("Raw shark", "Gold ring"), when known. */
+		String skillItem;
+		/** The Magic cast behind the latest Magic XP (an alch, Superheat...), when the skill is Magic. */
+		MagicSpells.Cast magicCast;
+		/** High / Low Level Alchemy casts this login. */
+		int alchs;
+		/** A teleport in the last {@link #TELEPORT_SHOW_MS}, newer than other skilling. */
+		MagicSpells.Cast teleport;
 		boolean bankOpen;
 		boolean idle;
 	}
 
-	/** The chosen activity: its kind, what it is about (same subject = same activity) and the text shown. */
+	/**
+	 * The chosen activity: its kind, what it is about (same subject = same activity), the text shown and
+	 * a picture hint: the wiki file of the thing involved ("Raw shark.png", "Varrock Teleport.png"), or null.
+	 */
 	static final class Choice {
 		final Kind kind;
 		final String subject;
 		final String detail;
+		final String icon;
 
 		Choice(Kind kind, String subject, String detail) {
+			this(kind, subject, detail, null);
+		}
+
+		Choice(Kind kind, String subject, String detail, String icon) {
 			this.kind = kind;
 			this.subject = subject;
 			this.detail = detail;
+			this.icon = icon;
 		}
 
 		/** Two choices with the same key are the same activity (only counts like "12 left" differ). */
@@ -109,23 +136,46 @@ final class LiveActivity {
 		}
 		if (s.slaying && notBlank(s.slayerTask)) {
 			String task = capitalize(s.slayerTask);
-			return new Choice(Kind.SLAYER, task, task + (s.slayerLeft > 0 ? " · " + s.slayerLeft + " left" : ""));
+			return new Choice(Kind.SLAYER, task, task + (s.slayerLeft > 0 ? " · " + s.slayerLeft + " left" : ""),
+				notBlank(s.slayerNpc) ? MagicSpells.wikiFile(s.slayerNpc) : null);
 		}
 		if (notBlank(s.farmRoute)) {
 			return new Choice(Kind.FARM_RUN, s.farmRoute,
-				s.farmRoute + (s.farmTotal > 0 ? " · " + s.farmDone + "/" + s.farmTotal + " patches" : ""));
+				s.farmRoute + (s.farmTotal > 0 ? " · " + s.farmDone + "/" + s.farmTotal + " patches" : ""),
+				notBlank(s.farmItem) ? MagicSpells.wikiFile(s.farmItem) : null);
 		}
 		if (notBlank(s.combatNpc)) {
+			if (s.combatMagic) {
+				return new Choice(Kind.COMBAT, s.combatNpc,
+					"Training Magic on " + s.combatNpc + (notBlank(s.combatSpell) ? " · " + s.combatSpell : ""),
+					MagicSpells.spellIcon(s.combatSpell));
+			}
 			return new Choice(Kind.COMBAT, s.combatNpc, s.combatNpc);
+		}
+		if (s.teleport != null) {
+			// The Magic skill as subject: teleport after teleport stays one stretch of Magic on the website.
+			return new Choice(Kind.SKILLING, "Magic", s.teleport.text(), s.teleport.icon());
 		}
 		if (notBlank(s.skill)) {
 			String skill = capitalize(s.skill);
-			return new Choice(Kind.SKILLING, skill, skill);
+			if (s.magicCast != null && "magic".equalsIgnoreCase(s.skill)) {
+				return magicChoice(s.magicCast, s.alchs);
+			}
+			return notBlank(s.skillItem)
+				? new Choice(Kind.SKILLING, skill, skill + " · " + s.skillItem, MagicSpells.wikiFile(s.skillItem))
+				: new Choice(Kind.SKILLING, skill, skill);
 		}
 		if (s.bankOpen) {
 			return new Choice(Kind.BANKING, null, "Banking");
 		}
 		return new Choice(Kind.OTHER, null, "Playing");
+	}
+
+	/** Skilling Magic with a known cast: the spell as subject, "High alching Rune platebody · 37 alchs" as detail. */
+	static Choice magicChoice(MagicSpells.Cast cast, int alchs) {
+		boolean alch = cast.type == MagicSpells.Type.HIGH_ALCH || cast.type == MagicSpells.Type.LOW_ALCH;
+		String text = cast.text() + (alch && alchs > 0 ? " · " + alchs + (alchs == 1 ? " alch" : " alchs") : "");
+		return new Choice(Kind.SKILLING, cast.spell, text, cast.icon());
 	}
 
 	// ---- Idle ---------------------------------------------------------------------------------
