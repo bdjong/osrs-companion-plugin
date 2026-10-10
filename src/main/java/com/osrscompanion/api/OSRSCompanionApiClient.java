@@ -63,10 +63,11 @@ import okhttp3.Response;
 @Singleton
 public class OSRSCompanionApiClient
 {
+	/** The OSRS Companion website every request goes to. */
+	public static final String BASE_URL = "https://osrs-companion-web.vercel.app";
 	private static final long REQUEST_TIMEOUT_SECONDS = 10;
 	private static final long LARGE_REQUEST_TIMEOUT_SECONDS = 60;
 	private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json");
-	// Resolved at call-time from config so the user can point at localhost or any server.
 
 	/**
 	 * This build's version (see {@link PluginVersion}), sent with every OSRS Companion request so the
@@ -633,7 +634,7 @@ public class OSRSCompanionApiClient
 				player = playerInBody(item.getBody());
 			}
 		}
-		String baseUrl = config.apiBaseUrl().replaceAll("/+$", "");
+		String baseUrl = BASE_URL;
 		String appKey = config.osrsCompanionAppKey().trim();
 		SyncOutbox.Item first = chunk.get(0);
 		if (!baseUrl.equals(first.getBaseUrl()) || !appKey.equals(first.getAppKey()))
@@ -817,7 +818,7 @@ public class OSRSCompanionApiClient
 		}
 
 		Request request = new Request.Builder()
-			.url(config.apiBaseUrl().replaceAll("/+$", "") + endpoint)
+			.url(BASE_URL + endpoint)
 			.header("X-RuneLite-Key", config.osrsCompanionAppKey().trim())
 			.get()
 			.build();
@@ -835,7 +836,7 @@ public class OSRSCompanionApiClient
 		}
 
 		Request request = new Request.Builder()
-			.url(config.apiBaseUrl().replaceAll("/+$", "") + endpoint)
+			.url(BASE_URL + endpoint)
 			.header("Content-Type", "application/json")
 			.header("X-RuneLite-Key", config.osrsCompanionAppKey().trim())
 			.post(RequestBody.create(JSON_MEDIA_TYPE, json))
@@ -960,7 +961,7 @@ public class OSRSCompanionApiClient
 			}
 			onSuccess.run();
 		};
-		String baseUrl = config.apiBaseUrl().replaceAll("/+$", "");
+		String baseUrl = BASE_URL;
 		String appKey = config.osrsCompanionAppKey().trim();
 		SyncOutbox.Item item = new SyncOutbox.Item(baseUrl, appKey, endpoint, "POST", json, syncType,
 			coalesceKey, priority, largeRequest, success);
@@ -1266,7 +1267,7 @@ public class OSRSCompanionApiClient
 			return;
 		}
 		Request request = new Request.Builder()
-			.url(config.apiBaseUrl().replaceAll("/+$", "") + VERSION_ENDPOINT + "?player=" + urlEncode(playerUsername))
+			.url(BASE_URL + VERSION_ENDPOINT + "?player=" + urlEncode(playerUsername))
 			.header("X-RuneLite-Key", config.osrsCompanionAppKey().trim())
 			.get()
 			.build();

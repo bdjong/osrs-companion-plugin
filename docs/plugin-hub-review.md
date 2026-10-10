@@ -1,5 +1,27 @@
 # Plugin Hub readiness review
 
+## Status 2026-10-10 (release prep for 1.0)
+
+Decided and done (branch `feature/hub-release-prep`, merged into `development`):
+
+- Repository public; `friend/` and `run-dev.bat` only on `development` (O6).
+- Defaults: Share live activity, Send error reports and Auto set teleport left click off; Farming cape for herbs Remind (O1 b, O2 b).
+- Switches for Skills & XP and Play sessions; boss trips already had one (O5 b).
+- The hidden `apiBaseUrl` setting is removed; the URL is the constant `OSRSCompanionApiClient.BASE_URL` (O7 b).
+- No more writes to the Bank Tag Layouts plugin's config: read-only detection and a chat hint (O4).
+- The whole-client stall watchdog (heartbeat, stall reports) is removed; the check of the plugin's own sections stays.
+- The menu-swap log line is debug; `author=bdjong` (O8).
+- Version `1.0`, set by hand in `version.properties`; no git-counted or `-dev` versions (O9).
+- `client.menuAction` (collection log) is explained in the README and in `docs/plugin-hub-pr.md`.
+
+Decided 2026-10-11: O3 accepted (the licence notices stay in the public repository, not in the hub jar, as with most hub plugins, Mystix included); O4 one submission of the whole plugin, split only if the reviewers ask. The hub entry gets `authors=bdjong` and a `warning=` line (docs/plugin-hub-pr.md). The website has a privacy page and account deletion (its `development` branch).
+
+Still open: the in-game test of `development`, then the release merge and the hub pull request (README, "Plugin Hub release: what still has to be done").
+
+The review below is the one of 2026-10-08 and is kept as the reasoning behind these decisions.
+
+---
+
 Review date: 2026-10-08, against `origin/main` at `254254f`.
 
 This review checks the plugin against the RuneLite Plugin Hub rules. It covers what already complies, what this branch fixed, and what the owner must decide before submitting.
@@ -47,7 +69,7 @@ Legend: **compliant**: no change needed. **fixed**: changed on this branch. **ow
 | 24 | LICENSE, BSD 2-Clause (README: licensing) | **compliant** | BSD 2-Clause plus `THIRD_PARTY_NOTICES.txt` (the BSD-2 original plugin code it is based on, and the vendored RuneLite timer classes). |
 | 25 | README (README step 11) | **fixed** | Added "Data sent and privacy". |
 | 26 | No hard-coded secrets | **compliant** | No keys in the source or in git history. The App Key is a `secret = true` config item. The only hosts in the code are the website and the OSRS Wiki. |
-| 27 | Thread safety: no blocking network on the client thread | **compliant** | All API calls use OkHttp `enqueue` (async), `GoalImageCache` included. The roadmap's background refreshes run on the plugin's own daemon thread (`osrs-companion-roadmap`, started on demand, ended after 30 s idle), not on RuneLite's shared executor that every plugin uses. The freeze watchdog is the plugin's own daemon thread too; it reads the client thread's stack with `Thread.getStackTrace` and installs no global handlers. |
+| 27 | Thread safety: no blocking network on the client thread | **compliant** | All API calls use OkHttp `enqueue` (async), `GoalImageCache` included. The roadmap's background refreshes run on the plugin's own daemon thread (`osrs-companion-roadmap`, started on demand, ended after 30 s idle), not on RuneLite's shared executor that every plugin uses. The freeze watchdog is the plugin's own daemon thread too; it only times the plugin's own guarded sections (the whole-client stall watch was removed on 2026-10-10), reads the client thread's stack with `Thread.getStackTrace` only when one of them blocks it, and installs no global handlers. |
 | 28 | Resource use | **compliant** | The boss history does a map-region lookup per tick, keeps where its kills happened (at most 12 regions per session) and asks the website for the boss lair regions at most every 6 hours (with the version it has, so an unchanged list is a tiny answer) and sends an open session at most every 30 s (at once on a kill, a drop or logout); session pings every 5 minutes; with "Share live activity" on, the activity status rides along with each batch, and a heartbeat batch goes out only when nothing reached the website for 15 s (it replaces the 30 s version check); the per-tick activity check reads a few varbits and the local player only. Dedup of identical payloads, a 2-tick collection-log settle and an in-memory image cache limited to wiki goal icons. |
 | 29 | "If we cannot review every line, we will not accept it" (wiki) | **owner** | See O4. The plugin is large (about 146 main source files), which slows review. A clear README and this document help. |
 
