@@ -50,9 +50,9 @@ Done for 1.0: the repository is public; the dev launcher kit (`friend/`, `run-de
 Still to do, in this order:
 
 1. **Test in game** on `development` (see [DEVELOPMENT.md](DEVELOPMENT.md#testing-a-release)): syncing with an App Key, each Data Syncing switch, the side panel tools, the farm run and Slayer guides, the bank layouts (with and without the Bank Tag Layouts plugin), the collection log sync and the new defaults on a fresh profile.
-2. **Check the review points again** against the release commit, using [docs/plugin-hub-review.md](docs/plugin-hub-review.md) (the 29 rules and the owner decisions O1–O9). Still open from that review:
-   - **O3 Licence notices in the hub jar**: the hub replaces `build.gradle`, so `LICENSE` and `THIRD_PARTY_NOTICES.txt` are not put in the jar. Accept it (the repository carries them) or move both into `src/main/resources/META-INF/osrs-companion/`.
-   - **O4 Review size**: about 170 source files. Submit as one plugin (and explain it in the PR) or release the sync and roadmap first and the guides in later updates.
+2. **Check the review points again** against the release commit, using [docs/plugin-hub-review.md](docs/plugin-hub-review.md) (the 29 rules and the owner decisions O1–O9). The decisions on that review's open points (re-check that they still hold):
+   - **O3 Licence notices in the hub jar** (decided: accept): the hub replaces `build.gradle`, so `LICENSE` and `THIRD_PARTY_NOTICES.txt` are not put in the jar; they stay in this public repository, as with most hub plugins (Mystix too).
+   - **O4 Review size** (decided: one submission): about 170 source files go in as one plugin, with the PR text pointing reviewers at the sensitive parts; split only if the reviewers ask.
    - Re-check the sensitive APIs before submitting: the single `client.menuAction` (collection log), `client.runScript` uses, the menu swaps, hint arrows, and that nothing writes another plugin's settings.
 3. **Website**: the privacy page and account deletion are on the website's `development` branch; they go live when it is merged into `main`.
 4. **Release**: merge `development` into `main` in both repositories (the `friend/` kit stays out of `main`, see DEVELOPMENT.md), and check the GitHub Actions builds of those commits.

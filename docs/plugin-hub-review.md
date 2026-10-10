@@ -14,7 +14,9 @@ Decided and done (branch `feature/hub-release-prep`, merged into `development`):
 - Version `1.0`, set by hand in `version.properties`; no git-counted or `-dev` versions (O9).
 - `client.menuAction` (collection log) is explained in the README and in `docs/plugin-hub-pr.md`.
 
-Still open: the in-game test of `development`, a privacy page on the website, the licence notices in the hub jar (O3, accepted as source-only for now), review size (O4), then the release merge and the hub pull request (README, "Plugin Hub release: what still has to be done").
+Decided 2026-10-11: O3 accepted (the licence notices stay in the public repository, not in the hub jar, as with most hub plugins, Mystix included); O4 one submission of the whole plugin, split only if the reviewers ask. The hub entry gets `authors=bdjong` and a `warning=` line (docs/plugin-hub-pr.md). The website has a privacy page and account deletion (its `development` branch).
+
+Still open: the in-game test of `development`, then the release merge and the hub pull request (README, "Plugin Hub release: what still has to be done").
 
 The review below is the one of 2026-10-08 and is kept as the reasoning behind these decisions.
 
