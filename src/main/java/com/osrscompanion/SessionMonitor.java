@@ -113,7 +113,7 @@ public class SessionMonitor {
 	}
 
 	private boolean reportable() {
-		return SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client);
+		return SyncGuard.hasAppKey(config) && config.syncSessions() && !GameModeUtil.isSpecialGameMode(client);
 	}
 
 	private void send(String name, String event) {
