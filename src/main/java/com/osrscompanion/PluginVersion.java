@@ -6,48 +6,31 @@ import java.util.Properties;
 import java.util.regex.Pattern;
 
 /**
- * This plugin's version, {@code <base>.<patch>} (for example {@code 0.1.37}). The base is set in
- * {@code version.properties}; the build counts the patch (commits since the base last changed) and
- * writes it to {@code build-version.properties}. A build without that file (no git history, or a
- * build.gradle that does not generate it) reports {@code <base>-dev}.
+ * This plugin's version (for example {@code 1.0}), from {@code version.properties}. It is set by
+ * hand for each Plugin Hub release, so every build of the same commit reports the same version.
  */
 public final class PluginVersion {
-	static final String BASE_RESOURCE = "version.properties";
-	static final String BUILD_RESOURCE = "build-version.properties";
+	static final String RESOURCE = "version.properties";
 	/** What a version may look like: it is sent as an HTTP header and stored by the website. */
 	private static final Pattern SAFE = Pattern.compile("[0-9A-Za-z._-]{1,32}");
-	private static final String FALLBACK_BASE = "0.0";
+	private static final String FALLBACK = "0.0";
 
-	/** This build's version, for example {@code 0.1.37} or {@code 0.1-dev}. */
-	public static final String VERSION = resolve(load(BUILD_RESOURCE), load(BASE_RESOURCE));
+	/** This build's version, for example {@code 1.0}. */
+	public static final String VERSION = resolve(load(RESOURCE));
 
 	private PluginVersion() {
 	}
 
-	/** "OSRS Companion v0.1.37", for the side panel. */
+	/** "OSRS Companion v1.0", for the side panel. */
 	public static String label() {
 		return "OSRS Companion v" + VERSION;
 	}
 
-	/** Picks the generated version, else the base plus "-dev"; never returns something header-unsafe. */
-	static String resolve(Properties build, Properties base) {
-		String generated = build == null ? null : trim(build.getProperty("version"));
-		if (generated != null && SAFE.matcher(generated).matches()) {
-			return generated;
-		}
-		String b = base == null ? null : trim(base.getProperty("base"));
-		if (b == null || !SAFE.matcher(b + "-dev").matches()) {
-			b = FALLBACK_BASE;
-		}
-		return b + "-dev";
-	}
-
-	private static String trim(String s) {
-		if (s == null) {
-			return null;
-		}
-		String t = s.trim();
-		return t.isEmpty() ? null : t;
+	/** The file's version, or {@value #FALLBACK} when it is missing or not header-safe. */
+	static String resolve(Properties props) {
+		String v = props == null ? null : props.getProperty("version");
+		v = v == null ? null : v.trim();
+		return v != null && SAFE.matcher(v).matches() ? v : FALLBACK;
 	}
 
 	private static Properties load(String name) {
