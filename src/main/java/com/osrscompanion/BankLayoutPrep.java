@@ -62,10 +62,9 @@ import net.runelite.client.util.Text;
  *
  * <p>The "Bank Tag Layouts" hub plugin lays out any open tag itself when its "Enable layout by
  * default" is on: right after Bank Tags draws our layout it packs every item from the top again, and
- * saves that as its own layout for the tag. A plugin may not change another plugin's settings, so we
- * only read them ({@link #hubLayoutConflict}): when it would take our tag over, our layout is not
- * opened (so it saves nothing for our tag) and a chat message once tells the player which of its
- * settings to switch off.
+ * may save that as its own layout for the tag. A plugin may not change another plugin's settings, so we
+ * only read them ({@link #hubLayoutConflict}): our tag still opens (the bank shows only the needed
+ * items, in its order) and a chat message once tells the player which of its settings gives our layout.
  */
 @Slf4j
 @Singleton
@@ -249,10 +248,11 @@ public class BankLayoutPrep {
 		}
 		hubLayoutsHintShown = true;
 		String fix = conflict == HubConflict.BY_DEFAULT
-			? "switch off 'Enable layout by default' in the Bank Tag Layouts plugin's settings, then open your bank again."
-			: "it has saved its own layout for this view. Turn the Bank Tag Layouts plugin off (or remove its saved layouts) to get ours.";
+			? "switch off 'Enable layout by default' in the Bank Tag Layouts plugin's settings and open your bank again."
+			: "turn the Bank Tag Layouts plugin off: it saved its own order for this view.";
 		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "",
-			"<col=ff9040>OSRS Companion: the Bank Tag Layouts plugin would re-sort your gear layout. To use ours, " + fix + "</col>", null);
+			"<col=ff9040>OSRS Companion: your gear is shown in the order of the Bank Tag Layouts plugin. For our neater layout (worn gear,"
+				+ " rune pouch and inventory in their slots), " + fix + "</col>", null);
 	}
 
 	public void shutDown() {
@@ -562,16 +562,10 @@ public class BankLayoutPrep {
 			return;
 		}
 		HubConflict conflict = hubLayoutConflict(tag);
-		if (conflict == HubConflict.BY_DEFAULT) {
-			// Opening our tag now would make "Bank Tag Layouts" pack it and save that for good: leave the
-			// bank alone until its "Enable layout by default" is off.
-			log.debug("Bank layout: Bank Tag Layouts would take '{}' over (layout by default on), the bank is left alone", tag);
-			hubLayoutsHint(conflict);
-			return;
-		}
-		if (conflict == HubConflict.SAVED) {
-			// It already keeps its own layout for our tag: the tag still filters the bank, in its order.
-			log.debug("Bank layout: Bank Tag Layouts has its own layout for '{}', it shows the items in its order", tag);
+		if (conflict != HubConflict.NONE) {
+			// "Bank Tag Layouts" re-sorts our tag into its own order: the bank still shows only the needed
+			// items, just not in our layout. Tell the player once which of its settings gives ours.
+			log.debug("Bank layout: Bank Tag Layouts re-sorts '{}' ({}), the items show in its order", tag, conflict);
 			hubLayoutsHint(conflict);
 		}
 		BankItems bank = new BankItems();
