@@ -9,9 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.events.BeforeRender;
 import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
@@ -276,8 +274,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	private volatile IncidentStore incidentStore;
 	/** A fatal error or freeze the last session persisted, reported once a player is logged in. */
 	private volatile PreviousIncident previousIncident;
-	/** Whole-client-thread stalls the watchdog sees: persisted and reported. */
-	private volatile ClientStallReporter stallReporter;
 	/** A player was logged in since the last login screen: later LOGGED_IN events are region loads. */
 	private boolean sessionLoaded;
 	private ErrorLogAppender errorLogAppender;
@@ -362,29 +358,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		previousIncident = new PreviousIncident(incidentStore);
 		watchdog = new FreezeWatchdog(guard);
 		guard.setListener(new GuardListener());
-		// The whole client thread too, wherever it is stuck: a heartbeat on every tick and frame.
-		stallReporter = new ClientStallReporter(() -> incidentStore, () -> errorReporter, System::currentTimeMillis);
-		ClientStallReporter reporter = stallReporter;
-		watchdog.setStallListener(new FreezeWatchdog.StallListener() {
-			@Override
-			public void onStall(FreezeWatchdog.Stall stall) {
-				reporter.onStall(stall);
-				if (stall.terminated) {
-					// The client thread is dead and the player will kill the client: send what was already
-					// read (a bank visit's changes) now. Nothing is re-read: the containers are not reliable.
-					step("flush uploads after the client thread died", () -> {
-						bankMemoryMonitor.flushPending();
-						apiClient.flushOutbox();
-					});
-				}
-			}
-
-			@Override
-			public void onResume(FreezeWatchdog.Stall stall, long stalledMs) {
-				reporter.onResume(stall, stalledMs);
-			}
-		});
-		watchdog.setInGame(() -> isInGame(client.getGameState()));
 		// The watchdog times our sections on the client thread: tell the Guard which thread that is.
 		clientThread.invoke(() -> guard.watchThread(Thread.currentThread()));
 		watchdog.start();
@@ -441,29 +414,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		}
 	}
 
-	/** In game, when the client thread's heartbeat is expected (a stall there is a freeze). */
-	static boolean isInGame(GameState state) {
-		return state == GameState.LOGGED_IN || state == GameState.LOADING || state == GameState.HOPPING
-				|| state == GameState.CONNECTION_LOST;
-	}
-
-	/** The client thread's heartbeat for the watchdog: one volatile write, nothing else. */
-	@Subscribe(priority = Float.MAX_VALUE)
-	public void onClientTick(ClientTick event) {
-		FreezeWatchdog dog = watchdog;
-		if (dog != null) {
-			dog.beat();
-		}
-	}
-
-	@Subscribe(priority = Float.MAX_VALUE)
-	public void onBeforeRender(BeforeRender event) {
-		FreezeWatchdog dog = watchdog;
-		if (dog != null) {
-			dog.beat();
-		}
-	}
-
 	/**
 	 * The incident the last session persisted but could not report (it ended first): reported once the
 	 * player is known, and cleared once that report was sent.
@@ -480,24 +430,19 @@ public class OSRSCompanionPlugin extends Plugin {
 		guard.setListener(null);
 		guard.watchThread(null);
 		if (watchdog != null) {
-			watchdog.setStallListener(null);
 			watchdog.stop();
 			watchdog = null;
 		}
 		// A clean stop: whatever this session persisted was reported live. An earlier session's
-		// incident not sent yet, or a stall report still on its way, stays for the next start.
+		// incident not sent yet stays for the next start.
 		IncidentStore store = incidentStore;
 		if (store != null) {
 			PreviousIncident previous = previousIncident;
-			ClientStallReporter stalls = stallReporter;
-			boolean keep = previous != null && previous.isStillStored()
-					|| stalls != null && stalls.holds(store.peekRaw());
-			if (!keep) {
+			if (previous == null || !previous.isStillStored()) {
 				store.clear();
 			}
 			incidentStore = null;
 		}
-		stallReporter = null;
 	}
 
 	/**
