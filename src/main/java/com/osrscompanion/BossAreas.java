@@ -20,6 +20,11 @@ import java.util.Set;
  * without a region here (or a lair at another region) is learned in the game: a kill count message of the
  * boss marks the region you stand in as its lair ({@link BossHistory} keeps those per profile). Keys are the
  * website's Boss Gear keys (bossGear.json) where it has the boss. No game access.
+ *
+ * <p>The website holds the same list (src/lib/bossAreas.ts, kept in step by a test there) with the admins'
+ * fixes on top, and serves it (GET /api/runelite/boss-areas, {@link BossAreasSync}). Once it has arrived,
+ * {@link #setServer} makes its regions the lairs of the bosses it lists; a boss it does not list keeps the
+ * regions built in here. Learned lairs count on top of either.
  */
 final class BossAreas {
 	private BossAreas() {
@@ -77,6 +82,21 @@ final class BossAreas {
 			return key;
 		}
 	}
+
+	/** The website's lairs (boss key -> regions) and the region index over them; null: the built-in ones. */
+	private static final class Server {
+		final String version;
+		final Map<String, Set<Integer>> regions;
+		final Map<Integer, List<Boss>> byRegion;
+
+		Server(String version, Map<String, Set<Integer>> regions, Map<Integer, List<Boss>> byRegion) {
+			this.version = version;
+			this.regions = regions;
+			this.byRegion = byRegion;
+		}
+	}
+
+	private static volatile Server server;
 
 	private static final Map<String, Boss> BY_KEY = new LinkedHashMap<>();
 	private static final Map<Integer, List<Boss>> BY_REGION = new HashMap<>();
@@ -194,8 +214,67 @@ final class BossAreas {
 
 	/** The bosses whose lair is this region (several share one: The Nightmare and Phosani's); empty when none. */
 	static List<Boss> byRegion(int region) {
-		List<Boss> l = BY_REGION.get(region);
+		Server s = server;
+		List<Boss> l = (s == null ? BY_REGION : s.byRegion).get(region);
 		return l == null ? Collections.emptyList() : l;
+	}
+
+	/** The lair regions of a boss: the website's when it lists the boss, else the built-in ones. */
+	static Set<Integer> regionsOf(Boss b) {
+		if (b == null) {
+			return Collections.emptySet();
+		}
+		Server s = server;
+		Set<Integer> r = s == null ? null : s.regions.get(b.key);
+		return r != null ? r : b.regions;
+	}
+
+	/** Whether the lairs come from the website. */
+	static boolean fromServer() {
+		return server != null;
+	}
+
+	/** The version of the website's list in use (null: the built-in one). */
+	static String serverVersion() {
+		Server s = server;
+		return s == null ? null : s.version;
+	}
+
+	/**
+	 * Uses the website's lairs (boss key -> regions): a boss it lists gets exactly those regions (an empty list
+	 * included), the others keep their built-in ones; keys this plugin does not know are skipped. Null or empty:
+	 * back to the built-in list. Thread safe (one snapshot swapped in).
+	 */
+	static void setServer(String version, Map<String, ? extends java.util.Collection<Integer>> lairs) {
+		if (lairs == null || lairs.isEmpty()) {
+			server = null;
+			return;
+		}
+		Map<String, Set<Integer>> regions = new HashMap<>();
+		for (Map.Entry<String, ? extends java.util.Collection<Integer>> e : lairs.entrySet()) {
+			if (e.getKey() != null && BY_KEY.containsKey(e.getKey()) && e.getValue() != null) {
+				Set<Integer> set = new HashSet<>();
+				for (Integer id : e.getValue()) {
+					if (id != null && id >= 0) {
+						set.add(id);
+					}
+				}
+				regions.put(e.getKey(), Collections.unmodifiableSet(set));
+			}
+		}
+		if (regions.isEmpty()) {
+			server = null;
+			return;
+		}
+		// The index in the table's order, so a shared lair picks the same boss as the built-in one.
+		Map<Integer, List<Boss>> byRegion = new HashMap<>();
+		for (Boss b : BY_KEY.values()) {
+			Set<Integer> r = regions.get(b.key);
+			for (int id : r != null ? r : b.regions) {
+				byRegion.computeIfAbsent(id, k -> new ArrayList<>()).add(b);
+			}
+		}
+		server = new Server(version, Collections.unmodifiableMap(regions), byRegion);
 	}
 
 	/**
@@ -203,7 +282,7 @@ final class BossAreas {
 	 * else the first; a learned lair ({@code learned}: boss key -> regions) counts too. Null outside every lair.
 	 */
 	static Boss lairAt(int region, Boss prefer, Map<String, ? extends java.util.Collection<Integer>> learned) {
-		if (prefer != null && (prefer.regions.contains(region) || learnedHas(learned, prefer.key, region))) {
+		if (prefer != null && (regionsOf(prefer).contains(region) || learnedHas(learned, prefer.key, region))) {
 			return prefer;
 		}
 		List<Boss> l = byRegion(region);
@@ -225,10 +304,15 @@ final class BossAreas {
 
 	/** Whether this region is a lair of this boss (its own or learned). */
 	static boolean isLair(Boss b, int region, Map<String, ? extends java.util.Collection<Integer>> learned) {
-		return b != null && (b.regions.contains(region) || learnedHas(learned, b.key, region));
+		return b != null && (regionsOf(b).contains(region) || learnedHas(learned, b.key, region));
 	}
 
-	private static boolean learnedHas(Map<String, ? extends java.util.Collection<Integer>> learned, String key, int region) {
+	/** Whether this region is one of the boss's known lair regions (the website's or built in; not learned). */
+	static boolean isKnownLair(Boss b, int region) {
+		return b != null && regionsOf(b).contains(region);
+	}
+
+	static boolean learnedHas(Map<String, ? extends java.util.Collection<Integer>> learned, String key, int region) {
 		if (learned == null) {
 			return false;
 		}
