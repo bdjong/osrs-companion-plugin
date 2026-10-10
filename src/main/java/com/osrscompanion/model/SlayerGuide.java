@@ -4,7 +4,9 @@ import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * GET /api/runelite/slayer/guide/: the current task and where to do it, best place first.
@@ -227,6 +229,29 @@ public class SlayerGuide {
 				return false;
 			}
 			return Math.max(Math.abs(x - getX()), Math.abs(y - getY())) <= Math.max(0, radius);
+		}
+
+		/**
+		 * Every map region the location spans: its region ids plus each region the square of the radius
+		 * round its tile reaches (the website's locationRegions, so a kill's region and the area agree).
+		 * A location over several regions (a dungeon's caves) is one area in all of them.
+		 */
+		public Set<Integer> coveredRegions() {
+			Set<Integer> out = new LinkedHashSet<>(getRegionIds());
+			if (hasTile()) {
+				int r = Math.max(0, radius);
+				for (int rx = (getX() - r) >> 6; rx <= (getX() + r) >> 6; rx++) {
+					for (int ry = (getY() - r) >> 6; ry <= (getY() + r) >> 6; ry++) {
+						out.add(rx << 8 | ry);
+					}
+				}
+			}
+			return out;
+		}
+
+		/** Whether you are in the area ({@link #contains}) or anywhere in one of the regions it spans ({@link #coveredRegions}). */
+		public boolean covers(int x, int y, int plane, int regionId) {
+			return contains(x, y, plane, regionId) || coveredRegions().contains(regionId);
 		}
 	}
 }
