@@ -441,6 +441,7 @@ public class BossHistoryTest {
 		// Zalcano is no boss trip, but it is in the boss history.
 		assertNull(BossTripTracker.killCountBoss("Your Zalcano kill count is: 3."));
 		assertArrayEquals(new String[]{"Zalcano", "3"}, BossTripTracker.killCount("Your Zalcano kill count is: 3."));
+		assertArrayEquals(new String[]{"Yama", "12"}, BossTripTracker.killCount("Your Yama success count is: 12."));
 		assertNull(BossTripTracker.killCount("Your Gnome Stronghold Agility lap count is: 5."));
 		assertEquals(1152, BossHistory.parseCount("1,152"));
 	}
