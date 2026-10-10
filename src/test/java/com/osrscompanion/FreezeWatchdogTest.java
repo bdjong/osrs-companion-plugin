@@ -143,6 +143,11 @@ public class FreezeWatchdogTest {
 		}, "Client");
 		t.setDaemon(true);
 		t.start();
+		// Wait until it is parked in await(), so a sampled stack always shows it (no race with the start).
+		long until = System.currentTimeMillis() + 5_000;
+		while (t.getState() != Thread.State.WAITING && System.currentTimeMillis() < until) {
+			Thread.onSpinWait();
+		}
 		return t;
 	}
 
