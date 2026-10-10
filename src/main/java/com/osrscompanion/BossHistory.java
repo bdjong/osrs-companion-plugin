@@ -19,6 +19,7 @@ import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
+import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
@@ -31,8 +32,10 @@ import net.runelite.client.config.ConfigManager;
  * <p>It has no events of its own: {@link BossTripTracker} (which records the trips for the trip planner and
  * the supplies check) hands it the bank, chat, loot, death, logout and tick events, and the supplies each of
  * its trips used. Where you are is the map region (the template region in an instance) against
- * {@link BossAreas}; a kill count message somewhere else marks that region as the boss's lair (kept per
- * profile). Client thread only; the work per tick is a region lookup and a few field reads.
+ * {@link BossAreas} (the website's lairs once {@link BossAreasSync} has them, else the built-in ones); a kill
+ * count message somewhere else marks that region as the boss's lair (kept per profile). Each kill notes the
+ * region it happened in (the session's kill_regions), so the website can report kills outside the known
+ * lairs. Client thread only; the work per tick is a region lookup and a few field reads.
  */
 @Slf4j
 @Singleton
@@ -62,6 +65,7 @@ public class BossHistory {
 	private final ConfigManager configManager;
 	private final OSRSCompanionApiClient apiClient;
 	private final Gson gson;
+	private final BossAreasSync areas;
 
 	private BossSession session;
 	/** Another boss's lair you walked into while the session (with data) runs: it starts on proof (a kill, a fight). */
@@ -76,6 +80,9 @@ public class BossHistory {
 	private boolean restored;
 	private int ticksLoggedIn;
 	private int region = -1;
+	/** The region you stand in (inside an instance: the instance's own one; {@link #region} is the template's). */
+	private int rawRegion = -1;
+	private boolean instance;
 	private WorldPoint lastPoint;
 	private long lastSyncMs;
 	private long lastSentUpdate = -1;
@@ -84,13 +91,14 @@ public class BossHistory {
 
 	@Inject
 	public BossHistory(Client client, ClientThread clientThread, OSRSCompanionConfig config, ConfigManager configManager,
-		OSRSCompanionApiClient apiClient, Gson gson) {
+		OSRSCompanionApiClient apiClient, Gson gson, BossAreasSync areas) {
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
 		this.configManager = configManager;
 		this.apiClient = apiClient;
 		this.gson = gson;
+		this.areas = areas;
 	}
 
 	/** Plugin stop: the open session is stored (it goes on after a restart) and everything is forgotten. */
@@ -109,6 +117,8 @@ public class BossHistory {
 		restored = false;
 		ticksLoggedIn = 0;
 		region = -1;
+		rawRegion = -1;
+		instance = false;
 		lastPoint = null;
 		lastSentUpdate = -1;
 		lastPersistedUpdate = -1;
@@ -135,9 +145,15 @@ public class BossHistory {
 			restore();
 		}
 		long now = System.currentTimeMillis();
+		areas.tick(now);
 		int tick = client.getTickCount();
 		WorldPoint here = position();
 		region = here == null ? -1 : here.getRegionID();
+		Player me = client.getLocalPlayer();
+		WorldPoint raw = me == null ? null : me.getWorldLocation();
+		rawRegion = raw == null ? region : raw.getRegionID();
+		WorldView view = client.getTopLevelWorldView();
+		instance = view != null && view.isInstance();
 
 		BossAreas.Boss lair = region < 0 ? null : BossAreas.lairAt(region, boss(), learned);
 		if (lair != null && (session == null || !lair.key.equals(session.bossKey))) {
@@ -216,6 +232,7 @@ public class BossHistory {
 		BossSession s = ensureSession(b, now);
 		learn(b);
 		s.addKill(killCount, now);
+		noteKillRegion(s, b, 1);
 		matcher.killMessage(client.getTickCount());
 		// A kill goes to the website at once.
 		sync(true, true);
@@ -362,6 +379,7 @@ public class BossHistory {
 		for (int i = 0; i < r.deathKills; i++) {
 			s.addKill(0, now);
 		}
+		noteKillRegion(s, boss(), r.deathKills);
 		for (long ms : r.fightMs) {
 			s.addKillTime(ms, now);
 		}
@@ -391,6 +409,22 @@ public class BossHistory {
 				}
 			}
 		}
+	}
+
+	/** Where {@code n} kills just happened, for the website's boss location reports. */
+	private void noteKillRegion(BossSession s, BossAreas.Boss b, int n) {
+		if (b == null || region < 0) {
+			return;
+		}
+		noteKillRegion(s, b, region, rawRegion, instance, n, learned);
+	}
+
+	/** {@link #noteKillRegion}: {@code region} is the one the lairs are matched on (the template's in an instance). */
+	static void noteKillRegion(BossSession s, BossAreas.Boss b, int region, int rawRegion, boolean instance, int n,
+		Map<String, ? extends java.util.Collection<Integer>> learned) {
+		java.util.Collection<Integer> mine = learned == null ? null : learned.get(b.key);
+		s.addKillRegion(rawRegion, region, instance, BossAreas.isKnownLair(b, region), BossAreas.learnedHas(learned, b.key, region), n,
+			BossAreas.regionsOf(b), mine, BossAreas.fromServer() ? "server" : "built-in");
 	}
 
 	/** A kill count message outside every known lair: this region is the boss's lair from now on. */

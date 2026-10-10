@@ -16,6 +16,7 @@ import com.osrscompanion.model.CollectionLogSyncPayload;
 import com.osrscompanion.model.CombatAchievementsSyncPayload;
 import com.osrscompanion.model.Dailies;
 import com.osrscompanion.model.DeathSyncPayload;
+import com.osrscompanion.model.BossAreasResponse;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.GearPlan;
@@ -107,6 +108,7 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_GEAR_ENDPOINT = "/api/runelite/slayer/gear/";
 	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
 	private static final String BOSS_SESSIONS_ENDPOINT = "/api/runelite/boss-sessions/";
+	private static final String BOSS_AREAS_ENDPOINT = "/api/runelite/boss-areas/";
 	static final String BATCH_ENDPOINT = "/api/runelite/batch";
 	static final String VERSION_ENDPOINT = "/api/runelite/version";
 	static final String ERRORS_ENDPOINT = "/api/runelite/errors";
@@ -659,6 +661,15 @@ public class OSRSCompanionApiClient
 		body.put("player", playerUsername);
 		postForResult(FARM_ROUTE_ENDPOINT + "routes/" + routeId + "/activate/", gson.toJson(body), "farm-route-activate",
 			FarmRoute.Response.class, callback);
+	}
+
+	/**
+	 * Fetches the website's boss lairs (boss key -> map regions). With the version the plugin has, the answer
+	 * is only { version, unchanged: true } while it is still current.
+	 */
+	public void getBossAreas(String version, RoadmapCallback<BossAreasResponse> callback)
+	{
+		getAsync(BOSS_AREAS_ENDPOINT + (version == null ? "" : "?version=" + urlEncode(version)), "boss-areas", BossAreasResponse.class, callback);
 	}
 
 	/** Fetches the player's active boss gear set ({ set: null } until one is picked on the website). */

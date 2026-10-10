@@ -285,6 +285,91 @@ public class BossHistoryTest {
 		assertTrue(p.containsKey("time_in_lair_sec"));
 	}
 
+	// ---- Kill regions and the website's lairs ------------------------------------------------------
+
+	@org.junit.After
+	public void builtInLairs() {
+		BossAreas.setServer(null, null);
+	}
+
+	@Test
+	public void killRegionsMergePerTemplateRegionAndSayWhetherInTheLair() {
+		BossSession s = vorkath();
+		BossAreas.Boss vork = BossAreas.byKey("vorkath");
+		Map<String, List<Integer>> learned = new HashMap<>();
+		// Two instances of the same lair (each has its own region), then a kill elsewhere that was learned.
+		BossHistory.noteKillRegion(s, vork, 9023, 12001, true, 1, learned);
+		BossHistory.noteKillRegion(s, vork, 9023, 12555, true, 2, learned);
+		learned.put("vorkath", Collections.singletonList(9279));
+		BossHistory.noteKillRegion(s, vork, 9279, 9279, false, 1, learned);
+		assertEquals(2, s.killRegions.size());
+
+		Map<String, Object> p = s.payload("Zezima");
+		List<?> kr = (List<?>) p.get("kill_regions");
+		assertEquals(2, kr.size());
+		Map<?, ?> lair = (Map<?, ?>) kr.get(0);
+		assertEquals(12555, lair.get("region_id"));
+		assertEquals(9023, lair.get("template_region_id"));
+		assertEquals(3, lair.get("kills"));
+		assertEquals(true, lair.get("in_lair"));
+		assertEquals(false, lair.get("learned"));
+		assertEquals(true, lair.get("instance"));
+		Map<?, ?> out = (Map<?, ?>) kr.get(1);
+		assertEquals(9279, out.get("region_id"));
+		assertNull(out.get("template_region_id"));
+		assertEquals(false, out.get("in_lair"));
+		assertEquals(true, out.get("learned"));
+		assertEquals(Collections.singletonList(9023), p.get("lair_regions"));
+		assertEquals(Collections.singletonList(9279), p.get("learned_regions"));
+		assertEquals("built-in", p.get("lair_source"));
+	}
+
+	@Test
+	public void killRegionsAreCapped() {
+		BossSession s = vorkath();
+		BossAreas.Boss vork = BossAreas.byKey("vorkath");
+		BossHistory.noteKillRegion(s, vork, 9023, 9023, false, 50, null);
+		for (int i = 0; i < 30; i++) {
+			BossHistory.noteKillRegion(s, vork, 1000 + i, 1000 + i, false, 1, null);
+		}
+		assertEquals(BossSession.MAX_KILL_REGIONS, s.killRegions.size());
+		assertEquals(50, s.killRegions.get(0).kills);
+		// The latest is kept.
+		assertEquals(1029, s.killRegions.get(s.killRegions.size() - 1).templateRegionId);
+	}
+
+	@Test
+	public void theWebsitesLairsReplaceTheBuiltInOnes() {
+		BossAreas.Boss vork = BossAreas.byKey("vorkath");
+		com.osrscompanion.model.BossAreasResponse r = new com.google.gson.Gson().fromJson(
+			"{\"version\":\"v2\",\"bosses\":[{\"key\":\"vorkath\",\"regions\":[9023,9024]},{\"key\":\"spindel\",\"regions\":[7000]},"
+				+ "{\"key\":\"no-such-boss\",\"regions\":[1]}]}",
+			com.osrscompanion.model.BossAreasResponse.class);
+		assertTrue(BossAreasSync.apply(r));
+		assertEquals("v2", BossAreas.serverVersion());
+		assertEquals("vorkath", BossAreas.lairAt(9024, null, null).key);
+		assertEquals("spindel", BossAreas.lairAt(7000, null, null).key);
+		// Bosses the website does not list keep their built-in lairs.
+		assertEquals("zulrah", BossAreas.lairAt(9007, null, null).key);
+		assertTrue(BossAreas.isKnownLair(vork, 9024));
+
+		BossSession s = vorkath();
+		BossHistory.noteKillRegion(s, vork, 9024, 9024, false, 1, null);
+		Map<String, Object> p = s.payload("Zezima");
+		assertEquals(true, ((Map<?, ?>) ((List<?>) p.get("kill_regions")).get(0)).get("in_lair"));
+		assertEquals(Arrays.asList(9023, 9024), p.get("lair_regions"));
+		assertEquals("server", p.get("lair_source"));
+
+		// "unchanged" keeps the list; none at all: back to the built-in one.
+		com.osrscompanion.model.BossAreasResponse same = new com.google.gson.Gson().fromJson(
+			"{\"version\":\"v2\",\"unchanged\":true}", com.osrscompanion.model.BossAreasResponse.class);
+		assertFalse(BossAreasSync.apply(same));
+		assertEquals("v2", BossAreas.serverVersion());
+		BossAreas.setServer(null, null);
+		assertNull(BossAreas.lairAt(9024, null, null));
+		assertFalse(BossAreas.isKnownLair(vork, 9024));
+	}
+
 	// ---- Kills and fight times ------------------------------------------------------------------
 
 	@Test

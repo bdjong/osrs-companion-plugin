@@ -37,6 +37,41 @@ final class BossSession {
 	static final int MAX_LOOT_ITEMS = 300;
 	static final int MAX_TRIPS = 100;
 	static final int MAX_SUPPLIES = 100;
+	static final int MAX_KILL_REGIONS = 12;
+	static final int MAX_LAIR_REGIONS = 32;
+
+	/**
+	 * Where kills happened (the website's boss location reports): per region (the template region in an
+	 * instance) the kills, whether it is one of the boss's known lair regions (built in or the website's) and
+	 * whether it is a learned lair (from the kill count fallback).
+	 */
+	static final class KillRegion {
+		/** The region you stood in (the instance's own region inside an instance). */
+		@SerializedName("region_id")
+		int regionId;
+		/** Inside an instance: the template region (what the lairs list); else the same as region_id. */
+		@SerializedName("template_region_id")
+		int templateRegionId;
+		@SerializedName("instance")
+		boolean instance;
+		@SerializedName("in_lair")
+		boolean inLair;
+		@SerializedName("learned")
+		boolean learned;
+		@SerializedName("kills")
+		int kills;
+
+		Map<String, Object> payload() {
+			Map<String, Object> m = new LinkedHashMap<>();
+			m.put("region_id", regionId);
+			m.put("kills", kills);
+			m.put("in_lair", inLair);
+			m.put("learned", learned);
+			m.put("instance", instance);
+			m.put("template_region_id", instance ? templateRegionId : null);
+			return m;
+		}
+	}
 
 	/** One item stack (loot or supplies) as stored and sent. */
 	static final class Stack {
@@ -211,6 +246,16 @@ final class BossSession {
 	List<Trip> trips = new ArrayList<>();
 	@SerializedName("trip_count")
 	int tripCount;
+	@SerializedName("kill_regions")
+	List<KillRegion> killRegions = new ArrayList<>();
+	/** The regions the session treated as the boss's lair at its last kill: known (built in or the website's) and learned. */
+	@SerializedName("lair_regions")
+	List<Integer> lairRegions = new ArrayList<>();
+	@SerializedName("learned_regions")
+	List<Integer> learnedRegions = new ArrayList<>();
+	/** Where the known lair regions came from: "server" or "built-in". */
+	@SerializedName("lair_source")
+	String lairSource;
 	/** Last kill, drop, death or entering the lair (for the idle close). */
 	@SerializedName("last_activity_ms")
 	long lastActivityMs;
@@ -341,6 +386,15 @@ final class BossSession {
 		if (trips == null) {
 			trips = new ArrayList<>();
 		}
+		if (killRegions == null) {
+			killRegions = new ArrayList<>();
+		}
+		if (lairRegions == null) {
+			lairRegions = new ArrayList<>();
+		}
+		if (learnedRegions == null) {
+			learnedRegions = new ArrayList<>();
+		}
 	}
 
 	/** A kill (a kill count message, or the boss's death); {@code killCount} 0 when the game said none. */
@@ -357,6 +411,61 @@ final class BossSession {
 		t.kills++;
 		lastActivityMs = nowMs;
 		updatedMs = nowMs;
+	}
+
+	/**
+	 * Where {@code n} kills happened: merged per template region and instance flag (the instance's own region
+	 * changes every time), at most {@link #MAX_KILL_REGIONS} kept (the fewest kills dropped). {@code known} and
+	 * {@code learned}: the lair regions the session used then, with {@code source} ("server" or "built-in").
+	 */
+	void addKillRegion(int regionId, int templateRegionId, boolean instance, boolean inLair, boolean isLearned, int n,
+		java.util.Collection<Integer> known, java.util.Collection<Integer> learned, String source) {
+		if (n <= 0 || templateRegionId < 0) {
+			return;
+		}
+		KillRegion k = null;
+		for (KillRegion e : killRegions) {
+			if (e.templateRegionId == templateRegionId && e.instance == instance) {
+				k = e;
+				break;
+			}
+		}
+		if (k == null) {
+			k = new KillRegion();
+			k.templateRegionId = templateRegionId;
+			k.instance = instance;
+			killRegions.add(k);
+		}
+		k.regionId = regionId < 0 ? templateRegionId : regionId;
+		k.inLair = inLair;
+		k.learned = isLearned;
+		k.kills += n;
+		while (killRegions.size() > MAX_KILL_REGIONS) {
+			// The fewest kills go, never the one just added to.
+			KillRegion least = null;
+			for (KillRegion e : killRegions) {
+				if (e != k && (least == null || e.kills < least.kills)) {
+					least = e;
+				}
+			}
+			killRegions.remove(least);
+		}
+		lairRegions = capped(known);
+		learnedRegions = capped(learned);
+		lairSource = source;
+	}
+
+	private static List<Integer> capped(java.util.Collection<Integer> c) {
+		List<Integer> out = new ArrayList<>();
+		if (c != null) {
+			for (Integer i : c) {
+				if (i != null && out.size() < MAX_LAIR_REGIONS && !out.contains(i)) {
+					out.add(i);
+				}
+			}
+			java.util.Collections.sort(out);
+		}
+		return out;
 	}
 
 	void addKillTime(long ms, long nowMs) {
@@ -541,6 +650,14 @@ final class BossSession {
 			tl.add(t.payload());
 		}
 		m.put("trips", tl);
+		List<Map<String, Object>> kr = new ArrayList<>();
+		for (KillRegion k : killRegions) {
+			kr.add(k.payload());
+		}
+		m.put("kill_regions", kr);
+		m.put("lair_regions", new ArrayList<>(lairRegions));
+		m.put("learned_regions", new ArrayList<>(learnedRegions));
+		m.put("lair_source", lairSource);
 		return m;
 	}
 
