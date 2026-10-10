@@ -150,6 +150,10 @@ public class PlayerSkillsMonitor {
 			log.debug("Player skills sync skipped: no App Key configured");
 			return;
 		}
+		if (!config.syncSkills()) {
+			log.debug("Player skills sync skipped: Skills & XP sync is off");
+			return;
+		}
 		if (GameModeUtil.isSpecialGameMode(client)) {
 			log.debug("Player skills sync skipped: special game mode detected (Leagues, DMM, etc.)");
 			return;

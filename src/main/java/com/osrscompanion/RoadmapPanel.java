@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.GearPlan;
@@ -218,9 +219,9 @@ public class RoadmapPanel extends PluginPanel {
 		return p;
 	}
 
-	/** Opens the website (the configured base URL) in the browser. */
+	/** Opens the website in the browser. */
 	private FeatureTile websiteTile() {
-		String base = config.apiBaseUrl().replaceAll("/+$", "");
+		String base = OSRSCompanionApiClient.BASE_URL;
 		String host = base.replaceFirst("^https?://", "");
 		return FeatureTile.banner("OPEN", "WEBSITE", host, new Color(0x60A5FA), new Color(0x0B1220), new Color(0x1D4ED8), null,
 			() -> LinkBrowser.browse(base + "/home"));

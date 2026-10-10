@@ -4,7 +4,7 @@ This document covers building, distributing, and running the plugin from source.
 
 ## Companion website
 
-The plugin sends gameplay data to the OSRS Companion website (the `osrs-companion-web` project). Sign in there, copy your App Key from **Settings**, then paste it into the plugin settings in RuneLite (**Configuration** > **OSRS Companion**) and set the server URL to the website's address.
+The plugin sends gameplay data to the OSRS Companion website (the `osrs-companion-web` project). Sign in there, copy your App Key from **Settings**, then paste it into the plugin settings in RuneLite (**Configuration** > **OSRS Companion**). The website address is fixed in the code (`OSRSCompanionApiClient.BASE_URL`); to test against a local website, change that constant in your local build only and never commit it.
 
 ## Building
 
@@ -82,6 +82,24 @@ If you use a Jagex account and can't log in when running from the IDE, you need 
 3. Save, then launch RuneLite via the Jagex launcher once so it writes credentials to `~/.runelite/credentials.properties`
 4. After that, running from the IDE will use the saved credentials
 
+## Branches
+
+- **`main`**: the live version. The Plugin Hub builds the commit `plugins/osrs-companion` in `runelite/plugin-hub` points at, always a commit on `main`. Nothing is committed to `main` directly.
+- **`development`**: the testing area. Finished features are merged here and tested in game before a release. It also keeps the dev launcher kit (`friend/`, `run-dev.bat`), which never goes to `main`.
+- **Feature branches** (`feature/<name>`): one per change, made from `development` and merged back into it when done.
+
+A release merges `development` into `main`. `main` deleted `friend/` and `run-dev.bat` after `development` branched off, so a normal `git merge development` on `main` keeps them out, as long as nobody changes those files on `development` (then delete them again in the merge commit). Do not merge `main` back into `development`: that would delete the kit there. A hotfix made on `main` goes to `development` as a cherry-pick.
+
+## Testing a release
+
+Before merging `development` into `main`, build it (`./gradlew build` must pass) and check in game with a fresh RuneLite profile (or the plugin's settings reset) and an App Key:
+
+1. The defaults: Share live activity, Send error reports and Auto set teleport left click are off; Farming cape for herbs is Remind.
+2. Syncing: log in and check the website shows skills, bank, quests, diaries, collection log (open the log once), slayer, timers and a play session. Switch a Data Syncing source off (for example Skills & XP or Play sessions) and check it stops updating.
+3. The side panel tools: roadmap, gear progression, farm run (start a run, the guide and arrow), boss gear, slayer helper and trip planner open and work.
+4. Bank layouts: open the bank with a boss setup or farm run active. With the Bank Tag Layouts plugin installed and its "Enable layout by default" on, the bank is left alone and the chat says how to fix it; with that setting off, our layout shows.
+5. The plugin version in the side panel reads `OSRS Companion v1.0` (or the version you set).
+
 ## Releasing to the Plugin Hub
 
-A Plugin Hub update points `plugins/osrscompanion` in `runelite/plugin-hub` at a commit of this repo. The plugin version is `<base>.<patch>` (for example `0.1.37`): `base` is set in `src/main/resources/com/osrscompanion/version.properties` and the patch is the number of commits since that line last changed, counted by `build.gradle` (`./gradlew printPluginVersion` shows it). Every request to OSRS Companion carries it as `X-OSRSCompanion-Plugin-Version` and the live activity status as `plugin_version`; the website shows it per character in Admin, Activity. Builds without the full git history, Plugin Hub builds included (the hub replaces `build.gradle`), report `<base>-dev`, so bump `base` in the commit a hub update points at (see O9 in `docs/plugin-hub-review.md`).
+A Plugin Hub update points `plugins/osrs-companion` in `runelite/plugin-hub` at a commit on `main`. The plugin version is set by hand in `src/main/resources/com/osrscompanion/version.properties` (`version=1.0`); raise it (1.1, 1.2 ... 2.0) in the commit a hub update points at. Every request to OSRS Companion carries it as `X-OSRSCompanion-Plugin-Version` and the live activity status as `plugin_version`; the website shows it per character in Admin, Activity. The pull request text for the first submission is in `docs/plugin-hub-pr.md`.
