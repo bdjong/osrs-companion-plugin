@@ -54,7 +54,9 @@ import net.runelite.client.util.Text;
  *
  * <p>A session starts the first time you are in one of the task's locations (within its radius of
  * its tile on the same plane, or in one of its map regions) and lasts until the task is done or
- * changes, or you start killing at another location. It is kept in the RuneScape profile's config,
+ * changes, or you start killing at another location. Once going, it stays in the area anywhere in the
+ * map regions the location spans, so crossing between them never restarts or pauses it; only outside
+ * all of them does the time there pause. It is kept in the RuneScape profile's config,
  * so a client restart picks it up again.
  *
  * <p>Game reads and every event run on the client thread; the panel and overlays only read the
@@ -780,13 +782,8 @@ public class SlayerHelperManager {
 		boolean known = matches(guide, t);
 		if (known && at != null) {
 			SlayerSession s = session;
-			// The session's own location first, so standing where two overlap keeps it going.
-			for (SlayerGuide.Location l : locations()) {
-				if (l.contains(at.getX(), at.getY(), at.getPlane(), at.getRegionID())
-					&& (in == null || s != null && Objects.equals(s.locationKey, l.getKey()))) {
-					in = l;
-				}
-			}
+			in = locationHere(locations(), s == null ? null : s.locationKey,
+				at.getX(), at.getY(), at.getPlane(), at.getRegionID());
 		}
 		// Not in a location of the guide: the area round the task's boss or the unknown spot, once you fought
 		// there (known without the guide).
@@ -837,6 +834,30 @@ public class SlayerHelperManager {
 				direction = SlayerFormat.compass(dx, dy);
 			}
 		}
+	}
+
+	/**
+	 * The task's location you are in: one whose area holds you (the session's own first, so standing where
+	 * two overlap keeps it going); else the session's location while you are anywhere in one of the regions
+	 * it spans ({@link SlayerGuide.Location#coveredRegions}), so walking between the regions of one location
+	 * never pauses, splits or restarts its session. Null outside them all (the time there pauses).
+	 */
+	static SlayerGuide.Location locationHere(List<SlayerGuide.Location> locations, String sessionKey, int x, int y, int plane, int regionId) {
+		SlayerGuide.Location in = null;
+		SlayerGuide.Location own = null;
+		for (SlayerGuide.Location l : locations) {
+			boolean mine = sessionKey != null && Objects.equals(sessionKey, l.getKey());
+			if (mine) {
+				own = l;
+			}
+			if (l.contains(x, y, plane, regionId) && (in == null || mine)) {
+				in = l;
+			}
+		}
+		if (in == null && own != null && !isAdhocKey(sessionKey) && own.covers(x, y, plane, regionId)) {
+			in = own;
+		}
+		return in;
 	}
 
 	/** Your tile, as the real world tile in an instance. Client thread. */
@@ -1073,7 +1094,7 @@ public class SlayerHelperManager {
 		}
 		for (SlayerGuide.Location l : locations()) {
 			if (Objects.equals(l.getKey(), s.locationKey)) {
-				if (l.getRegionIds().contains(at.getRegionID())) {
+				if (l.coveredRegions().contains(at.getRegionID())) {
 					return true;
 				}
 				return l.hasTile() && l.getPlane() == at.getPlane()

@@ -108,6 +108,10 @@ public class SlayerDebugOverlay extends OverlayPanel {
 		}
 		boolean in = l.contains(at.getX(), at.getY(), at.getPlane(), at.getRegionID());
 		line("  you inside", in ? "yes" : "no", in ? YES : NO);
+		// A session here keeps counting anywhere in these regions (see SlayerHelperManager.locationHere).
+		boolean spans = l.coveredRegions().contains(at.getRegionID());
+		line("  spans", l.coveredRegions().stream().map(String::valueOf).collect(Collectors.joining(", ")));
+		line("  in its regions", spans ? "yes" : "no", spans ? YES : NO);
 	}
 
 	private static String yesNo(boolean b) {
