@@ -26,10 +26,18 @@ final class SlayerSession {
 	 * first tick after a restart): a tick is 600 ms, so this only drops real gaps.
 	 */
 	static final long MAX_TICK_GAP_MS = 3_000L;
-	/** A time away longer than this is not a bank trip (a break, another activity). */
-	static final long MAX_BANK_TRIP_MS = 20 * 60_000L;
 	/** A bank trip counts at most this long (lingering at the bank is not part of the task). */
 	static final long BANK_TRIP_CAP_MS = 8 * 60_000L;
+	/**
+	 * The trip timer runs on this long after leaving the area (a bank trip); not back by then, that time
+	 * is taken off again and the timer stands still until you are back.
+	 */
+	static final long TRIP_GRACE_MS = 15 * 60_000L;
+	/**
+	 * A time away longer than this is not a bank trip (a break, another activity): the trip timer's limit,
+	 * so the waiting is left out of the bank time (and the estimate) as it is of the timer.
+	 */
+	static final long MAX_BANK_TRIP_MS = TRIP_GRACE_MS;
 
 	@SerializedName("session_uuid")
 	String uuid;
@@ -81,6 +89,9 @@ final class SlayerSession {
 	long leftMs;
 	@SerializedName("bank_seen_away")
 	boolean bankSeenAway;
+	/** The times away from the area that were back within {@link #TRIP_GRACE_MS}: part of the trip timer. */
+	@SerializedName("away_counted_ms")
+	long awayCountedMs;
 	@SerializedName("kills")
 	int kills;
 	@SerializedName("kill_time_total_ms")
@@ -153,11 +164,15 @@ final class SlayerSession {
 				tripCount++;
 				entered = true;
 				updatedMs = nowMs;
-				if (leftMs > 0 && bankSeenAway) {
+				if (leftMs > 0) {
 					long away = nowMs - leftMs;
-					if (away > 0 && away <= MAX_BANK_TRIP_MS) {
+					if (bankSeenAway && away > 0 && away <= MAX_BANK_TRIP_MS) {
 						bankTrips++;
 						bankTripMs += Math.min(away, BANK_TRIP_CAP_MS);
+					}
+					// Back within the grace time: the time away stays on the trip timer; later, it never counted.
+					if (away > 0 && away <= TRIP_GRACE_MS) {
+						awayCountedMs += away;
 					}
 				}
 				leftMs = 0;
@@ -265,10 +280,27 @@ final class SlayerSession {
 		}
 	}
 
-	/** The task is done (completed) or this session ends another way (new task, other location). */
+	/**
+	 * Logged out: you are out of the area from now (the website's timer runs on for 15 minutes at most, as
+	 * after walking out); the session stays open, a relog goes on with it (see {@link #resumed}).
+	 */
+	void loggedOut(long nowMs) {
+		if (endedMs == 0 && inside) {
+			leftMs = nowMs;
+			updatedMs = nowMs;
+		}
+		inside = false;
+		lastTickMs = 0;
+	}
+
+	/**
+	 * The task is done (completed) or this session ends another way (new task, other location). Ended
+	 * while away from the area (not by the last kill): it ends when you left, never later, so the waiting
+	 * (past the 15 minutes or not) is not part of it; the trip timer stays at what it was then.
+	 */
 	void close(boolean done, long nowMs) {
 		if (endedMs == 0) {
-			endedMs = nowMs;
+			endedMs = !done && !inside && leftMs > 0 && leftMs <= nowMs ? leftMs : nowMs;
 			completed = done;
 			if (done) {
 				amountRemaining = 0;
@@ -296,9 +328,21 @@ final class SlayerSession {
 		return kills == 0 ? 0 : Math.round(lootGp / (double) kills);
 	}
 
-	/** From the start to the end (or now while open): the trip timer. */
-	long totalMs(long nowMs) {
-		return Math.max(0, (endedMs > 0 ? endedMs : nowMs) - startedMs);
+	/**
+	 * The trip timer: the time in the area plus the times away that were back within
+	 * {@link #TRIP_GRACE_MS} (bank trips), and, while away now (an open session), the time since leaving
+	 * up to that limit. Away longer, that time comes off again and the timer pauses until you are back;
+	 * coming back goes on from there. {@code liveInsideMs}: the time inside since the last tick.
+	 */
+	long tripMs(long nowMs, long liveInsideMs) {
+		long ms = timeInAreaMs + awayCountedMs + Math.max(0, liveInsideMs);
+		if (endedMs == 0 && !inside && leftMs > 0) {
+			long away = nowMs - leftMs;
+			if (away > 0 && away <= TRIP_GRACE_MS) {
+				ms += away;
+			}
+		}
+		return Math.max(0, ms);
 	}
 
 	/** Kills before the estimate uses the time in the area (until then the fight time stands in). */
@@ -336,6 +380,10 @@ final class SlayerSession {
 		m.put("trip_count", tripCount);
 		m.put("bank_trips", bankTrips);
 		m.put("bank_trip_sec", bankTripMs / 1000);
+		// The trip timer without the time away now; when away (open session), when you left: the website
+		// runs it on for up to TRIP_GRACE_MS from there, as here.
+		m.put("trip_sec", (timeInAreaMs + awayCountedMs) / 1000);
+		m.put("left_at", endedMs == 0 && !inside && leftMs > 0 ? iso(leftMs) : null);
 		m.put("kills", kills);
 		m.put("avg_kill_ms", avgKillMs());
 		m.put("kills_per_hour", killsPerHour());

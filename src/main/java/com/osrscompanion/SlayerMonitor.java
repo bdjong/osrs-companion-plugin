@@ -745,6 +745,9 @@ public class SlayerMonitor {
 		s.bossTaskId = bossId == 0 ? null : bossId;
 		int masterId = client.getVarbitValue(VarbitID.SLAYER_MASTER);
 		s.masterId = masterId == 0 ? null : masterId;
+		if (taskId != 0 && s.amountRemaining > 0) {
+			s.amountOriginal = originalAmount(taskId, bossId, areaId, masterId, s.amountOriginal, s.amountRemaining);
+		}
 		s.points = client.getVarbitValue(VarbitID.SLAYER_POINTS);
 		s.streak = client.getVarbitValue(VarbitID.SLAYER_TASKS_COMPLETED);
 		s.wildernessStreak = client.getVarbitValue(VarbitID.SLAYER_WILDERNESS_TASKS_COMPLETED);
@@ -908,6 +911,75 @@ public class SlayerMonitor {
 			return "completed";
 		}
 		return "unknown";
+	}
+
+	private static final String TASK_SIZE_CONFIG_KEY = "slayerTaskSize";
+	private final TaskSize taskSize = new TaskSize();
+	private boolean taskSizeLoaded;
+
+	/**
+	 * The task's size as the plugin sends it (amount_original): SLAYER_COUNT_ORIGINAL, but never below the
+	 * highest count seen on this assignment. The varp can be below the count: Mortimer's quantity modifier
+	 * adds kills on top of the amount rolled (the varp keeps the roll), and the varp can still hold an
+	 * earlier task's size. Below the count, killed (size - count) went negative on the website. Kept per
+	 * RuneScape profile, so a restart mid-task keeps the size. Client thread only.
+	 */
+	synchronized int originalAmount(int taskId, int bossId, int areaId, int masterId, int varpOriginal, int remaining) {
+		if (!taskSizeLoaded) {
+			taskSizeLoaded = true;
+			taskSize.restore(configManager.getRSProfileConfiguration("osrscompanion", TASK_SIZE_CONFIG_KEY));
+		}
+		String before = taskSize.stored();
+		int size = taskSize.update(taskId + ":" + bossId + ":" + areaId + ":" + masterId + ":" + varpOriginal, varpOriginal, remaining);
+		String after = taskSize.stored();
+		if (after != null && !after.equals(before)) {
+			configManager.setRSProfileConfiguration("osrscompanion", TASK_SIZE_CONFIG_KEY, after);
+		}
+		return size;
+	}
+
+	/**
+	 * The highest task count seen on one assignment (task, boss, area, master and the varp's size: a new
+	 * assignment changes one of them). No game access.
+	 */
+	static final class TaskSize {
+		private String key;
+		private int peak;
+
+		/** The size for this read: the larger of the varp's size and the highest count seen on the assignment. */
+		int update(String assignment, int varpOriginal, int remaining) {
+			if (remaining <= 0) {
+				return Math.max(0, varpOriginal);
+			}
+			if (!assignment.equals(key)) {
+				key = assignment;
+				peak = 0;
+			}
+			peak = Math.max(peak, remaining);
+			return Math.max(varpOriginal, peak);
+		}
+
+		/** "assignment|peak" for the config, or null before the first task. */
+		String stored() {
+			return key == null ? null : key + "|" + peak;
+		}
+
+		void restore(String stored) {
+			if (stored == null) {
+				return;
+			}
+			int bar = stored.lastIndexOf('|');
+			if (bar <= 0) {
+				return;
+			}
+			try {
+				peak = Integer.parseInt(stored.substring(bar + 1));
+				key = stored.substring(0, bar);
+			} catch (NumberFormatException e) {
+				key = null;
+				peak = 0;
+			}
+		}
 	}
 
 	/**
