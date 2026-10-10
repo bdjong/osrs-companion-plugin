@@ -28,6 +28,7 @@ This plugin sends data to a **third-party server**: the OSRS Companion website a
 - The plugin also loads your roadmaps, gear plans, farm routes and slayer guide from the website, the boss lair map regions (at most every 6 hours), and goal images from the OSRS Wiki (`oldschool.runescape.wiki`).
 - The plugin skips syncing on Leagues, Deadman and other special game-mode worlds. It collects no data about other players.
 - You can delete your account on the website (Settings): that removes your email, your characters and all their data.
+- The website's [privacy page](https://osrs-companion-web.vercel.app/privacy) explains what is stored, who can see it and how long it is kept.
 
 ## Collection log: why the plugin opens the log's search
 
@@ -40,7 +41,7 @@ The game only draws the collection log items of the page you look at. To read th
 
 ## Bank Tag Layouts plugin
 
-The boss, farm run and slayer gear bank layouts use RuneLite's built-in Bank Tags layouts. If you also run the **Bank Tag Layouts** plugin from the Plugin Hub with **Enable layout by default** on, it would re-sort our layout into one long list. OSRS Companion never changes another plugin's settings: in that case it leaves your bank alone and tells you once in the chat to switch **Enable layout by default** off in that plugin's settings.
+The boss, farm run and slayer gear bank layouts use RuneLite's built-in Bank Tags layouts. If you also run the **Bank Tag Layouts** plugin from the Plugin Hub with **Enable layout by default** on, it re-sorts our layout into its own order: the bank still shows only the items you need, just not in their slots. OSRS Companion never changes another plugin's settings, so it tells you once in the chat to switch **Enable layout by default** off in that plugin's settings for the neater layout.
 
 ## Plugin Hub release: what still has to be done
 
@@ -49,10 +50,14 @@ Done for 1.0: the repository is public; the dev launcher kit (`friend/`, `run-de
 Still to do, in this order:
 
 1. **Test in game** on `development` (see [DEVELOPMENT.md](DEVELOPMENT.md#testing-a-release)): syncing with an App Key, each Data Syncing switch, the side panel tools, the farm run and Slayer guides, the bank layouts (with and without the Bank Tag Layouts plugin), the collection log sync and the new defaults on a fresh profile.
-2. **Website**: add a privacy page (what is stored, who can see it, how long it is kept, how to delete it) and link it from the plugin's README and the website footer. Account deletion is in Settings.
-3. **Release**: merge `development` into `main` (the `friend/` kit stays out of `main`, see DEVELOPMENT.md), and check the GitHub Actions build of that commit.
-4. **Submit**: fork `runelite/plugin-hub`, add `plugins/osrs-companion` with `repository=https://github.com/bdjong/osrs-companion-plugin.git` and `commit=<the 40-character hash of that main commit>`, and open the pull request with the text in [docs/plugin-hub-pr.md](docs/plugin-hub-pr.md). Watch its build and review checks and answer the reviewers' questions in the PR.
-5. **Every later update**: raise `version` in `version.properties` (1.1, 1.2 ...) in the commit the hub update points at.
+2. **Check the review points again** against the release commit, using [docs/plugin-hub-review.md](docs/plugin-hub-review.md) (the 29 rules and the owner decisions O1–O9). Still open from that review:
+   - **O3 Licence notices in the hub jar**: the hub replaces `build.gradle`, so `LICENSE` and `THIRD_PARTY_NOTICES.txt` are not put in the jar. Accept it (the repository carries them) or move both into `src/main/resources/META-INF/osrs-companion/`.
+   - **O4 Review size**: about 170 source files. Submit as one plugin (and explain it in the PR) or release the sync and roadmap first and the guides in later updates.
+   - Re-check the sensitive APIs before submitting: the single `client.menuAction` (collection log), `client.runScript` uses, the menu swaps, hint arrows, and that nothing writes another plugin's settings.
+3. **Website**: the privacy page and account deletion are on the website's `development` branch; they go live when it is merged into `main`.
+4. **Release**: merge `development` into `main` in both repositories (the `friend/` kit stays out of `main`, see DEVELOPMENT.md), and check the GitHub Actions builds of those commits.
+5. **Submit**: fork `runelite/plugin-hub`, add `plugins/osrs-companion` with `repository=https://github.com/bdjong/osrs-companion-plugin.git` and `commit=<the 40-character hash of that main commit>`, and open the pull request with the text in [docs/plugin-hub-pr.md](docs/plugin-hub-pr.md). Watch its build and review checks and answer the reviewers' questions in the PR.
+6. **Every later update**: raise `version` in `version.properties` (1.1, 1.2 ...) in the commit the hub update points at.
 
 ## License
 
