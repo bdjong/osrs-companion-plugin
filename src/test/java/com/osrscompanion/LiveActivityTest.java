@@ -177,4 +177,57 @@ public class LiveActivityTest {
 		assertEquals("Fishing", LiveActivity.capitalize("FISHING"));
 		assertEquals("Fishing", LiveActivity.capitalize("Fishing"));
 	}
+
+	@Test
+	public void magicDetail() {
+		LiveActivity.Signals s = new LiveActivity.Signals();
+		s.skill = "magic";
+		s.magicCast = MagicSpells.fromMenu("Cast", "High Level Alchemy -> Rune platebody", false);
+		s.alchs = 37;
+		LiveActivity.Choice c = LiveActivity.choose(s);
+		assertEquals(LiveActivity.Kind.SKILLING, c.kind);
+		assertEquals("High Level Alchemy", c.subject);
+		assertEquals("High alching Rune platebody · 37 alchs", c.detail);
+		assertEquals("Rune platebody.png", c.icon);
+
+		// A teleport: Magic stays the subject (one stretch on the website), the place is the detail.
+		s.teleport = MagicSpells.fromMenu("Cast", "Varrock Teleport", false);
+		c = LiveActivity.choose(s);
+		assertEquals("skilling|Magic", c.key());
+		assertEquals("Teleported to Varrock", c.detail);
+		assertEquals("Varrock Teleport.png", c.icon);
+		s.teleport = MagicSpells.fromMenu("Cast", "Camelot Teleport", false);
+		assertEquals("skilling|Magic", LiveActivity.choose(s).key());
+
+		// Magic in a fight: combat on the monster, trained with Magic.
+		s.combatNpc = "Hill Giant";
+		s.combatMagic = true;
+		s.combatSpell = "Fire Strike";
+		c = LiveActivity.choose(s);
+		assertEquals(LiveActivity.Kind.COMBAT, c.kind);
+		assertEquals("Hill Giant", c.subject);
+		assertEquals("Training Magic on Hill Giant · Fire Strike", c.detail);
+		assertEquals("Fire Strike.png", c.icon);
+	}
+
+	@Test
+	public void skillingItemAndPictures() {
+		LiveActivity.Signals s = new LiveActivity.Signals();
+		s.skill = "fishing";
+		s.skillItem = "Raw shark";
+		LiveActivity.Choice c = LiveActivity.choose(s);
+		assertEquals("skilling|Fishing", c.key());
+		assertEquals("Fishing · Raw shark", c.detail);
+		assertEquals("Raw shark.png", c.icon);
+
+		s = new LiveActivity.Signals();
+		s.slayerTask = "abyssal demons";
+		s.slaying = true;
+		s.slayerNpc = "Abyssal demon";
+		assertEquals("Abyssal demon.png", LiveActivity.choose(s).icon);
+		s = new LiveActivity.Signals();
+		s.farmRoute = "Herb run";
+		s.farmItem = "Ranarr weed";
+		assertEquals("Ranarr weed.png", LiveActivity.choose(s).icon);
+	}
 }

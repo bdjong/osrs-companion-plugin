@@ -20,13 +20,20 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.Item;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.Subscribe;
@@ -60,6 +67,12 @@ public class LiveActivityMonitor {
 	static final long MIN_CHANGE_GAP_MS = 5_000;
 	/** The website must hear from the plugin at least this often while you are logged in. */
 	static final long HEARTBEAT_MS = 15_000;
+	/** A cast counts when Magic XP comes within this many ticks of the click. */
+	static final int CAST_XP_TICKS = 5;
+	/** A teleport counts when you moved far within this many ticks of the click. */
+	static final int TELEPORT_TICKS = 12;
+	/** Moving at least this many tiles at once (or to another plane) is a teleport. */
+	static final int TELEPORT_TILES = 16;
 
 	/** One status, as sent. Immutable: built on the client thread, read by the outbox and the watcher. */
 	static final class Status {
@@ -93,6 +106,7 @@ public class LiveActivityMonitor {
 			b.put("activity", choice.kind.wire);
 			b.put("subject", choice.subject);
 			b.put("detail", choice.detail);
+			b.put("icon", choice.icon);
 			b.put("since", since);
 			b.put("world", world);
 			b.put("area", area);
@@ -131,6 +145,23 @@ public class LiveActivityMonitor {
 	private long activitySinceMs;
 	private List<BossGear.CatalogBoss> catalogSeen;
 	private Set<String> catalogBosses = Collections.emptySet();
+	// Magic: the last "Cast" / "Break" click, the cast confirmed by Magic XP and the last teleport.
+	private MagicSpells.Cast pendingCast;
+	private int pendingCastTick;
+	private MagicSpells.Cast lastCast;
+	private long lastCastMs;
+	private MagicSpells.Cast teleport;
+	private long teleportMs;
+	private int alchs;
+	private long combatMagicMs;
+	private WorldPoint lastAt;
+	// Skilling items: inventory counts, and the item a skill last gave.
+	private Map<Integer, Integer> lastInventory;
+	private int gainedItem = -1;
+	private int gainedTick = -1;
+	private final Map<String, String> skillItem = new HashMap<>();
+	private FarmRoute farmItemRoute;
+	private String farmItem;
 
 	// Sending (client thread, the outbox's and the watcher's).
 	private String lastSentKey;
@@ -189,6 +220,53 @@ public class LiveActivityMonitor {
 		});
 	}
 
+	/** A "Cast" (spell widget, or a selected spell used on an item / NPC) or a tablet's "Break": remembered until XP or a jump confirms it. */
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked e) {
+		Guard.run(GUARD_FEATURE, () -> {
+			String option = e.getMenuOption();
+			if (option == null || !(option.contains("Cast") || option.contains("Break"))) {
+				return;
+			}
+			MagicSpells.Cast cast = MagicSpells.fromMenu(option, e.getMenuTarget(), e.getMenuAction() == MenuAction.WIDGET_TARGET_ON_NPC);
+			if (cast != null) {
+				pendingCast = cast;
+				pendingCastTick = client.getTickCount();
+			}
+		});
+	}
+
+	/** The inventory item that went up (what a skill gave), noted items as themselves. Not while banking. */
+	@Subscribe
+	public void onItemContainerChanged(ItemContainerChanged e) {
+		Guard.run(GUARD_FEATURE, () -> {
+			if (e.getContainerId() != InventoryID.INV) {
+				return;
+			}
+			ItemContainer inv = e.getItemContainer();
+			Map<Integer, Integer> counts = new HashMap<>();
+			if (inv != null) {
+				for (Item item : inv.getItems()) {
+					if (item != null && item.getId() > 0) {
+						counts.merge(item.getId(), item.getQuantity(), Integer::sum);
+					}
+				}
+			}
+			Map<Integer, Integer> before = lastInventory;
+			lastInventory = counts;
+			if (before == null || client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null) {
+				return;
+			}
+			for (Map.Entry<Integer, Integer> c : counts.entrySet()) {
+				if (c.getValue() > before.getOrDefault(c.getKey(), 0)) {
+					gainedItem = c.getKey();
+					gainedTick = client.getTickCount();
+					return;
+				}
+			}
+		});
+	}
+
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged e) {
 		Guard.run(GUARD_FEATURE, () -> {
@@ -224,7 +302,8 @@ public class LiveActivityMonitor {
 		WorldPoint at = local.getLocalLocation() == null ? local.getWorldLocation() : WorldPoint.fromLocalInstance(client, local.getLocalLocation());
 		int region = at == null ? -1 : at.getRegionID();
 
-		sortXp();
+		sortXp(now, tick);
+		checkTeleport(at, now, tick);
 		idle.tick(now, at == null ? 0 : at.getX(), at == null ? 0 : at.getY(), at == null ? 0 : at.getPlane(),
 			local.getAnimation() != -1, xpGainedSinceTick);
 		xpGainedSinceTick = false;
@@ -235,6 +314,7 @@ public class LiveActivityMonitor {
 		readSlayer(s);
 		readFarmRun(s);
 		s.skill = LiveActivity.skillingSkill(lastSkillingXpMs, now);
+		readMagic(s, now);
 		s.bankOpen = client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null;
 		s.idle = idle.isIdle(now);
 		LiveActivity.Choice choice = LiveActivity.choose(s);
@@ -254,15 +334,92 @@ public class LiveActivityMonitor {
 		}
 	}
 
-	/** XP gains since the last tick: skilling ones are remembered per skill (see {@link LiveActivity#isSkillingXp}). */
-	private void sortXp() {
+	/**
+	 * XP gains since the last tick: skilling ones are remembered per skill (see {@link LiveActivity#isSkillingXp}),
+	 * with the item that came with them; Magic XP confirms the last cast (and counts an alch).
+	 */
+	private void sortXp(long now, int tick) {
 		for (Object[] gain : pendingXp) {
 			String skill = (String) gain[0];
-			if (LiveActivity.isSkillingXp(skill, (int) gain[1] == lastHitpointsXpTick)) {
-				lastSkillingXpMs.put(skill, System.currentTimeMillis());
+			int at = (int) gain[1];
+			boolean withHitpoints = at == lastHitpointsXpTick;
+			if ("magic".equals(skill)) {
+				if (withHitpoints) {
+					combatMagicMs = now;
+				}
+				MagicSpells.Cast cast = pendingCast;
+				if (cast != null && cast.type != MagicSpells.Type.TELEPORT && at - pendingCastTick <= CAST_XP_TICKS) {
+					if (lastCast != cast && (cast.type == MagicSpells.Type.HIGH_ALCH || cast.type == MagicSpells.Type.LOW_ALCH)) {
+						alchs++;
+					}
+					lastCast = cast;
+					lastCastMs = now;
+				}
+			}
+			if (LiveActivity.isSkillingXp(skill, withHitpoints)) {
+				lastSkillingXpMs.put(skill, now);
+				if (!"magic".equals(skill) && gainedItem > 0 && Math.abs(at - gainedTick) <= 1) {
+					String name = itemName(gainedItem);
+					if (name != null) {
+						skillItem.put(skill, name);
+					}
+				}
 			}
 		}
 		pendingXp.clear();
+	}
+
+	/** A teleport click followed by a long jump (or a plane change) within {@link #TELEPORT_TICKS}: you teleported. */
+	private void checkTeleport(WorldPoint at, long now, int tick) {
+		WorldPoint before = lastAt;
+		lastAt = at;
+		MagicSpells.Cast cast = pendingCast;
+		if (cast == null || cast.type != MagicSpells.Type.TELEPORT || at == null || before == null) {
+			return;
+		}
+		if (tick - pendingCastTick > TELEPORT_TICKS) {
+			pendingCast = null;
+			return;
+		}
+		if (before.getPlane() != at.getPlane() || Math.max(Math.abs(before.getX() - at.getX()), Math.abs(before.getY() - at.getY())) >= TELEPORT_TILES) {
+			teleport = cast;
+			teleportMs = now;
+			pendingCast = null;
+		}
+	}
+
+	/** Magic signals: training Magic in a fight, the cast behind skilling Magic, a teleport shown for a minute. */
+	private void readMagic(LiveActivity.Signals s, long now) {
+		s.combatMagic = s.combatNpc != null && now - combatMagicMs <= LiveActivity.COMBAT_GRACE_MS;
+		if (s.combatMagic && lastCast != null && lastCast.type == MagicSpells.Type.OFFENSIVE && now - lastCastMs <= LiveActivity.COMBAT_GRACE_MS) {
+			s.combatSpell = lastCast.spell;
+		}
+		s.alchs = alchs;
+		if (s.skill != null) {
+			s.skillItem = skillItem.get(s.skill);
+		}
+		if (lastCast != null && now - lastCastMs <= LiveActivity.SKILLING_WINDOW_MS) {
+			s.magicCast = lastCast;
+		}
+		if (teleport != null && now - teleportMs <= LiveActivity.TELEPORT_SHOW_MS) {
+			// Only while nothing else was trained since (a skill's XP after the teleport wins).
+			Long other = s.skill == null || "magic".equals(s.skill) ? null : lastSkillingXpMs.get(s.skill);
+			if (other == null || other <= teleportMs) {
+				s.teleport = teleport;
+			}
+		} else {
+			teleport = null;
+		}
+	}
+
+	/** An item's name (a noted item as the item), or null. Client thread. */
+	private String itemName(int id) {
+		ItemComposition c = client.getItemDefinition(id);
+		if (c != null && c.getNote() != -1) {
+			c = client.getItemDefinition(c.getLinkedNoteId());
+		}
+		String name = c == null ? null : c.getName();
+		return name == null || name.isEmpty() || "null".equalsIgnoreCase(name) ? null : name;
 	}
 
 	private void readRaid(LiveActivity.Signals s, int region) {
@@ -313,7 +470,11 @@ public class LiveActivityMonitor {
 		}
 		s.slayerTask = task.displayName();
 		s.slayerLeft = task.remaining;
-		s.slaying = slayerHelper.getHere() != null || s.combatNpc != null && slayerHelper.isTaskTarget(s.combatNpc);
+		boolean onTarget = s.combatNpc != null && slayerHelper.isTaskTarget(s.combatNpc);
+		s.slaying = slayerHelper.getHere() != null || onTarget;
+		if (onTarget) {
+			s.slayerNpc = s.combatNpc;
+		}
 	}
 
 	private void readFarmRun(LiveActivity.Signals s) {
@@ -325,6 +486,12 @@ public class LiveActivityMonitor {
 		int[] progress = farmRun.progress();
 		s.farmDone = progress[0];
 		s.farmTotal = progress[1];
+		if (route != farmItemRoute) {
+			farmItemRoute = route;
+			Integer item = route.pictureItem();
+			farmItem = item == null ? null : itemName(item);
+		}
+		s.farmItem = farmItem;
 	}
 
 	/** The area's name from the slayer guide's locations; null when unknown (the website names the region). */
@@ -451,6 +618,17 @@ public class LiveActivityMonitor {
 		xpGainedSinceTick = false;
 		combatNpc = null;
 		bossNpc = null;
+		pendingCast = null;
+		lastCast = null;
+		teleport = null;
+		alchs = 0;
+		combatMagicMs = 0;
+		lastAt = null;
+		lastInventory = null;
+		gainedItem = -1;
+		skillItem.clear();
+		farmItemRoute = null;
+		farmItem = null;
 		activityKey = null;
 		sharing = false;
 		synchronized (this) {
