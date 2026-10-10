@@ -1,5 +1,25 @@
 # Plugin Hub readiness review
 
+## Status 2026-10-10 (release prep for 1.0)
+
+Decided and done (branch `feature/hub-release-prep`, merged into `development`):
+
+- Repository public; `friend/` and `run-dev.bat` only on `development` (O6).
+- Defaults: Share live activity, Send error reports and Auto set teleport left click off; Farming cape for herbs Remind (O1 b, O2 b).
+- Switches for Skills & XP and Play sessions; boss trips already had one (O5 b).
+- The hidden `apiBaseUrl` setting is removed; the URL is the constant `OSRSCompanionApiClient.BASE_URL` (O7 b).
+- No more writes to the Bank Tag Layouts plugin's config: read-only detection and a chat hint (O4).
+- The whole-client stall watchdog (heartbeat, stall reports) is removed; the check of the plugin's own sections stays.
+- The menu-swap log line is debug; `author=bdjong` (O8).
+- Version `1.0`, set by hand in `version.properties`; no git-counted or `-dev` versions (O9).
+- `client.menuAction` (collection log) is explained in the README and in `docs/plugin-hub-pr.md`.
+
+Still open: the in-game test of `development`, a privacy page on the website, the licence notices in the hub jar (O3, accepted as source-only for now), review size (O4), then the release merge and the hub pull request (README, "Plugin Hub release: what still has to be done").
+
+The review below is the one of 2026-10-08 and is kept as the reasoning behind these decisions.
+
+---
+
 Review date: 2026-10-08, against `origin/main` at `254254f`.
 
 This review checks the plugin against the RuneLite Plugin Hub rules. It covers what already complies, what this branch fixed, and what the owner must decide before submitting.
