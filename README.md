@@ -45,7 +45,7 @@ The boss, farm run and slayer gear bank layouts use RuneLite's built-in Bank Tag
 
 ## Plugin Hub release: what still has to be done
 
-Done for 1.0: the repository is public; the dev launcher kit (`friend/`, `run-dev.bat`) lives on the `development` branch only; the defaults above; switches for every data source; a fixed website address; the whole-client stall watchdog is removed; version `1.0` (set in `src/main/resources/com/osrscompanion/version.properties`, no `-dev` builds); author `bdjong`; the plugin no longer writes the Bank Tag Layouts plugin's settings.
+Done for 1.0: the repository is public; the dev launcher kit (`friend/`, `run-dev.bat`) lives on the `development` branch only; the defaults above; switches for every data source; a fixed website address; the whole-client stall watchdog is removed; version `1.0.0` (set in `src/main/resources/com/osrscompanion/version.properties` and in `runelite-plugin.properties`, which the Plugin Hub shows; no `-dev` builds); author `bdjong`; the plugin no longer writes the Bank Tag Layouts plugin's settings.
 
 Still to do, in this order:
 
@@ -57,7 +57,7 @@ Still to do, in this order:
 3. **Website**: the privacy page and account deletion are on the website's `development` branch; they go live when it is merged into `main`.
 4. **Release**: merge `development` into `main` in both repositories (the `friend/` kit stays out of `main`, see DEVELOPMENT.md), and check the GitHub Actions builds of those commits.
 5. **Submit**: fork `runelite/plugin-hub`, add `plugins/osrs-companion` with `repository=https://github.com/bdjong/osrs-companion-plugin.git`, `commit=<the 40-character hash of that main commit>`, `authors=bdjong` and the `warning=` line (the third-party data disclosure RuneLite shows before install; the exact text is in docs/plugin-hub-pr.md), and open the pull request with the text in [docs/plugin-hub-pr.md](docs/plugin-hub-pr.md). Watch its build and review checks and answer the reviewers' questions in the PR.
-6. **Every later update**: raise `version` in `version.properties` (1.1, 1.2 ...) in the commit the hub update points at.
+6. **Every later update**: raise `version` in both `version.properties` and `runelite-plugin.properties` (1.0.1, 1.1.0 ...) in the commit the hub update points at.
 
 ## License
 
