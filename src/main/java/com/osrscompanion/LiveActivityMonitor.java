@@ -25,6 +25,7 @@ import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
+import net.runelite.api.NPCComposition;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
@@ -107,6 +108,7 @@ public class LiveActivityMonitor {
 			b.put("subject", choice.subject);
 			b.put("detail", choice.detail);
 			b.put("icon", choice.icon);
+			b.put("npc_id", choice.npcId);
 			b.put("since", since);
 			b.put("world", world);
 			b.put("area", area);
@@ -137,8 +139,10 @@ public class LiveActivityMonitor {
 	private int lastHitpointsXpTick = -1;
 	private boolean xpGainedSinceTick;
 	private String combatNpc;
+	private Integer combatNpcId;
 	private long combatAtMs;
 	private String bossNpc;
+	private Integer bossNpcId;
 	private int bossRegion;
 	private long bossAtMs;
 	private String activityKey;
@@ -443,24 +447,37 @@ public class LiveActivityMonitor {
 		Actor target = local.getInteracting();
 		if (target instanceof NPC && ((NPC) target).getCombatLevel() > 0 && target.getName() != null) {
 			String name = target.getName();
+			Integer id = npcId((NPC) target);
 			combatNpc = name;
+			combatNpcId = id;
 			combatAtMs = now;
 			if (LiveActivity.isBoss(name, catalogBosses())) {
 				bossNpc = name;
+				bossNpcId = id;
 				bossAtMs = now;
 				bossRegion = region;
 			}
 		}
 		if (bossNpc != null && now - bossAtMs <= LiveActivity.BOSS_GRACE_MS && region == bossRegion) {
 			s.boss = bossNpc;
+			s.bossId = bossNpcId;
 		} else {
 			bossNpc = null;
+			bossNpcId = null;
 		}
 		if (combatNpc != null && now - combatAtMs <= LiveActivity.COMBAT_GRACE_MS) {
 			s.combatNpc = combatNpc;
+			s.combatNpcId = combatNpcId;
 		} else {
 			combatNpc = null;
+			combatNpcId = null;
 		}
+	}
+
+	/** The NPC's id: the transformed composition's for NPCs that transform, else its own. */
+	private static Integer npcId(NPC npc) {
+		NPCComposition t = npc.getTransformedComposition();
+		return LiveActivity.npcId(npc.getId(), t == null ? null : t.getId());
 	}
 
 	private void readSlayer(LiveActivity.Signals s) {
@@ -474,6 +491,7 @@ public class LiveActivityMonitor {
 		s.slaying = slayerHelper.getHere() != null || onTarget;
 		if (onTarget) {
 			s.slayerNpc = s.combatNpc;
+			s.slayerNpcId = s.combatNpcId;
 		}
 	}
 
@@ -617,7 +635,9 @@ public class LiveActivityMonitor {
 		lastHitpointsXpTick = -1;
 		xpGainedSinceTick = false;
 		combatNpc = null;
+		combatNpcId = null;
 		bossNpc = null;
+		bossNpcId = null;
 		pendingCast = null;
 		lastCast = null;
 		teleport = null;

@@ -59,6 +59,8 @@ final class LiveActivity {
 		String raid;
 		String minigame;
 		String boss;
+		/** The boss NPC's id (the transformed composition's for NPCs that transform), or null. */
+		Integer bossId;
 		String slayerTask;
 		int slayerLeft;
 		/** At a task location or fighting the task's monster. */
@@ -67,12 +69,16 @@ final class LiveActivity {
 		int farmDone;
 		int farmTotal;
 		String combatNpc;
+		/** The id of the NPC being fought (the transformed composition's for NPCs that transform), or null. */
+		Integer combatNpcId;
 		/** Magic XP came with the Hitpoints XP lately: the fight is trained with Magic. */
 		boolean combatMagic;
 		/** The offensive spell last cast, when known (not with autocast). */
 		String combatSpell;
 		/** The slayer monster being fought ("Abyssal demon"), for its picture. */
 		String slayerNpc;
+		/** The id of {@link #slayerNpc}, or null. */
+		Integer slayerNpcId;
 		/** The farm run's picture: the route's most planted crop ("Ranarr weed"). */
 		String farmItem;
 		String skill;
@@ -91,22 +97,30 @@ final class LiveActivity {
 	/**
 	 * The chosen activity: its kind, what it is about (same subject = same activity), the text shown and
 	 * a picture hint: the wiki file of the thing involved ("Raw shark.png", "Varrock Teleport.png"), or null.
+	 * For combat, slayer and boss activities also the id of the NPC fought (for its exact picture), or null.
+	 * The NPC id is not part of the key: another version of the same monster is the same activity.
 	 */
 	static final class Choice {
 		final Kind kind;
 		final String subject;
 		final String detail;
 		final String icon;
+		final Integer npcId;
 
 		Choice(Kind kind, String subject, String detail) {
 			this(kind, subject, detail, null);
 		}
 
 		Choice(Kind kind, String subject, String detail, String icon) {
+			this(kind, subject, detail, icon, null);
+		}
+
+		Choice(Kind kind, String subject, String detail, String icon, Integer npcId) {
 			this.kind = kind;
 			this.subject = subject;
 			this.detail = detail;
 			this.icon = icon;
+			this.npcId = npcId;
 		}
 
 		/** Two choices with the same key are the same activity (only counts like "12 left" differ). */
@@ -132,12 +146,13 @@ final class LiveActivity {
 			return new Choice(Kind.IDLE, null, "Idle");
 		}
 		if (notBlank(s.boss)) {
-			return new Choice(Kind.BOSS, s.boss, s.boss);
+			return new Choice(Kind.BOSS, s.boss, s.boss, null, positive(s.bossId));
 		}
 		if (s.slaying && notBlank(s.slayerTask)) {
 			String task = capitalize(s.slayerTask);
 			return new Choice(Kind.SLAYER, task, task + (s.slayerLeft > 0 ? " · " + s.slayerLeft + " left" : ""),
-				notBlank(s.slayerNpc) ? MagicSpells.wikiFile(s.slayerNpc) : null);
+				notBlank(s.slayerNpc) ? MagicSpells.wikiFile(s.slayerNpc) : null,
+				notBlank(s.slayerNpc) ? positive(s.slayerNpcId) : null);
 		}
 		if (notBlank(s.farmRoute)) {
 			return new Choice(Kind.FARM_RUN, s.farmRoute,
@@ -148,9 +163,9 @@ final class LiveActivity {
 			if (s.combatMagic) {
 				return new Choice(Kind.COMBAT, s.combatNpc,
 					"Training Magic on " + s.combatNpc + (notBlank(s.combatSpell) ? " · " + s.combatSpell : ""),
-					MagicSpells.spellIcon(s.combatSpell));
+					MagicSpells.spellIcon(s.combatSpell), positive(s.combatNpcId));
 			}
-			return new Choice(Kind.COMBAT, s.combatNpc, s.combatNpc);
+			return new Choice(Kind.COMBAT, s.combatNpc, s.combatNpc, null, positive(s.combatNpcId));
 		}
 		if (s.teleport != null) {
 			// The Magic skill as subject: teleport after teleport stays one stretch of Magic on the website.
@@ -313,6 +328,21 @@ final class LiveActivity {
 	}
 
 	// ---- Helpers ------------------------------------------------------------------------------
+
+	/**
+	 * The id of the NPC being fought: the transformed composition's id when the NPC transforms (a
+	 * multiloc NPC), else its own id. Null when neither is a real id.
+	 */
+	static Integer npcId(int id, Integer transformedId) {
+		if (transformedId != null && transformedId > 0) {
+			return transformedId;
+		}
+		return id > 0 ? id : null;
+	}
+
+	private static Integer positive(Integer id) {
+		return id != null && id > 0 ? id : null;
+	}
 
 	static boolean notBlank(String s) {
 		return s != null && !s.trim().isEmpty();
