@@ -75,7 +75,7 @@ public class BossTripTracker {
 	static final String GUARD_FEATURE = "boss-trips";
 
 	private static final Pattern KILL_COUNT = Pattern.compile(
-		"^Your (?:completion count for |subdued |completed )?(.+?) (?:(kill|harvest|lap|completion) )?(?:count )?is: ?([0-9,]+)");
+		"^Your (?:completion count for |subdued |completed )?(.+?) (?:(kill|harvest|lap|completion|success) )?(?:count )?is: ?([0-9,]+)");
 	/** The game's colour codes in a message ("@mes_hl_red@123"). */
 	private static final Pattern COLOUR_CODE = Pattern.compile("@[a-z_]+@");
 	/** Kill counts that are not boss trips (skilling bosses). */
