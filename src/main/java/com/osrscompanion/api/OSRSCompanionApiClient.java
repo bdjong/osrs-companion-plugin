@@ -106,6 +106,7 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_GUIDE_ENDPOINT = "/api/runelite/slayer/guide/";
 	private static final String SLAYER_GEAR_ENDPOINT = "/api/runelite/slayer/gear/";
 	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
+	private static final String BOSS_SESSIONS_ENDPOINT = "/api/runelite/boss-sessions/";
 	static final String BATCH_ENDPOINT = "/api/runelite/batch";
 	static final String VERSION_ENDPOINT = "/api/runelite/version";
 	static final String ERRORS_ENDPOINT = "/api/runelite/errors";
@@ -404,6 +405,25 @@ public class OSRSCompanionApiClient
 			key("slayer-session", String.valueOf(body.get("session_uuid"))), urgent,
 			() -> {
 				log.debug("OSRS Companion slayer session {} synced", body.get("session_uuid"));
+				if (onSuccess != null)
+				{
+					onSuccess.run();
+				}
+			});
+	}
+
+	/**
+	 * Sends one boss history session (upserted by its session_uuid, so re-sending it as it grows is fine; a
+	 * queued older copy is replaced). The callback runs on the OkHttp thread.
+	 *
+	 * @param urgent send at once (a kill, a drop, logging out), not with the next timed flush
+	 */
+	public void sendBossSession(Map<String, Object> body, Runnable onSuccess, boolean urgent)
+	{
+		postAsync(BOSS_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "boss-session", false, false,
+			key("boss-session", String.valueOf(body.get("session_uuid"))), urgent,
+			() -> {
+				log.debug("OSRS Companion boss session {} synced", body.get("session_uuid"));
 				if (onSuccess != null)
 				{
 					onSuccess.run();

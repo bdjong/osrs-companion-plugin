@@ -444,6 +444,16 @@ public interface OSRSCompanionConfig extends Config {
 		return true;
 	}
 
+	@ConfigItem(
+			keyName = "bossHistory",
+			name = "Boss history",
+			description = "Record each visit to a boss (entering its lair until you leave it for good): trips, bank visits, kills, kill times, deaths, every drop with its value and the supplies used, and send it to the website's Boss Gear page (Boss history).",
+			section = SYNC_SECTION,
+			position = 17)
+	default boolean bossHistory() {
+		return true;
+	}
+
 	/** Set from the side panel's Trip planner: the boss setup's trips in the bank. */
 	@ConfigItem(
 			keyName = TRIP_PLANNER_BOSS_KEY,

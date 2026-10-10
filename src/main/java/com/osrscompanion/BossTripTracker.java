@@ -24,6 +24,7 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemComposition;
+import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ActorDeath;
@@ -63,6 +64,9 @@ import net.runelite.http.api.loottracker.LootRecordType;
  * </ul>
  * Finished trips go to /api/runelite/boss-trips, and the last ten trips' supplies per boss are kept (per
  * RuneLite profile) for the supplies check. Work per tick: a recount only when a container changed.
+ *
+ * <p>The same events drive the boss history ({@link BossHistory}: sessions per visit to a boss, with their
+ * trips, drops and fight times): this class hands them on, with the supplies each finished trip used.
  */
 @Slf4j
 @Singleton
@@ -92,6 +96,7 @@ public class BossTripTracker {
 	private final ItemManager itemManager;
 	private final SupplyCounter counter;
 	private final Gson gson;
+	private final BossHistory bossHistory;
 
 	enum State {
 		IDLE, ARMED, ACTIVE
@@ -124,7 +129,7 @@ public class BossTripTracker {
 
 	@Inject
 	public BossTripTracker(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient, ConfigManager configManager,
-		ItemManager itemManager, SupplyCounter counter, Gson gson) {
+		ItemManager itemManager, SupplyCounter counter, Gson gson, BossHistory bossHistory) {
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;
@@ -132,9 +137,11 @@ public class BossTripTracker {
 		this.itemManager = itemManager;
 		this.counter = counter;
 		this.gson = gson;
+		this.bossHistory = bossHistory;
 	}
 
 	public void stop() {
+		history(bossHistory::stop);
 		state = State.IDLE;
 		resetTrip();
 		history.clear();
@@ -147,6 +154,7 @@ public class BossTripTracker {
 	public void onWidgetLoaded(WidgetLoaded event) {
 		Guard.run(GUARD_FEATURE, () -> {
 			if (event.getGroupId() == InterfaceID.BANKMAIN) {
+				history(bossHistory::onBankOpened);
 				if (state == State.ACTIVE) {
 					finish("bank", false);
 				}
@@ -167,10 +175,15 @@ public class BossTripTracker {
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
 		Guard.run(GUARD_FEATURE, () -> {
-			if (event.getType() != ChatMessageType.GAMEMESSAGE || !config.bossTrips()) {
+			if (event.getType() != ChatMessageType.GAMEMESSAGE) {
 				return;
 			}
-			String name = killCountBoss(Text.removeTags(event.getMessage()));
+			String message = Text.removeTags(event.getMessage());
+			history(() -> bossHistory.onChatMessage(message));
+			if (!config.bossTrips()) {
+				return;
+			}
+			String name = killCountBoss(message);
 			if (name != null) {
 				onKill(name);
 			}
@@ -179,6 +192,12 @@ public class BossTripTracker {
 
 	/** The boss of a kill count message, or null when it is none (lap counts, skilling bosses, other messages). */
 	static String killCountBoss(String message) {
+		String[] kc = killCount(message);
+		return kc == null || SKIPPED.contains(TripSupplies.bossKey(kc[0])) ? null : kc[0];
+	}
+
+	/** A kill count message's name and count ("Vorkath", "152"), or null (lap and harvest counts, other messages). */
+	static String[] killCount(String message) {
 		if (message == null) {
 			return null;
 		}
@@ -187,7 +206,7 @@ public class BossTripTracker {
 			return null;
 		}
 		String name = m.group(1).trim();
-		return name.isEmpty() || SKIPPED.contains(TripSupplies.bossKey(name)) ? null : name;
+		return name.isEmpty() ? null : new String[]{name, m.group(3)};
 	}
 
 	@Subscribe
@@ -196,6 +215,14 @@ public class BossTripTracker {
 			if (event.getType() != LootRecordType.NPC && event.getType() != LootRecordType.EVENT) {
 				return;
 			}
+			List<BossSession.Stack> drop = new ArrayList<>();
+			if (config.bossHistory()) {
+				for (ItemStack stack : event.getItems()) {
+					int id = canonical(stack.getId());
+					drop.add(new BossSession.Stack(id, stack.getQuantity(), (long) itemManager.getItemPrice(id) * stack.getQuantity(), 0));
+				}
+			}
+			history(() -> bossHistory.onLoot(event.getName(), drop));
 			for (ItemStack stack : event.getItems()) {
 				int id = canonical(stack.getId());
 				if (state == State.ACTIVE) {
@@ -210,9 +237,14 @@ public class BossTripTracker {
 	@Subscribe
 	public void onActorDeath(ActorDeath event) {
 		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getActor() instanceof NPC) {
+				history(() -> bossHistory.onNpcDeath((NPC) event.getActor()));
+				return;
+			}
 			if (event.getActor() != client.getLocalPlayer()) {
 				return;
 			}
+			history(bossHistory::onLocalDeath);
 			// Ended before the items are lost, so they do not count as used.
 			if (state == State.ACTIVE) {
 				finish("death", true);
@@ -228,6 +260,7 @@ public class BossTripTracker {
 				if (state == State.ACTIVE) {
 					finish("logout", false);
 				}
+				history(bossHistory::onLogout);
 				state = State.IDLE;
 				resetTrip();
 			}
@@ -255,6 +288,9 @@ public class BossTripTracker {
 	@Subscribe
 	public void onGameTick(GameTick tick) {
 		Guard.run(GUARD_FEATURE, () -> {
+			if (client.getGameState() == GameState.LOGGED_IN) {
+				history(bossHistory::onTick);
+			}
 			int now = client.getTickCount();
 			while (!recentLoot.isEmpty() && now - (int) recentLoot.peekFirst()[0] > LOOT_BUFFER_TICKS) {
 				recentLoot.pollFirst();
@@ -360,6 +396,7 @@ public class BossTripTracker {
 		supplies.values().removeIf(v -> v <= 0);
 		log.debug("Boss trip: {} x{} ({}), {} supplies, {} loot", boss, kills, reason, supplies.size(), loot.size());
 		remember(bossKey, supplies);
+		history(() -> bossHistory.onTripSupplies(boss, supplyStacks(supplies)));
 		send(reason, died, endedAt, supplies);
 		resetTrip();
 		state = State.IDLE;
@@ -374,17 +411,13 @@ public class BossTripTracker {
 			return;
 		}
 		List<Map<String, Object>> supplyList = new ArrayList<>();
-		for (Map.Entry<String, Long> e : supplies.entrySet()) {
-			SupplyCounter.Rep rep = counter.rep(e.getKey());
-			if (rep == null) {
-				continue;
-			}
+		for (BossSession.Stack st : supplyStacks(supplies)) {
 			Map<String, Object> s = new LinkedHashMap<>();
-			s.put("item_id", rep.id);
-			s.put("quantity", e.getValue());
+			s.put("item_id", st.itemId);
+			s.put("quantity", st.quantity);
 			// Dosed: the quantity is doses, and the item holds this many.
-			if (e.getKey().startsWith("d:")) {
-				s.put("dose", rep.dose);
+			if (st.dose > 0) {
+				s.put("dose", st.dose);
 			}
 			supplyList.add(s);
 		}
@@ -406,6 +439,23 @@ public class BossTripTracker {
 		body.put("supplies", supplyList);
 		body.put("loot", lootList);
 		apiClient.sendBossTrip(gson.toJson(body));
+	}
+
+	/** The boss history's part of an event, guarded on its own: a failure there leaves the trips alone. */
+	private static void history(Runnable body) {
+		Guard.run(BossHistory.GUARD_FEATURE, body);
+	}
+
+	/** Supplies by counter key as item stacks (a dosed key: doses of the item that holds {@code dose}). */
+	private List<BossSession.Stack> supplyStacks(Map<String, Long> supplies) {
+		List<BossSession.Stack> out = new ArrayList<>();
+		for (Map.Entry<String, Long> e : supplies.entrySet()) {
+			SupplyCounter.Rep rep = counter.rep(e.getKey());
+			if (rep != null) {
+				out.add(new BossSession.Stack(rep.id, e.getValue(), 0, e.getKey().startsWith("d:") ? rep.dose : 0));
+			}
+		}
+		return out;
 	}
 
 	private void resetTrip() {
