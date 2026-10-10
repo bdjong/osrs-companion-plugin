@@ -14,10 +14,8 @@ import java.util.List;
  */
 final class IncidentStore {
 	static final String KEY = "pendingIncident";
-	/** Room for a client thread stall's {@value #STALL_FRAMES} frames, other plugins' included. */
+	/** Room for a short stack (the plugin keeps 20 frames). */
 	static final int MAX_STACK = 6_000;
-	/** Frames kept of a whole-client-thread stall: enough to see whose code it is. */
-	static final int STALL_FRAMES = 40;
 	static final int MAX_MESSAGE = 300;
 	private static final String VERSION = "v1";
 
@@ -125,13 +123,9 @@ final class IncidentStore {
 		return sb.toString();
 	}
 
+	/** The client thread's stack of a freeze as text, at most {@code maxFrames} frames. */
 	static String shortStack(StackTraceElement[] frames, int maxFrames) {
-		return shortStack("Client thread", frames, maxFrames);
-	}
-
-	/** {@code header}, then at most {@code maxFrames} frames (every frame, whoever's code it is). */
-	static String shortStack(String header, StackTraceElement[] frames, int maxFrames) {
-		StringBuilder sb = new StringBuilder(header);
+		StringBuilder sb = new StringBuilder("Client thread");
 		appendFrames(sb, frames, maxFrames);
 		return sb.toString();
 	}

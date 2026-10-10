@@ -21,6 +21,7 @@ import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.ScriptID;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.ScriptPostFired;
@@ -60,9 +61,12 @@ import net.runelite.client.util.Text;
  * <p>Only one drives the bank at a time: an open Boss gear / Slayer gear window first, then the farm
  * run, then the boss setup, then the slayer setup.
  *
- * <p>The old "Bank Tag Layouts" hub plugin lays out any open tag itself when its "Enable layout by
- * default" is on: right after Bank Tags draws our layout it packs every item from the top again (and
- * saves that as its own layout for the tag). Its per-tag "DISABLED" marker keeps it off our two tags.
+ * <p>The "Bank Tag Layouts" hub plugin lays out any open tag itself when its "Enable layout by
+ * default" is on: right after Bank Tags draws our layout it packs every item from the top again, and
+ * saves that as its own layout for the tag (it saves every layout it applies). A plugin may not change
+ * another plugin's settings, so we only read them ({@link #hubLayoutConflict}): our tag still opens (the
+ * bank shows only the needed items, in its order) and a chat message once tells the player that turning
+ * that plugin off gives our layout.
  */
 @Slf4j
 @Singleton
@@ -87,12 +91,19 @@ public class BankLayoutPrep {
 	private final PluginManager pluginManager;
 	private final ConfigManager configManager;
 
-	/** The "Bank Tag Layouts" hub plugin's config: a tag's layout is under "layout_" + tag, "DISABLED" = leave the tag alone. */
+	/**
+	 * The "Bank Tag Layouts" hub plugin (read only): its class, its config group, a tag's own layout under
+	 * "layout_" + tag ("DISABLED" = it leaves the tag alone) and its "Enable layout by default" switch.
+	 */
+	static final String HUB_LAYOUTS_PLUGIN = "com.banktaglayouts.BankTagLayoutsPlugin";
 	private static final String HUB_LAYOUTS_GROUP = "banktaglayouts";
 	private static final String HUB_LAYOUT_DISABLED = "DISABLED";
+	private static final String HUB_LAYOUT_BY_DEFAULT = "layoutEnabledByDefault";
 
 	/** Whether the "turn Bank Tags on" hint was shown this session (once is enough). */
 	private boolean bankTagsHintShown;
+	/** Whether the "Bank Tag Layouts takes the layout over" tip was shown since this login (once per login). */
+	private boolean hubLayoutsHintShown;
 
 	/** What was put in the open bank ("boss:..." / "farm:..."), so it is redone only when that changes. Client thread. */
 	private String applied;
@@ -143,9 +154,6 @@ public class BankLayoutPrep {
 			tagManager.registerTag(FARM_TAG, farmRun::needs);
 			tagManager.registerTag(SLAYER_TAG, slayer::needs);
 		});
-		keepHubLayoutsOff(BOSS_TAG);
-		keepHubLayoutsOff(FARM_TAG);
-		keepHubLayoutsOff(SLAYER_TAG);
 		// Both used to be on by default: keep only the first one that is on.
 		String first = null;
 		for (Map.Entry<String, java.util.function.BooleanSupplier> e : bankLayoutSettings.entrySet()) {
@@ -157,6 +165,14 @@ public class BankLayoutPrep {
 					configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, e.getKey(), false);
 				}
 			}
+		}
+	}
+
+	/** Logging out: the Bank Tag Layouts tip shows again on the first bank visit of the next login (not on a world hop). */
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged event) {
+		if (event.getGameState() == GameState.LOGIN_SCREEN) {
+			hubLayoutsHintShown = false;
 		}
 	}
 
@@ -196,13 +212,56 @@ public class BankLayoutPrep {
 		});
 	}
 
-	/** Keeps the "Bank Tag Layouts" hub plugin from laying out (packing) our tag over the Bank Tags layout. */
-	private void keepHubLayoutsOff(String tag) {
-		String key = "layout_" + tag;
-		if (!HUB_LAYOUT_DISABLED.equals(configManager.getConfiguration(HUB_LAYOUTS_GROUP, key))) {
-			log.debug("Bank layout: turning the Bank Tag Layouts hub plugin's own layout off for '{}'", tag);
-			configManager.setConfiguration(HUB_LAYOUTS_GROUP, key, HUB_LAYOUT_DISABLED);
+	/** What the "Bank Tag Layouts" hub plugin would do to our tag. */
+	enum HubConflict {
+		/** Nothing: not installed / off, or it leaves the tag alone. */
+		NONE,
+		/** Its "Enable layout by default" is on: it would pack the tag and save that as its own layout. */
+		BY_DEFAULT,
+		/** It already saved its own layout for the tag (an earlier session), which it keeps using. */
+		SAVED
+	}
+
+	/** Whether the "Bank Tag Layouts" hub plugin would lay out (pack) our tag over the Bank Tags layout. Reads its settings only. */
+	HubConflict hubLayoutConflict(String tag) {
+		if (!hubLayoutsPluginActive()) {
+			return HubConflict.NONE;
 		}
+		return hubConflict(configManager.getConfiguration(HUB_LAYOUTS_GROUP, "layout_" + tag),
+			configManager.getConfiguration(HUB_LAYOUTS_GROUP, HUB_LAYOUT_BY_DEFAULT));
+	}
+
+	/** The conflict from its saved layout for our tag and its "Enable layout by default" value (pure, for tests). */
+	static HubConflict hubConflict(String savedLayout, String byDefault) {
+		if (HUB_LAYOUT_DISABLED.equals(savedLayout)) {
+			return HubConflict.NONE;
+		}
+		if (savedLayout != null && !savedLayout.isEmpty()) {
+			return HubConflict.SAVED;
+		}
+		return "true".equals(byDefault) ? HubConflict.BY_DEFAULT : HubConflict.NONE;
+	}
+
+	private boolean hubLayoutsPluginActive() {
+		for (Plugin p : pluginManager.getPlugins()) {
+			if (HUB_LAYOUTS_PLUGIN.equals(p.getClass().getName())) {
+				return pluginManager.isPluginActive(p);
+			}
+		}
+		return false;
+	}
+
+	/** Tells the player once per login (on the first bank visit with one of our layouts) how to get our layout back from "Bank Tag Layouts". */
+	private void hubLayoutsHint(HubConflict conflict) {
+		if (hubLayoutsHintShown) {
+			return;
+		}
+		hubLayoutsHintShown = true;
+		// Either way it ends up saving its own order for our view (it saves every layout it applies), after
+		// which only turning that plugin off gives ours back: so that is the one tip.
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "",
+			"<col=ff9040>OSRS Companion: your gear is shown in the order of the Bank Tag Layouts plugin. For our neater layout (worn gear,"
+				+ " rune pouch and inventory in their slots), turn the Bank Tag Layouts plugin off.</col>", null);
 	}
 
 	public void shutDown() {
@@ -511,7 +570,13 @@ public class BankLayoutPrep {
 			}
 			return;
 		}
-		keepHubLayoutsOff(tag);
+		HubConflict conflict = hubLayoutConflict(tag);
+		if (conflict != HubConflict.NONE) {
+			// "Bank Tag Layouts" re-sorts our tag into its own order: the bank still shows only the needed
+			// items, just not in our layout. Tell the player once which of its settings gives ours.
+			log.debug("Bank layout: Bank Tag Layouts re-sorts '{}' ({}), the items show in its order", tag, conflict);
+			hubLayoutsHint(conflict);
+		}
 		BankItems bank = new BankItems();
 		int[] positions = d == Driver.BOSS ? bossLayout(bossGear.getSet(), bank) : d == Driver.SLAYER ? slayerLayout(slayer.getGearSet(), bank)
 			: farmLayout(bank);

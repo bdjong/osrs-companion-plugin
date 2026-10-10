@@ -55,15 +55,6 @@ public interface OSRSCompanionConfig extends Config {
 		return "";
 	}
 
-	@ConfigItem(
-			keyName = "apiBaseUrl",
-			name = "API Base URL",
-			description = "Base URL of the OSRS Companion website. Use http://localhost:3000 when testing the website locally.",
-			hidden = true)
-	default String apiBaseUrl() {
-		return "https://osrs-companion-web.vercel.app";
-	}
-
 	// --- Data Syncing ---
 
 	@ConfigItem(
@@ -223,7 +214,8 @@ public interface OSRSCompanionConfig extends Config {
 			section = SYNC_SECTION,
 			position = 15)
 	default boolean sendErrorReports() {
-		return true;
+		// Off until the player chooses to help with bug reports (telemetry is opt-in).
+		return false;
 	}
 
 	@ConfigItem(
@@ -233,6 +225,27 @@ public interface OSRSCompanionConfig extends Config {
 			section = SYNC_SECTION,
 			position = 16)
 	default boolean shareLiveActivity() {
+		// Off until the player turns it on: it shares their world and area every few seconds.
+		return false;
+	}
+
+	@ConfigItem(
+			keyName = "syncSkills",
+			name = "Skills & XP",
+			description = "Sync your levels and XP (with your total and combat level and account type) to OSRS Companion, for your XP history, goals and the tools that check your levels.",
+			section = SYNC_SECTION,
+			position = 17)
+	default boolean syncSkills() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "syncSessions",
+			name = "Play sessions",
+			description = "Tell OSRS Companion when you log in and out (and a ping every few minutes while you play), for your play time and the session summary on your home page.",
+			section = SYNC_SECTION,
+			position = 18)
+	default boolean syncSessions() {
 		return true;
 	}
 
@@ -312,7 +325,8 @@ public interface OSRSCompanionConfig extends Config {
 			section = FEATURES_SECTION,
 			position = 9)
 	default FarmingCapeMode farmingCapeMode() {
-		return FarmingCapeMode.FORCE;
+		// Remind by default: Force changes what a left click does, so the player chooses it.
+		return FarmingCapeMode.REMIND;
 	}
 
 	@ConfigItem(
@@ -322,7 +336,8 @@ public interface OSRSCompanionConfig extends Config {
 			section = FEATURES_SECTION,
 			position = 9)
 	default boolean autoCapeTeleport() {
-		return true;
+		// Off by default: it changes the left click of items, so the player opts in.
+		return false;
 	}
 
 	@ConfigItem(

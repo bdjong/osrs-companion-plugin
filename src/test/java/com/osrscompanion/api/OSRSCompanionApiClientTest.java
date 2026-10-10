@@ -241,7 +241,7 @@ public class OSRSCompanionApiClientTest {
 		com.osrscompanion.TestOSRSCompanionConfig c = new com.osrscompanion.TestOSRSCompanionConfig();
 		c.setOsrsCompanionAppKey("abcdefgh");
 		OSRSCompanionApiClient client = new OSRSCompanionApiClient(c, new Gson(), new OkHttpClient());
-		String base = c.apiBaseUrl().replaceAll("/+$", "");
+		String base = OSRSCompanionApiClient.BASE_URL;
 		SyncOutbox.Item bank = new SyncOutbox.Item(base, "abcdefgh", "/api/runelite/bank/", "POST",
 			"{\"player_username\":\"Zezima\"}", "bank", null, false, false, null);
 		// No source: nothing.

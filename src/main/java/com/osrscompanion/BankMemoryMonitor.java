@@ -42,9 +42,9 @@ import net.runelite.client.game.ItemManager;
  * the inventory and worn gear both INV and WORN arrived since the last login or hop. The two are read
  * together and always uploaded together ({@link SourceSyncer#linkSources}): the website reads an
  * {@code inventory} without {@code worn} as an older plugin's inventory + worn gear. Uploading never depends on
- * this feature's breaker: the syncer's timer, the logout flush, the bank-close flush and the flush
- * when the client thread died all run as {@link Guard#SYNC_FEATURE}, which is never turned off, so a
- * change already read is not lost when this feature is turned off.
+ * this feature's breaker: the syncer's timer, the logout flush and the bank-close flush all run as
+ * {@link Guard#SYNC_FEATURE}, which is never turned off, so a change already read is not lost when
+ * this feature is turned off.
  *
  * <p>Group Ironman: the shared group storage ({@code InventoryID.INV_GROUP_TEMP}) is synced as the source
  * {@code group_storage} while its interface ({@code InterfaceID.SHARED_BANK}) is open, through the same
@@ -152,7 +152,7 @@ public class BankMemoryMonitor {
 
 	/**
 	 * Sends what is pending now (already read while it was reliable). Used when leaving the bank and
-	 * when the client thread died. Runs as {@link Guard#SYNC_FEATURE}, never skipped.
+	 * on logout. Runs as {@link Guard#SYNC_FEATURE}, never skipped.
 	 */
 	public void flushPending() {
 		Guard.run(Guard.SYNC_FEATURE, syncer::flushPending);

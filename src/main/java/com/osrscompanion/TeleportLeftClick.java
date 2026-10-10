@@ -245,7 +245,7 @@ public class TeleportLeftClick {
 	private void logOnce(String line) {
 		if (!line.equals(lastLog)) {
 			lastLog = line;
-			log.info(line);
+			log.debug(line);
 		}
 	}
 
