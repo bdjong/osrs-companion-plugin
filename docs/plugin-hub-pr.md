@@ -5,7 +5,11 @@ Copy the part below the line into the pull request on `runelite/plugin-hub` that
 ```
 repository=https://github.com/bdjong/osrs-companion-plugin.git
 commit=<40-character hash of the main commit to release>
+authors=bdjong
+warning=This plugin submits your RSN, skills, bank and other storage, collection log, quests, diaries, loot, slayer, farming and boss data to a 3rd-party server (OSRS Companion) not controlled or verified by the RuneLite developers, but only after you enter an App Key from your account on that website.
 ```
+
+The `warning=` line is shown by RuneLite before someone installs the plugin; the hub asks for it on plugins that send data to a third-party server (other syncing plugins, such as Mystix, have one too).
 
 ---
 

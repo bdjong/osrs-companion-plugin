@@ -56,7 +56,7 @@ Still to do, in this order:
    - Re-check the sensitive APIs before submitting: the single `client.menuAction` (collection log), `client.runScript` uses, the menu swaps, hint arrows, and that nothing writes another plugin's settings.
 3. **Website**: the privacy page and account deletion are on the website's `development` branch; they go live when it is merged into `main`.
 4. **Release**: merge `development` into `main` in both repositories (the `friend/` kit stays out of `main`, see DEVELOPMENT.md), and check the GitHub Actions builds of those commits.
-5. **Submit**: fork `runelite/plugin-hub`, add `plugins/osrs-companion` with `repository=https://github.com/bdjong/osrs-companion-plugin.git` and `commit=<the 40-character hash of that main commit>`, and open the pull request with the text in [docs/plugin-hub-pr.md](docs/plugin-hub-pr.md). Watch its build and review checks and answer the reviewers' questions in the PR.
+5. **Submit**: fork `runelite/plugin-hub`, add `plugins/osrs-companion` with `repository=https://github.com/bdjong/osrs-companion-plugin.git`, `commit=<the 40-character hash of that main commit>`, `authors=bdjong` and the `warning=` line (the third-party data disclosure RuneLite shows before install; the exact text is in docs/plugin-hub-pr.md), and open the pull request with the text in [docs/plugin-hub-pr.md](docs/plugin-hub-pr.md). Watch its build and review checks and answer the reviewers' questions in the PR.
 6. **Every later update**: raise `version` in `version.properties` (1.1, 1.2 ...) in the commit the hub update points at.
 
 ## License
