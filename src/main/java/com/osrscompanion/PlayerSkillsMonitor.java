@@ -18,6 +18,7 @@ import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.StatChanged;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.Subscribe;
 
 /**
@@ -175,7 +176,9 @@ public class PlayerSkillsMonitor {
 
 		int combatLevel = localPlayer.getCombatLevel();
 
-		PlayerSkillsSyncPayload payload = new PlayerSkillsSyncPayload(playerUsername, skills, totalLevel, combatLevel);
+		// Account type (Group Ironman helmet on the website): varbit IRONMAN, sent only when it names an iron type.
+		Integer accountType = PlayerSkillsSyncPayload.accountTypeOf(client.getVarbitValue(VarbitID.IRONMAN));
+		PlayerSkillsSyncPayload payload = new PlayerSkillsSyncPayload(playerUsername, skills, totalLevel, combatLevel, accountType);
 		log.debug("Syncing {} skills for player: {} (Total Level: {}, Combat Level: {})",
 				skills.size(), playerUsername, totalLevel, combatLevel);
 		Map<String, Integer> snapshot = Collections.unmodifiableMap(xpSnapshot);

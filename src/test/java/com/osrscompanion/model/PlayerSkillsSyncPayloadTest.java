@@ -73,4 +73,24 @@ public class PlayerSkillsSyncPayloadTest {
 		assertEquals(99, skillData.getLevel());
 		assertEquals(13034431, skillData.getCurrentXp());
 	}
+
+	@Test
+	public void accountTypeFromTheIronmanVarbit() {
+		assertNull(PlayerSkillsSyncPayload.accountTypeOf(0)); // normal, or not loaded yet
+		for (int v = 1; v <= 6; v++) {
+			assertEquals(Integer.valueOf(v), PlayerSkillsSyncPayload.accountTypeOf(v));
+		}
+		assertNull(PlayerSkillsSyncPayload.accountTypeOf(7));
+		assertNull(PlayerSkillsSyncPayload.accountTypeOf(-1));
+	}
+
+	@Test
+	public void accountTypeIsSentOnlyWhenKnown() {
+		Map<String, PlayerSkillsSyncPayload.SkillData> skills = new HashMap<>();
+		Gson gson = new Gson();
+		JsonObject gim = gson.fromJson(new PlayerSkillsSyncPayload("Gim", skills, 32, 3, 5).toJson(gson), JsonObject.class);
+		assertEquals(5, gim.get("account_type").getAsInt());
+		JsonObject normal = gson.fromJson(new PlayerSkillsSyncPayload("Main", skills, 32, 3).toJson(gson), JsonObject.class);
+		assertFalse(normal.has("account_type"));
+	}
 }

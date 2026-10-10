@@ -79,4 +79,14 @@ public class CarriedReadGateTest {
 		gate.onGameState(GameState.LOGGING_IN);
 		assertTrue(gate.canReadBank(GameState.LOGGED_IN, true, true));
 	}
+
+	@Test
+	public void groupStorageNeedsTheInterfaceOpenAndTheContainer() {
+		CarriedReadGate gate = new CarriedReadGate();
+		assertTrue(gate.canReadGroupStorage(GameState.LOGGED_IN, true, true, true));
+		assertFalse("interface closed", gate.canReadGroupStorage(GameState.LOGGED_IN, true, true, false));
+		assertFalse("no container", gate.canReadGroupStorage(GameState.LOGGED_IN, true, false, true));
+		assertFalse("player not loaded", gate.canReadGroupStorage(GameState.LOGGED_IN, false, true, true));
+		assertFalse("hopping", gate.canReadGroupStorage(GameState.HOPPING, true, true, true));
+	}
 }

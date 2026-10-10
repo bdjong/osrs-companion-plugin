@@ -42,6 +42,10 @@ import net.runelite.client.game.ItemManager;
  * this feature's breaker: the syncer's timer, the logout flush, the bank-close flush and the flush
  * when the client thread died all run as {@link Guard#SYNC_FEATURE}, which is never turned off, so a
  * change already read is not lost when this feature is turned off.
+ *
+ * <p>Group Ironman: the shared group storage ({@code InventoryID.INV_GROUP_TEMP}) is synced as the source
+ * {@code group_storage} while its interface ({@code InterfaceID.SHARED_BANK}) is open, through the same
+ * syncer, and flushed when it closes.
  */
 @Slf4j
 @Singleton
@@ -51,6 +55,8 @@ public class BankMemoryMonitor {
 
 	static final String SOURCE_BANK = "bank";
 	static final String SOURCE_INVENTORY = "inventory";
+	/** The Group Ironman shared group storage: the group's, synced by whoever opens it (the website shows the newest copy). */
+	static final String SOURCE_GROUP_STORAGE = "group_storage";
 
 	private final Client client;
 	private final ClientThread clientThread;
@@ -62,6 +68,8 @@ public class BankMemoryMonitor {
 	private volatile Function<String, Map<Integer, Integer>> seedSupplier;
 
 	private GameState previousGameState = GameState.UNKNOWN;
+	/** The group storage interface is open (its container is only read then). */
+	private boolean groupStorageOpen;
 	/** When INV / WORN / the bank may be read (see the class comment). */
 	private final CarriedReadGate gate = new CarriedReadGate();
 	/** Inventory + gear as last read, for deposit diffs. */
@@ -109,6 +117,10 @@ public class BankMemoryMonitor {
 			if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
 				deposits.onDepositInterface(true);
 			}
+			if (event.getGroupId() == InterfaceID.SHARED_BANK) {
+				groupStorageOpen = true;
+				push(true, false);
+			}
 		});
 	}
 
@@ -118,8 +130,12 @@ public class BankMemoryMonitor {
 			if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
 				deposits.onDepositInterface(false);
 			}
+			if (event.getGroupId() == InterfaceID.SHARED_BANK) {
+				groupStorageOpen = false;
+			}
 		});
-		if (event.getGroupId() == InterfaceID.BANKMAIN || event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
+		if (event.getGroupId() == InterfaceID.BANKMAIN || event.getGroupId() == InterfaceID.BANK_DEPOSITBOX
+			|| event.getGroupId() == InterfaceID.SHARED_BANK) {
 			// Leaving the bank: what moved between the bank and the inventory goes up now, not after the
 			// debounce, so a client killed (or crashed) a few seconds later cannot lose it. A lost bank
 			// upload is what makes the next session's inventory upload look like the items are gone.
@@ -188,6 +204,7 @@ public class BankMemoryMonitor {
 		Guard.run(GUARD_FEATURE, () -> {
 			gate.onGameState(newState);
 			if (SyncGuard.isLogout(previousGameState, newState)) {
+				groupStorageOpen = false;
 				deposits.resetSession();
 				lastCarried = new LinkedHashMap<>();
 			}
@@ -209,7 +226,7 @@ public class BankMemoryMonitor {
 	public void onItemContainerChanged(ItemContainerChanged event) {
 		Guard.run(GUARD_FEATURE, () -> {
 			int id = event.getContainerId();
-			if (id != InventoryID.BANK && id != InventoryID.INV && id != InventoryID.WORN) {
+			if (id != InventoryID.BANK && id != InventoryID.INV && id != InventoryID.WORN && id != InventoryID.INV_GROUP_TEMP) {
 				return;
 			}
 			gate.onContainerChanged(id, client.getItemContainer(id) != null);
@@ -287,6 +304,12 @@ public class BankMemoryMonitor {
 			ItemCollector.collectBankItems(bankContainer, itemManager, bankQuantities);
 			bySource.put(SOURCE_BANK, bankQuantities);
 		}
+		ItemContainer groupStorage = client.getItemContainer(InventoryID.INV_GROUP_TEMP);
+		if (gate.canReadGroupStorage(state, playerLoaded, groupStorage != null, groupStorageOpen)) {
+			Map<Integer, Integer> groupQuantities = new LinkedHashMap<>();
+			ItemCollector.collectBankItems(groupStorage, itemManager, groupQuantities);
+			bySource.put(SOURCE_GROUP_STORAGE, groupQuantities);
+		}
 		ItemContainer inv = client.getItemContainer(InventoryID.INV);
 		ItemContainer worn = client.getItemContainer(InventoryID.WORN);
 		if (gate.canReadCarried(state, playerLoaded, inv != null, worn != null)) {
@@ -311,7 +334,15 @@ public class BankMemoryMonitor {
 			return;
 		}
 		Map<String, List<BankSyncPayload.BankItem>> itemsBySource = new LinkedHashMap<>();
-		bySource.forEach((source, quantities) -> itemsBySource.put(source, ItemCollector.toBankItemList(quantities)));
+		bySource.forEach((source, quantities) -> {
+			// The group storage is the group's, not this character's: local goals do not count it.
+			if (!SOURCE_GROUP_STORAGE.equals(source)) {
+				itemsBySource.put(source, ItemCollector.toBankItemList(quantities));
+			}
+		});
+		if (itemsBySource.isEmpty()) {
+			return;
+		}
 		listener.accept(new BankSyncPayload(playerUsername, itemsBySource));
 	}
 }
