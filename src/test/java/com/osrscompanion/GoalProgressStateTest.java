@@ -627,6 +627,23 @@ public class GoalProgressStateTest {
 	}
 
 	@Test
+	public void ownedItemGoalNeverCountsTheCarriedSourcesTwice() {
+		// The server reports the inventory, the worn gear and an older plugin's "carried" per source: those are
+		// tracked live from the containers, so only the bank counts from the server.
+		Roadmap r = roadmap(1, goalJson(1, "item_owned", 0, 10, false,
+				"{\"item_id\":20997,\"start_qty\":0,\"held_bank\":0,\"held_vaults\":0,"
+				+ "\"held_by_source\":{\"bank\":0,\"worn\":1,\"inventory\":1,\"carried\":1}}"));
+		state.onServerRoadmap(r);
+		state.onInventoryChanged(true, qty(20997, 1));
+		state.onInventoryChanged(false, new HashMap<>());
+		assertEquals(1, state.progressFor(goal(r, 1)).getCurrent());
+		// A bank upload's worn section is not a container snapshot either.
+		state.onContainerSnapshot("worn", qty(20997, 1));
+		state.onContainerSnapshot("inventory", qty(20997, 1));
+		assertEquals(1, state.progressFor(goal(r, 1)).getCurrent());
+	}
+
+	@Test
 	public void ownedItemGoalClientOnlySourceAddsToServerHoldings() {
 		Roadmap r = roadmap(1, goalJson(1, "item_owned", 0, 10, false,
 				"{\"item_id\":13439,\"start_qty\":0,\"held_bank\":0,\"held_vaults\":0,\"held_by_source\":{\"bank\":0}}"));

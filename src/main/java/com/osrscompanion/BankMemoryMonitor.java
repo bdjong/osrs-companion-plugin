@@ -28,8 +28,9 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 
 /**
- * Syncs the bank proper and the inventory + worn gear as bank-memory
- * sources {@code bank} and {@code inventory}. Both go through one
+ * Syncs the bank proper, the inventory and the worn gear as bank-memory
+ * sources {@code bank}, {@code inventory} (the INV container only) and
+ * {@code worn} (the WORN container). All go through one
  * {@link SourceSyncer}: inventory changes while skilling are collapsed on
  * the default cadence, changes to an item an owned-item goal is counting go
  * up on the short one, and logout always flushes. The bank container only
@@ -38,7 +39,9 @@ import net.runelite.client.game.ItemManager;
  *
  * <p>The website replaces each source it receives, so a source is only read when the read is
  * reliable ({@link CarriedReadGate}): logged in, the player loaded, the containers present, and for
- * the inventory both INV and WORN arrived since the last login or hop. Uploading never depends on
+ * the inventory and worn gear both INV and WORN arrived since the last login or hop. The two are read
+ * together and always uploaded together ({@link SourceSyncer#linkSources}): the website reads an
+ * {@code inventory} without {@code worn} as an older plugin's inventory + worn gear. Uploading never depends on
  * this feature's breaker: the syncer's timer, the logout flush, the bank-close flush and the flush
  * when the client thread died all run as {@link Guard#SYNC_FEATURE}, which is never turned off, so a
  * change already read is not lost when this feature is turned off.
@@ -54,7 +57,10 @@ public class BankMemoryMonitor {
 	static final String GUARD_FEATURE = "bank-sync";
 
 	static final String SOURCE_BANK = "bank";
+	/** The INV container (older plugins sent INV + WORN merged under this source). */
 	static final String SOURCE_INVENTORY = "inventory";
+	/** The WORN container: the equipment the player wears. */
+	static final String SOURCE_WORN = "worn";
 	/** The Group Ironman shared group storage: the group's, synced by whoever opens it (the website shows the newest copy). */
 	static final String SOURCE_GROUP_STORAGE = "group_storage";
 
@@ -93,6 +99,7 @@ public class BankMemoryMonitor {
 				() -> SyncGuard.getPlayerUsername(client),
 				apiClient::sendBankSync);
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
+		this.syncer.linkSources(SOURCE_INVENTORY, SOURCE_WORN);
 		this.deposits = new BankDepositLedger(() -> {
 			Function<String, Map<Integer, Integer>> s = seedSupplier;
 			return s == null ? Map.of() : s.apply(BankDepositLedger.SOURCE);
@@ -259,7 +266,7 @@ public class BankMemoryMonitor {
 	 * holds everything, so the deposits go back to empty alongside it.
 	 */
 	private void trackDeposits(Map<String, Map<Integer, Integer>> bySource) {
-		Map<Integer, Integer> carried = bySource.get(SOURCE_INVENTORY);
+		Map<Integer, Integer> carried = carried(bySource);
 		Map<Integer, Integer> removed = new LinkedHashMap<>();
 		if (carried != null) {
 			// Only a reliable read of the carried items is diffed (no inventory: nothing to compare).
@@ -281,6 +288,21 @@ public class BankMemoryMonitor {
 		if (changed || (!deposits.contents().isEmpty() && !bySource.containsKey(BankDepositLedger.SOURCE))) {
 			bySource.put(BankDepositLedger.SOURCE, deposits.contents());
 		}
+	}
+
+	/**
+	 * Everything carried (inventory + worn gear summed per item) when both were read, else null. The
+	 * deposit ledger diffs this: unequipping and banking a piece of gear is a deposit too. Pure.
+	 */
+	static Map<Integer, Integer> carried(Map<String, Map<Integer, Integer>> bySource) {
+		Map<Integer, Integer> inv = bySource.get(SOURCE_INVENTORY);
+		Map<Integer, Integer> worn = bySource.get(SOURCE_WORN);
+		if (inv == null || worn == null) {
+			return null;
+		}
+		Map<Integer, Integer> carried = new LinkedHashMap<>(inv);
+		worn.forEach((id, q) -> carried.merge(id, q, Integer::sum));
+		return carried;
 	}
 
 	private Map<String, Map<Integer, Integer>> readSources(boolean inventoryOnlyOk) {
@@ -313,10 +335,13 @@ public class BankMemoryMonitor {
 		ItemContainer inv = client.getItemContainer(InventoryID.INV);
 		ItemContainer worn = client.getItemContainer(InventoryID.WORN);
 		if (gate.canReadCarried(state, playerLoaded, inv != null, worn != null)) {
+			// Read together, sent together: never one without the other.
 			Map<Integer, Integer> invQuantities = new LinkedHashMap<>();
 			ItemCollector.collectItems(inv, itemManager, invQuantities);
-			ItemCollector.collectItems(worn, itemManager, invQuantities);
+			Map<Integer, Integer> wornQuantities = new LinkedHashMap<>();
+			ItemCollector.collectItems(worn, itemManager, wornQuantities);
 			bySource.put(SOURCE_INVENTORY, invQuantities);
+			bySource.put(SOURCE_WORN, wornQuantities);
 		} else {
 			// Not known (yet): leave the server's inventory as it is rather than send a partial one.
 			log.debug("Bank sync: inventory/worn not read (containers not both loaded yet)");

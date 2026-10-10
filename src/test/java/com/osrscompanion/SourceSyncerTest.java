@@ -153,6 +153,66 @@ public class SourceSyncerTest {
 	}
 
 	@Test
+	public void linkedSourcesAlwaysGoUpTogether() {
+		SourceSyncer bank = new SourceSyncer("bank memory", new Gson(), executor, () -> now, () -> enabled, () -> "Zezima", sent::add);
+		bank.linkSources("inventory", "worn");
+		Map<String, Map<Integer, Integer>> first = new HashMap<>();
+		first.put("inventory", qty(1511, 5));
+		first.put("worn", qty(20997, 1));
+		bank.submitSources(first, false);
+		assertEquals(1, sent.size());
+		assertTrue(sent.get(0).getItems().containsKey("worn"));
+
+		// Only the inventory changed: the worn gear still goes with it (an "inventory" alone reads as an older
+		// plugin's inventory + worn gear on the website).
+		Map<String, Map<Integer, Integer>> invChanged = new HashMap<>();
+		invChanged.put("inventory", qty(1511, 6));
+		invChanged.put("worn", qty(20997, 1));
+		bank.submitSources(invChanged, true);
+		assertEquals(2, sent.size());
+		assertEquals(6, quantity(sent.get(1), "inventory", 1511));
+		assertEquals(1, quantity(sent.get(1), "worn", 20997));
+
+		// Only the worn gear changed (unequipped into the inventory, read in one go): both go.
+		Map<String, Map<Integer, Integer>> wornChanged = new HashMap<>();
+		wornChanged.put("inventory", qty(1511, 6));
+		wornChanged.put("worn", new HashMap<>());
+		bank.submitSources(wornChanged, true);
+		assertEquals(3, sent.size());
+		assertEquals(6, quantity(sent.get(2), "inventory", 1511));
+		assertTrue(sent.get(2).getItems().get("worn").isEmpty());
+
+		// Nothing changed: nothing goes up.
+		bank.submitSources(wornChanged, true);
+		assertEquals(3, sent.size());
+
+		// A change that reverts before the debounce: neither stays pending.
+		Map<String, Map<Integer, Integer>> moved = new HashMap<>();
+		moved.put("inventory", qty(1511, 7));
+		moved.put("worn", new HashMap<>());
+		bank.submitSources(moved, false);
+		bank.submitSources(wornChanged, false);
+		advance(DEFAULT_MS);
+		assertEquals(3, sent.size());
+	}
+
+	@Test
+	public void unlinkedSourcesStillGoUpAlone() {
+		SourceSyncer bank = new SourceSyncer("bank memory", new Gson(), executor, () -> now, () -> enabled, () -> "Zezima", sent::add);
+		bank.linkSources("inventory", "worn");
+		Map<String, Map<Integer, Integer>> first = new HashMap<>();
+		first.put("inventory", qty(1511, 5));
+		first.put("worn", qty(20997, 1));
+		first.put("bank", qty(995, 100));
+		bank.submitSources(first, true);
+		Map<String, Map<Integer, Integer>> bankOnly = new HashMap<>(first);
+		bankOnly.put("bank", qty(995, 50));
+		bank.submitSources(bankOnly, true);
+		assertEquals(2, sent.size());
+		assertEquals(java.util.Collections.singleton("bank"), sent.get(1).getItems().keySet());
+	}
+
+	@Test
 	public void invalidateForcesTheNextSubmitAndGatedOffSendsNothing() {
 		syncer.submit(qty(13439, 5), false);
 		syncer.invalidate();

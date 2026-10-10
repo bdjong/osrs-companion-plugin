@@ -4,7 +4,8 @@ import net.runelite.api.GameState;
 import net.runelite.api.gameval.InventoryID;
 
 /**
- * When the inventory + worn gear (bank-memory source {@code inventory}) and the bank may be read for
+ * When the inventory and worn gear (bank-memory sources {@code inventory} and {@code worn}, always read
+ * and sent together) and the bank may be read for
  * an upload. The website replaces a whole source per upload, so a read taken while the client is not
  * really in game (logging in, hopping, loading, a dead client thread) would wipe what the player owns.
  *
@@ -52,7 +53,7 @@ final class CarriedReadGate {
 		return state == GameState.LOGGED_IN && playerLoaded;
 	}
 
-	/** Whether the inventory + worn gear can be read as the complete {@code inventory} source. */
+	/** Whether the inventory and worn gear can be read as the complete {@code inventory} and {@code worn} sources (both or neither). */
 	boolean canReadCarried(GameState state, boolean playerLoaded, boolean invPresent, boolean wornPresent) {
 		return inGame(state, playerLoaded) && invPresent && wornPresent && invArrived && wornArrived;
 	}

@@ -523,8 +523,9 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 			edge = GREEN;
 		} else if (!where.isEmpty()) {
 			edge = STORED;
-			String[] label = STORAGE.get(where.keySet().iterator().next());
-			badge = label != null ? label[0] : "+";
+			String first = where.keySet().iterator().next();
+			String[] label = STORAGE.get(first);
+			badge = label != null ? label[0] : ItemWhere.isGroup(first) ? "G" : "+";
 		} else {
 			edge = RED;
 		}
@@ -563,7 +564,8 @@ public class FarmRunWindow extends Overlay implements MouseListener, MouseWheelL
 		sb.append(" - carrying ").append(carried);
 		for (Map.Entry<String, Integer> e : where.entrySet()) {
 			String[] label = STORAGE.get(e.getKey());
-			sb.append(", ").append(label != null ? label[1] : e.getKey().replace('_', ' ')).append(' ').append(e.getValue());
+			String group = ItemWhere.groupLabel(e.getKey());
+			sb.append(", ").append(label != null ? label[1] : group != null ? group : e.getKey().replace('_', ' ')).append(' ').append(e.getValue());
 		}
 		if (carried < s.getQty() && where.isEmpty()) {
 			sb.append(", not in your bank or storage");
