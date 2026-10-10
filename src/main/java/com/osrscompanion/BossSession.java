@@ -259,6 +259,10 @@ final class BossSession {
 	/** Last kill, drop, death or entering the lair (for the idle close). */
 	@SerializedName("last_activity_ms")
 	long lastActivityMs;
+	/**
+	 * When it last changed; it grows with every change, even two in the same millisecond (a kill count message
+	 * and a drop on one tick), so the history sends and stores each change ({@link #touch}).
+	 */
 	@SerializedName("updated_ms")
 	long updatedMs;
 
@@ -282,7 +286,7 @@ final class BossSession {
 		bossKey = boss.key;
 		bossName = boss.name;
 		kind = boss.kind.wire;
-		updatedMs = nowMs;
+		touch(nowMs);
 		return true;
 	}
 
@@ -305,7 +309,7 @@ final class BossSession {
 					}
 				}
 				leftMs = 0;
-				updatedMs = nowMs;
+				touch(nowMs);
 			} else if (lastTickMs > 0) {
 				long gap = nowMs - lastTickMs;
 				if (gap > 0 && gap <= MAX_TICK_GAP_MS) {
@@ -314,7 +318,7 @@ final class BossSession {
 					if (t != null) {
 						t.timeInLairMs += gap;
 					}
-					updatedMs = nowMs;
+					touch(nowMs);
 				}
 			}
 			if (openTrip() == null) {
@@ -323,7 +327,7 @@ final class BossSession {
 			lastTickMs = nowMs;
 		} else if (inside) {
 			leftMs = nowMs;
-			updatedMs = nowMs;
+			touch(nowMs);
 		}
 		inside = nowInside;
 		return entered;
@@ -334,7 +338,7 @@ final class BossSession {
 		if (!bankSeen) {
 			bankSeen = true;
 			bankVisits++;
-			updatedMs = nowMs;
+			touch(nowMs);
 		}
 		endTrip("bank", inside || leftMs == 0 ? nowMs : leftMs);
 	}
@@ -354,7 +358,7 @@ final class BossSession {
 		}
 		lastActivityMs = nowMs;
 		endTrip("death", nowMs);
-		updatedMs = nowMs;
+		touch(nowMs);
 	}
 
 	/** Logged out: the trip ends; the session stays open (a quick relog goes on with it). */
@@ -410,7 +414,7 @@ final class BossSession {
 		}
 		t.kills++;
 		lastActivityMs = nowMs;
-		updatedMs = nowMs;
+		touch(nowMs);
 	}
 
 	/**
@@ -478,7 +482,7 @@ final class BossSession {
 		while (killTimesMs.size() > MAX_KILL_TIMES) {
 			killTimesMs.remove(0);
 		}
-		updatedMs = nowMs;
+		touch(nowMs);
 	}
 
 	/** A drop: its stacks ({itemId, quantity, gp}) go into the drop list, the loot totals and the trip. */
@@ -518,7 +522,7 @@ final class BossSession {
 			loot.remove(cheapest(loot));
 		}
 		lastActivityMs = nowMs;
-		updatedMs = nowMs;
+		touch(nowMs);
 	}
 
 	/** Supplies a finished {@link BossTripTracker} trip used: the session's and the (last) trip's. */
@@ -538,7 +542,7 @@ final class BossSession {
 				merge(t.supplies, s, false);
 			}
 		}
-		updatedMs = nowMs;
+		touch(nowMs);
 	}
 
 	/** Whether the session should end now, and when it ended: away too long, or idle in the lair. 0: not. */
@@ -564,7 +568,12 @@ final class BossSession {
 		endReason = reason;
 		endTrip("session end", endedMs);
 		inside = false;
-		updatedMs = Math.max(updatedMs, atMs);
+		touch(atMs);
+	}
+
+	/** A change at {@code atMs}: {@link #updatedMs} moves on (at least by one). */
+	private void touch(long atMs) {
+		updatedMs = Math.max(atMs, updatedMs + 1);
 	}
 
 	boolean isOpen() {
@@ -593,7 +602,7 @@ final class BossSession {
 			trips.remove(0);
 		}
 		bankSeen = false;
-		updatedMs = nowMs;
+		touch(nowMs);
 		return t;
 	}
 
@@ -604,7 +613,7 @@ final class BossSession {
 		}
 		t.endedMs = Math.max(t.startedMs, atMs);
 		t.endReason = reason;
-		updatedMs = Math.max(updatedMs, atMs);
+		touch(atMs);
 	}
 
 	long avgKillMs() {

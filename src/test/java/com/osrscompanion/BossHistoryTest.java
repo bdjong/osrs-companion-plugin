@@ -445,6 +445,124 @@ public class BossHistoryTest {
 		assertEquals(1152, BossHistory.parseCount("1,152"));
 	}
 
+	/** Kill count messages as the game sends them (tags, colour codes), for every kind of boss. */
+	@Test
+	public void realKillCountMessagesFindTheirBoss() {
+		String[][] cases = {
+			{"Your Alchemical Hydra kill count is: <col=ff0000>123</col>.", "alchemical-hydra", "123"},
+			{"Your Alchemical Hydra kill count is: @mes_hl_red@123</col>.", "alchemical-hydra", "123"},
+			{"Your Alchemical\u00A0Hydra kill count is: <col=ff0000>1,123</col>.", "alchemical-hydra", "1,123"},
+			{"Your Vorkath kill count is: <col=ff0000>1,152</col>.", "vorkath", "1,152"},
+			{"Your Zulrah kill count is: <col=ff0000>4</col>.", "zulrah", "4"},
+			{"Your General Graardor kill count is: <col=ff0000>12</col>.", "general-graardor", "12"},
+			{"Your Kree'arra kill count is: <col=ff0000>4</col>.", "kreearra", "4"},
+			{"Your Commander Zilyana kill count is: <col=ff0000>4</col>.", "commander-zilyana", "4"},
+			{"Your K'ril Tsutsaroth kill count is: <col=ff0000>4</col>.", "kril-tsutsaroth", "4"},
+			{"Your Nex kill count is: <col=ff0000>4</col>.", "nex", "4"},
+			{"Your Phosani's Nightmare kill count is: <col=ff0000>9</col>.", "phosanis-nightmare", "9"},
+			{"Your Nightmare kill count is: <col=ff0000>1,130</col>", "the-nightmare", "1,130"},
+			{"Your completed Chambers of Xeric count is: <col=ff0000>51</col>.", "chambers-of-xeric", "51"},
+			{"Your completed Chambers of Xeric Challenge Mode count is: <col=ff0000>13</col>.", "chambers-of-xeric", "13"},
+			{"Your completed Theatre of Blood: Entry Mode count is: <col=ff0000>73</col>.", "theatre-of-blood", "73"},
+			{"Your completed Tombs of Amascut: Expert Mode count is: <col=ff0000>1</col>.", "tombs-of-amascut", "1"},
+			{"Your Barrows chest count is: <col=ff0000>277</col>.", "barrows", "277"},
+			{"Your Gauntlet completion count is: <col=ff0000>123</col>.", "the-gauntlet", "123"},
+			{"Your Corrupted Gauntlet completion count is: <col=ff0000>4729</col>.", "corrupted-gauntlet", "4729"},
+			{"Your Blue Moon kill count is: <col=ff0000>12</col>.", "moons-of-peril", "12"},
+			{"Your TzKal-Zuk kill count is: <col=ff0000>2</col>.", "inferno", "2"},
+			{"Your Dagannoth Rex kill count is: <col=ff0000>2</col>.", "dagannoth-kings", "2"},
+			{"Your Grotesque Guardians kill count is: <col=ff0000>179</col>.", "grotesque-guardians", "179"},
+			{"Your <col=6800bf>Kalphite Queen (Echo)</col> kill count is:<col=e00a19>1</col>", "kalphite-queen", "1"},
+		};
+		for (String[] c : cases) {
+			String[] kc = BossTripTracker.killCount(BossTripTracker.chatText(c[0]));
+			assertNotNull(c[0], kc);
+			BossAreas.Boss b = BossAreas.byName(kc[0]);
+			assertNotNull(c[0], b);
+			assertEquals(c[0], c[1], b.key);
+			assertEquals(c[0], c[2], kc[1]);
+		}
+		// The Moons' chest is opened after the kills: a count, but no kill (BossHistory skips it).
+		assertArrayEquals(new String[]{"Lunar Chest", "12"},
+			BossTripTracker.killCount(BossTripTracker.chatText("Your Lunar Chest count is: <col=ff0000>12</col>.")));
+		assertEquals("Fight duration: 1:23.40. Personal best: 1:19.",
+			BossTripTracker.chatText("Fight duration: @mes_hl_red@1:23.40</col>. Personal best: 1:19."));
+	}
+
+	@Test
+	public void filteredChatIsTheGames() {
+		assertTrue(BossTripTracker.gameMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE));
+		assertTrue(BossTripTracker.gameMessage(net.runelite.api.ChatMessageType.SPAM));
+		assertFalse(BossTripTracker.gameMessage(net.runelite.api.ChatMessageType.CLAN_MESSAGE));
+		assertFalse(BossTripTracker.gameMessage(net.runelite.api.ChatMessageType.PUBLICCHAT));
+	}
+
+	@Test
+	public void aDropNothingExplainedIsAKill() {
+		BossKillMatcher m = new BossKillMatcher();
+		// The Hydra's death (phases: no kill alone), then its drop, no message: one kill, with its fight time.
+		m.died(100, 90_000, false);
+		m.loot(104);
+		BossKillMatcher.Result r = m.tick(111);
+		assertEquals(1, r.kills());
+		assertEquals(Collections.singletonList(90_000L), r.fightMs);
+		assertFalse(m.tick(140).any());
+
+		// A drop alone (the death was not seen): a kill once the window has passed.
+		m.loot(200);
+		assertFalse(m.tick(200 + BossKillMatcher.LOOT_WINDOW_TICKS).any());
+		r = m.tick(201 + BossKillMatcher.LOOT_WINDOW_TICKS);
+		assertEquals(1, r.lootKills);
+		assertTrue(r.fightMs.isEmpty());
+	}
+
+	@Test
+	public void aDropNextToItsKillIsNoSecondKill() {
+		BossKillMatcher m = new BossKillMatcher();
+		// Message, death, drop.
+		m.killMessage(100);
+		m.died(100, 60_000, false);
+		m.loot(104);
+		assertEquals(0, m.flush(104).kills());
+
+		// A death that is a kill alone (Vorkath), then its drop.
+		m.died(200, 60_000, true);
+		m.loot(203);
+		assertEquals(1, m.tick(215).kills());
+		m.loot(216);
+		assertEquals(0, m.flush(216).kills());
+
+		// The drop before the message.
+		m.loot(300);
+		m.killMessage(302);
+		assertEquals(0, m.flush(302).kills());
+
+		// The drop before the death, no message: one kill.
+		m.loot(400);
+		m.died(401, 30_000, false);
+		assertEquals(1, m.flush(401).kills());
+	}
+
+	@Test
+	public void onlyBossesWithOneDropPerKillCountDrops() {
+		assertTrue(BossAreas.dropIsKill(BossAreas.byKey("alchemical-hydra")));
+		assertTrue(BossAreas.dropIsKill(BossAreas.byKey("zulrah")));
+		assertTrue(BossAreas.dropIsKill(BossAreas.byKey("general-graardor")));
+		assertFalse(BossAreas.dropIsKill(BossAreas.byKey("royal-titans")));
+		assertFalse(BossAreas.dropIsKill(BossAreas.byKey("moons-of-peril")));
+		assertFalse(BossAreas.dropIsKill(BossAreas.byKey("chambers-of-xeric")));
+		assertFalse(BossAreas.dropIsKill(null));
+	}
+
+	@Test
+	public void updatedGrowsWithEveryChange() {
+		BossSession s = BossSession.start(BossAreas.byKey("alchemical-hydra"), 1_000);
+		s.addKill(5, 2_000);
+		long afterKill = s.updatedMs;
+		s.addDrop("Alchemical Hydra", Collections.singletonList(new BossSession.Stack(995, 10, 10, 0)), 2_000);
+		assertTrue(s.updatedMs > afterKill);
+	}
+
 	private static void assertArrayEquals(String[] want, String[] got) {
 		org.junit.Assert.assertArrayEquals(want, got);
 	}

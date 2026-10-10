@@ -76,6 +76,8 @@ public class BossTripTracker {
 
 	private static final Pattern KILL_COUNT = Pattern.compile(
 		"^Your (?:completion count for |subdued |completed )?(.+?) (?:(kill|harvest|lap|completion) )?(?:count )?is: ?([0-9,]+)");
+	/** The game's colour codes in a message ("@mes_hl_red@123"). */
+	private static final Pattern COLOUR_CODE = Pattern.compile("@[a-z_]+@");
 	/** Kill counts that are not boss trips (skilling bosses). */
 	private static final Set<String> SKIPPED = new HashSet<>(java.util.Arrays.asList("wintertodt", "tempoross", "guardiansoftherift", "zalcano"));
 	private static final long MAX_ARMED_MS = 60 * 60_000L;
@@ -175,10 +177,10 @@ public class BossTripTracker {
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
 		Guard.run(GUARD_FEATURE, () -> {
-			if (event.getType() != ChatMessageType.GAMEMESSAGE) {
+			if (!gameMessage(event.getType())) {
 				return;
 			}
-			String message = Text.removeTags(event.getMessage());
+			String message = chatText(event.getMessage());
 			history(() -> bossHistory.onChatMessage(message));
 			if (!config.bossTrips()) {
 				return;
@@ -188,6 +190,27 @@ public class BossTripTracker {
 				onKill(name);
 			}
 		});
+	}
+
+	/**
+	 * Whether a chat message is the game's own: GAMEMESSAGE, or SPAM, which is what the game sends its
+	 * filterable messages as (kill counts and fight durations among them) when the game chat is set to
+	 * "Filtered". Other players' messages (clan, friends chat) are never ours.
+	 */
+	static boolean gameMessage(ChatMessageType type) {
+		return type == ChatMessageType.GAMEMESSAGE || type == ChatMessageType.SPAM;
+	}
+
+	/**
+	 * A game message as plain text: tags ({@code <col=ff0000>}) and the game's colour codes
+	 * ({@code @mes_hl_red@}, which {@link Text#removeTags} leaves in) removed, non-breaking spaces made
+	 * spaces. Null stays null.
+	 */
+	static String chatText(String message) {
+		if (message == null) {
+			return null;
+		}
+		return COLOUR_CODE.matcher(Text.removeTags(message)).replaceAll("").replace('\u00A0', ' ').trim();
 	}
 
 	/** The boss of a kill count message, or null when it is none (lap counts, skilling bosses, other messages). */
@@ -222,7 +245,8 @@ public class BossTripTracker {
 					drop.add(new BossSession.Stack(id, stack.getQuantity(), (long) itemManager.getItemPrice(id) * stack.getQuantity(), 0));
 				}
 			}
-			history(() -> bossHistory.onLoot(event.getName(), drop));
+			boolean fromNpc = event.getType() == LootRecordType.NPC;
+			history(() -> bossHistory.onLoot(event.getName(), drop, fromNpc));
 			for (ItemStack stack : event.getItems()) {
 				int id = canonical(stack.getId());
 				if (state == State.ACTIVE) {
