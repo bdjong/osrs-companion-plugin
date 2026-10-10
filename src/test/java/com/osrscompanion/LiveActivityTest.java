@@ -230,4 +230,57 @@ public class LiveActivityTest {
 		s.farmItem = "Ranarr weed";
 		assertEquals("Ranarr weed.png", LiveActivity.choose(s).icon);
 	}
+
+	@Test
+	public void npcIdForFights() {
+		// Combat: the id of the NPC fought; not part of the key (another version is the same activity).
+		LiveActivity.Signals s = new LiveActivity.Signals();
+		s.combatNpc = "Hill Giant";
+		s.combatNpcId = 2098;
+		LiveActivity.Choice c = LiveActivity.choose(s);
+		assertEquals(LiveActivity.Kind.COMBAT, c.kind);
+		assertEquals(Integer.valueOf(2098), c.npcId);
+		s.combatNpcId = 2099;
+		assertEquals(c.key(), LiveActivity.choose(s).key());
+		s.combatMagic = true;
+		assertEquals(Integer.valueOf(2099), LiveActivity.choose(s).npcId);
+
+		// Slayer: the task monster's id while fighting it; null at the location without a target.
+		s = new LiveActivity.Signals();
+		s.slayerTask = "abyssal demons";
+		s.slaying = true;
+		s.combatNpc = "Abyssal demon";
+		s.combatNpcId = 415;
+		s.slayerNpc = "Abyssal demon";
+		s.slayerNpcId = 415;
+		c = LiveActivity.choose(s);
+		assertEquals(LiveActivity.Kind.SLAYER, c.kind);
+		assertEquals(Integer.valueOf(415), c.npcId);
+		s.slayerNpc = null;
+		assertNull(LiveActivity.choose(s).npcId);
+
+		// Boss: the boss's id.
+		s = new LiveActivity.Signals();
+		s.boss = "Vorkath";
+		s.bossId = 8061;
+		c = LiveActivity.choose(s);
+		assertEquals(LiveActivity.Kind.BOSS, c.kind);
+		assertEquals(Integer.valueOf(8061), c.npcId);
+
+		// Other kinds never carry one.
+		s.boss = null;
+		s.skill = "fishing";
+		assertNull(LiveActivity.choose(s).npcId);
+		s.skill = null;
+		s.combatNpc = null;
+		assertNull(LiveActivity.choose(s).npcId);
+	}
+
+	@Test
+	public void npcIdPrefersTransformed() {
+		assertEquals(Integer.valueOf(8061), LiveActivity.npcId(8059, 8061));
+		assertEquals(Integer.valueOf(8059), LiveActivity.npcId(8059, null));
+		assertEquals(Integer.valueOf(8059), LiveActivity.npcId(8059, -1));
+		assertNull(LiveActivity.npcId(-1, null));
+	}
 }
