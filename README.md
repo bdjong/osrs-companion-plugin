@@ -41,7 +41,7 @@ The game only draws the collection log items of the page you look at. To read th
 
 ## Bank Tag Layouts plugin
 
-The boss, farm run and slayer gear bank layouts use RuneLite's built-in Bank Tags layouts. If you also run the **Bank Tag Layouts** plugin from the Plugin Hub with **Enable layout by default** on, it re-sorts our layout into its own order (and keeps that order for good): the bank still shows only the items you need, just not in their slots. OSRS Companion never changes another plugin's settings, so it tells you once in the chat that turning the Bank Tag Layouts plugin off gives our neater layout.
+The boss, farm run and slayer gear bank layouts use RuneLite's built-in Bank Tags layouts. If you also run the **Bank Tag Layouts** plugin from the Plugin Hub with **Enable layout by default** on, it re-sorts our layout into its own order (and keeps that order for good): the bank still shows only the items you need, just not in their slots. OSRS Companion never changes another plugin's settings, so on the first bank visit of each login where one of our layouts opens, it tells you in the chat that turning the Bank Tag Layouts plugin off gives our neater layout.
 
 ## Plugin Hub release: what still has to be done
 

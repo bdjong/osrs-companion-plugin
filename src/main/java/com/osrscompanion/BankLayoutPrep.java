@@ -21,6 +21,7 @@ import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.ScriptID;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.ScriptPostFired;
@@ -101,7 +102,7 @@ public class BankLayoutPrep {
 
 	/** Whether the "turn Bank Tags on" hint was shown this session (once is enough). */
 	private boolean bankTagsHintShown;
-	/** Whether the "Bank Tag Layouts takes the layout over" hint was shown this session. */
+	/** Whether the "Bank Tag Layouts takes the layout over" tip was shown since this login (once per login). */
 	private boolean hubLayoutsHintShown;
 
 	/** What was put in the open bank ("boss:..." / "farm:..."), so it is redone only when that changes. Client thread. */
@@ -164,6 +165,14 @@ public class BankLayoutPrep {
 					configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, e.getKey(), false);
 				}
 			}
+		}
+	}
+
+	/** Logging out: the Bank Tag Layouts tip shows again on the first bank visit of the next login (not on a world hop). */
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged event) {
+		if (event.getGameState() == GameState.LOGIN_SCREEN) {
+			hubLayoutsHintShown = false;
 		}
 	}
 
@@ -242,7 +251,7 @@ public class BankLayoutPrep {
 		return false;
 	}
 
-	/** Tells the player once per session how to stop "Bank Tag Layouts" from taking our layout over. */
+	/** Tells the player once per login (on the first bank visit with one of our layouts) how to get our layout back from "Bank Tag Layouts". */
 	private void hubLayoutsHint(HubConflict conflict) {
 		if (hubLayoutsHintShown) {
 			return;
