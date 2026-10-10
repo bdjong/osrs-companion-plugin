@@ -170,6 +170,14 @@ final class GoalProgressState {
 	/** Bank-sync source names this class treats specially. */
 	static final String SOURCE_BANK = "bank";
 	static final String SOURCE_INVENTORY = "inventory";
+	static final String SOURCE_WORN = "worn";
+	/** The website's name for an older plugin's inventory + worn gear (never sent by this plugin). */
+	static final String SOURCE_CARRIED = "carried";
+
+	/** The sources that are tracked live from container events (inventory and worn gear), never from snapshots. */
+	static boolean isCarriedSource(String source) {
+		return SOURCE_INVENTORY.equals(source) || SOURCE_WORN.equals(source) || SOURCE_CARRIED.equals(source);
+	}
 
 	/** Live inventory and equipment quantities per canonical item id (from
 	 * container changes), plus this session's snapshot of every other
@@ -411,7 +419,7 @@ final class GoalProgressState {
 	 * (client-only ledgers) simply add.
 	 */
 	synchronized void onContainerSnapshot(String source, Map<Integer, Integer> quantities) {
-		if (source == null || SOURCE_INVENTORY.equals(source)) {
+		if (source == null || isCarriedSource(source)) {
 			return;
 		}
 		localBySource.put(source, quantities == null ? new HashMap<>() : new HashMap<>(quantities));
@@ -463,7 +471,7 @@ final class GoalProgressState {
 			Set<String> sources = new HashSet<>(lg.serverHeldBySource.keySet());
 			sources.addAll(localBySource.keySet());
 			for (String source : sources) {
-				if (SOURCE_INVENTORY.equals(source)) {
+				if (isCarriedSource(source)) {
 					continue;
 				}
 				Map<Integer, Integer> local = localBySource.get(source);

@@ -2,6 +2,8 @@ package com.osrscompanion;
 
 import com.google.gson.Gson;
 import com.osrscompanion.model.BankSyncPayload;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -33,8 +35,12 @@ import lombok.extern.slf4j.Slf4j;
  *       sync button) skip the wait.</li>
  * </ul>
  *
- * Several sources may share one syncer (the bank monitor sends bank and
- * inventory together); pending contents merge per source. Gates (sync
+ * Several sources may share one syncer (the bank monitor sends bank,
+ * inventory and worn gear together); pending contents merge per source.
+ * Linked sources ({@link #linkSources}) always go up together: when one of
+ * them changes, the others in the same submit are sent with it even when
+ * unchanged (the website reads an "inventory" without "worn" as an older
+ * plugin's inventory + worn gear). Gates (sync
  * enabled, app key, game mode, username) are supplied as functions so this
  * stays unit-testable.
  */
@@ -61,6 +67,8 @@ final class SourceSyncer {
 	/** Contents last uploaded this session, per source. A source absent here was never sent. */
 	private final Map<String, Map<Integer, Integer>> sentBySource = new HashMap<>();
 	private final Map<String, Map<Integer, Integer>> pendingBySource = new LinkedHashMap<>();
+	/** Groups of sources that are always uploaded together (see the class comment). */
+	private final List<Set<String>> linkedGroups = new ArrayList<>();
 	private String pendingUsername;
 	private ScheduledFuture<?> pendingSync;
 	private long pendingDueMs;
@@ -105,6 +113,14 @@ final class SourceSyncer {
 
 	void setPriorityFlush(Runnable priorityFlush) {
 		this.priorityFlush = priorityFlush;
+	}
+
+	/**
+	 * These sources always go up together: a submit that changes one of them also sends the others it
+	 * carries, unchanged or not.
+	 */
+	synchronized void linkSources(String... sources) {
+		linkedGroups.add(new HashSet<>(Arrays.asList(sources)));
 	}
 
 	/** New contents for the syncer's single source (its label). */
@@ -152,6 +168,16 @@ final class SourceSyncer {
 				goalRelevant = true;
 			}
 			pendingBySource.put(source, contents);
+		}
+		for (Set<String> group : linkedGroups) {
+			if (group.stream().noneMatch(pendingBySource::containsKey)) {
+				continue;
+			}
+			for (String source : group) {
+				if (!pendingBySource.containsKey(source) && bySource.containsKey(source)) {
+					pendingBySource.put(source, new LinkedHashMap<>(bySource.get(source)));
+				}
+			}
 		}
 		if (pendingBySource.isEmpty()) {
 			cancelPending();

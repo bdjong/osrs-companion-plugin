@@ -118,13 +118,13 @@ public class GoalProgressTracker implements GoalProgressState.SyncHooks {
 
 	/** A bank upload was built: its bank section (and any deposit-box deposits)
 	 * become this session's snapshots for those sources (ids folded onto the
-	 * unnoted item). Inventory is tracked live from container events. */
+	 * unnoted item). Inventory and worn gear are tracked live from container events. */
 	public void onBankPayload(BankSyncPayload payload) {
 		if (payload == null) {
 			return;
 		}
 		for (Map.Entry<String, List<BankSyncPayload.BankItem>> e : payload.getItems().entrySet()) {
-			if (BankMemoryMonitor.SOURCE_INVENTORY.equals(e.getKey()) || e.getValue() == null) {
+			if (GoalProgressState.isCarriedSource(e.getKey()) || e.getValue() == null) {
 				continue;
 			}
 			Map<Integer, Integer> quantities = new HashMap<>();
