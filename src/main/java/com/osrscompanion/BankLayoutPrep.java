@@ -62,9 +62,10 @@ import net.runelite.client.util.Text;
  *
  * <p>The "Bank Tag Layouts" hub plugin lays out any open tag itself when its "Enable layout by
  * default" is on: right after Bank Tags draws our layout it packs every item from the top again, and
- * may save that as its own layout for the tag. A plugin may not change another plugin's settings, so we
- * only read them ({@link #hubLayoutConflict}): our tag still opens (the bank shows only the needed
- * items, in its order) and a chat message once tells the player which of its settings gives our layout.
+ * saves that as its own layout for the tag (it saves every layout it applies). A plugin may not change
+ * another plugin's settings, so we only read them ({@link #hubLayoutConflict}): our tag still opens (the
+ * bank shows only the needed items, in its order) and a chat message once tells the player that turning
+ * that plugin off gives our layout.
  */
 @Slf4j
 @Singleton
@@ -247,12 +248,11 @@ public class BankLayoutPrep {
 			return;
 		}
 		hubLayoutsHintShown = true;
-		String fix = conflict == HubConflict.BY_DEFAULT
-			? "switch off 'Enable layout by default' in the Bank Tag Layouts plugin's settings and open your bank again."
-			: "turn the Bank Tag Layouts plugin off: it saved its own order for this view.";
+		// Either way it ends up saving its own order for our view (it saves every layout it applies), after
+		// which only turning that plugin off gives ours back: so that is the one tip.
 		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "",
 			"<col=ff9040>OSRS Companion: your gear is shown in the order of the Bank Tag Layouts plugin. For our neater layout (worn gear,"
-				+ " rune pouch and inventory in their slots), " + fix + "</col>", null);
+				+ " rune pouch and inventory in their slots), turn the Bank Tag Layouts plugin off.</col>", null);
 	}
 
 	public void shutDown() {
