@@ -16,6 +16,7 @@ import net.runelite.api.gameval.InventoryID;
  *       world hop. So the first inventory upload of a session never goes up before the game sent
  *       both containers.</li>
  *   <li>The bank needs its container present (it is only filled once the bank was opened).</li>
+ *   <li>The GIM group storage needs its container present and its interface open.</li>
  * </ul>
  *
  * Starts "arrived": a plugin started while logged in finds both containers already there. Pure, for
@@ -59,6 +60,15 @@ final class CarriedReadGate {
 	/** Whether the bank container can be read as the {@code bank} source. */
 	boolean canReadBank(GameState state, boolean playerLoaded, boolean bankPresent) {
 		return inGame(state, playerLoaded) && bankPresent;
+	}
+
+	/**
+	 * Whether the GIM group storage container ({@code INV_GROUP_TEMP}) can be read as the {@code group_storage}
+	 * source: in game, the container present and the group storage interface open (outside it the container is
+	 * stale or gone, and an empty read would wipe the stored copy).
+	 */
+	boolean canReadGroupStorage(GameState state, boolean playerLoaded, boolean containerPresent, boolean interfaceOpen) {
+		return inGame(state, playerLoaded) && containerPresent && interfaceOpen;
 	}
 
 	boolean bothArrived() {

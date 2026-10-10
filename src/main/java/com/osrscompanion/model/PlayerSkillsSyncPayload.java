@@ -12,12 +12,32 @@ public class PlayerSkillsSyncPayload {
 	private final Map<String, SkillData> skills;
 	private final int total_level;
 	private final int combat_level;
+	/**
+	 * The account type: the value of varbit IRONMAN (1777): 1 ironman, 2 ultimate, 3 hardcore, 4 group,
+	 * 5 hardcore group, 6 unranked group. Null (left out of the JSON) for a normal account or when not read;
+	 * the website uses it for the Group Ironman helmet.
+	 */
+	private final Integer account_type;
 
 	public PlayerSkillsSyncPayload(String player, Map<String, SkillData> skills, int totalLevel, int combatLevel) {
+		this(player, skills, totalLevel, combatLevel, null);
+	}
+
+	public PlayerSkillsSyncPayload(String player, Map<String, SkillData> skills, int totalLevel, int combatLevel, Integer accountType) {
 		this.player = player;
 		this.skills = skills;
 		this.total_level = totalLevel;
 		this.combat_level = combatLevel;
+		this.account_type = accountType;
+	}
+
+	/** The varbit value to send: only a known iron type (1-6); 0 is a normal account or a varbit not loaded yet. */
+	public static Integer accountTypeOf(int varbitValue) {
+		return varbitValue >= 1 && varbitValue <= 6 ? varbitValue : null;
+	}
+
+	public Integer getAccountType() {
+		return account_type;
 	}
 
 	public String getPlayer() {
