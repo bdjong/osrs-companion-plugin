@@ -101,6 +101,8 @@ final class BossAreas {
 	private static final Map<String, Boss> BY_KEY = new LinkedHashMap<>();
 	private static final Map<Integer, List<Boss>> BY_REGION = new HashMap<>();
 	private static final Map<String, Boss> BY_NAME = new HashMap<>();
+	/** A Leagues echo boss's suffix: " (Echo)". Before the table, which {@link #norm} needs it for. */
+	private static final java.util.regex.Pattern ECHO = java.util.regex.Pattern.compile("(?i)\\s*\\(echo\\)\\s*$");
 
 	private static int[] r(int... ids) {
 		return ids;
@@ -320,9 +322,26 @@ final class BossAreas {
 		return l != null && l.contains(region);
 	}
 
-	/** A name as one comparable key: {@link TripSupplies#bossKey} (lower case letters and digits, raids by prefix). */
+	/**
+	 * A name as one comparable key: {@link TripSupplies#bossKey} (lower case letters and digits, raids by
+	 * prefix), without tags and a Leagues "(Echo)" suffix ("Kalphite Queen (Echo)" is the Kalphite Queen).
+	 */
 	static String norm(String name) {
-		return TripSupplies.bossKey(name == null ? null : name.replaceAll("<[^>]*>", ""));
+		return TripSupplies.bossKey(name == null ? null : ECHO.matcher(name.replaceAll("<[^>]*>", "")).replaceAll(""));
+	}
+
+	/**
+	 * Bosses whose loot does not come once per kill (several chests or loot piles per kill, or a reward after
+	 * several kills or waves). For every other boss the boss's own NPC drop is one kill when no kill count
+	 * message counted it ({@link BossKillMatcher#loot}). Raids never: their loot is a chest.
+	 */
+	private static final Set<String> NOT_ONE_DROP_PER_KILL = new HashSet<>(Arrays.asList(
+		"royal-titans", "moons-of-peril", "barrows", "the-gauntlet", "corrupted-gauntlet", "tzhaar-fight-cave", "inferno",
+		"fortis-colosseum", "zalcano", "doom-of-mokhaiotl"));
+
+	/** Whether one drop of the boss itself (an NPC drop under its name) is one kill. */
+	static boolean dropIsKill(Boss b) {
+		return b != null && b.kind == Kind.BOSS && !NOT_ONE_DROP_PER_KILL.contains(b.key);
 	}
 
 	/** For tests and the docs: every key. */

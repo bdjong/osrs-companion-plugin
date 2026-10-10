@@ -201,7 +201,7 @@ public class BossHistory {
 		}
 	}
 
-	/** A game message (tags removed): kill counts and the game's fight durations. */
+	/** A game message as text ({@link BossTripTracker#chatText}): kill counts and the game's fight durations. */
 	void onChatMessage(String message) {
 		if (!on() || message == null) {
 			return;
@@ -267,9 +267,13 @@ public class BossHistory {
 	 * Loot from the loot tracker (NPC or event): the session's when it comes from its boss (or a boss, which
 	 * then starts its session), or while you are in its lair (the bodyguards' drops, a raid's chest).
 	 *
+	 * <p>The boss's own NPC drop is also proof of a kill: when no kill count message (or counted death) explains
+	 * it, it counts as one ({@link BossKillMatcher#loot}), for the bosses whose drop comes once per kill.
+	 *
 	 * @param items {itemId, quantity, gp} per stack
+	 * @param fromNpc the loot tracker's NPC loot (not an event's chest or reward)
 	 */
-	void onLoot(String source, List<BossSession.Stack> items) {
+	void onLoot(String source, List<BossSession.Stack> items, boolean fromNpc) {
 		if (!on() || items == null || items.isEmpty()) {
 			return;
 		}
@@ -279,6 +283,9 @@ public class BossHistory {
 			return;
 		}
 		ensureSession(b, now).addDrop(source, items, now);
+		if (fromNpc && b == BossAreas.byName(source) && BossAreas.dropIsKill(b)) {
+			matcher.loot(client.getTickCount());
+		}
 		sync(true, true);
 		persist(true);
 	}
@@ -376,14 +383,15 @@ public class BossHistory {
 		if (s == null || !r.any()) {
 			return;
 		}
-		for (int i = 0; i < r.deathKills; i++) {
+		int kills = r.kills();
+		for (int i = 0; i < kills; i++) {
 			s.addKill(0, now);
 		}
-		noteKillRegion(s, boss(), r.deathKills);
+		noteKillRegion(s, boss(), kills);
 		for (long ms : r.fightMs) {
 			s.addKillTime(ms, now);
 		}
-		if (r.deathKills > 0) {
+		if (kills > 0) {
 			sync(true, true);
 		}
 	}

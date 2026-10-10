@@ -7,9 +7,11 @@ import java.util.Deque;
  * Pairs a boss kill count message with the death of the boss NPC you fought, for the boss history: the two
  * arrive a few ticks apart, in either order. The message is the kill; the death gives the fight time (first
  * hit to death). A death no message explains within {@link #WINDOW_TICKS} counts as a kill only for a boss
- * whose death is always one kill ({@link BossAreas.Boss#deathIsKill}); the caller passes that. The game's own
- * "Fight duration" (or raid "Duration") message beats the measured fight time. No game access: the caller
- * passes the tick.
+ * whose death is always one kill ({@link BossAreas.Boss#deathIsKill}); the caller passes that. The boss's own
+ * drop ({@link #loot}) is the other proof of a kill: one that no kill count message or counted death explains
+ * within {@link #LOOT_WINDOW_TICKS} is a kill, so a kill still counts when its message never arrives (a boss
+ * with phases, whose death alone proves nothing). The game's own "Fight duration" (or raid "Duration")
+ * message beats the measured fight time. No game access: the caller passes the tick.
  */
 final class BossKillMatcher {
 	/** A message and a death (or a duration) further apart than this many ticks don't belong together. */
@@ -17,22 +19,34 @@ final class BossKillMatcher {
 	/** The game's duration message comes this close to the kill count message. */
 	static final int DURATION_TICKS = 3;
 	static final long TICK_MS = 600L;
+	/**
+	 * A drop this close to a kill (its message or counted death) is that kill's; a drop nothing explains
+	 * within it is a kill of its own. Longer than {@link #WINDOW_TICKS}: the loot appears a few ticks after
+	 * the death animation.
+	 */
+	static final int LOOT_WINDOW_TICKS = 16;
 
-	/** What {@link #tick} found: kills to add (deaths without a message) and fight times to record. */
+	/** What {@link #tick} found: kills to add (deaths and drops without a message) and fight times to record. */
 	static final class Result {
 		int deathKills;
+		/** Drops of the boss that no kill count message or counted death explained. */
+		int lootKills;
 		/** Fight times (ms) of kills settled this tick, in order. */
 		final java.util.List<Long> fightMs = new java.util.ArrayList<>();
 
 		boolean any() {
-			return deathKills > 0 || !fightMs.isEmpty();
+			return deathKills > 0 || lootKills > 0 || !fightMs.isEmpty();
+		}
+
+		int kills() {
+			return deathKills + lootKills;
 		}
 	}
 
 	private static final class Death {
 		final int tick;
 		final long fightMs;
-		final boolean countsAsKill;
+		boolean countsAsKill;
 
 		Death(int tick, long fightMs, boolean countsAsKill) {
 			this.tick = tick;
@@ -55,6 +69,10 @@ final class BossKillMatcher {
 	private final Deque<Kill> kills = new ArrayDeque<>();
 	/** Ticks of settled kill messages no death paired with yet (a late death is theirs). */
 	private final Deque<Integer> settled = new ArrayDeque<>();
+	/** Ticks of the kills counted lately (messages and deaths): a drop next to one is that kill's. */
+	private final Deque<Integer> counted = new ArrayDeque<>();
+	/** Ticks of the boss's drops no kill explained yet. */
+	private final Deque<Integer> loots = new ArrayDeque<>();
 	/** The last duration message and its tick (-1: none). */
 	private long durationMs = -1;
 	private int durationTick;
@@ -79,12 +97,17 @@ final class BossKillMatcher {
 			settled.pollFirst();
 			return;
 		}
-		deaths.addLast(new Death(tick, fightMs, countsAsKill));
+		// Its drop came first (and no message): the death is the kill the drop proves.
+		boolean dropped = pollLoot(tick);
+		deaths.addLast(new Death(tick, fightMs, countsAsKill || dropped));
 	}
 
 	/** A kill count message: a kill now (the caller counts it); its fight time settles within the window. */
 	void killMessage(int tick) {
 		Kill k = new Kill(tick);
+		counted.addLast(tick);
+		// A drop that came before the message is this kill's.
+		pollLoot(tick);
 		Death d = deaths.peekFirst();
 		if (d != null && tick - d.tick <= WINDOW_TICKS) {
 			deaths.pollFirst();
@@ -92,6 +115,29 @@ final class BossKillMatcher {
 			k.paired = true;
 		}
 		kills.addLast(k);
+	}
+
+	/**
+	 * A drop of the boss itself (only for a boss whose drop is one kill, {@link BossAreas#dropIsKill}). Next to
+	 * a counted kill it is that kill's; a death of the boss waiting for its message becomes a kill; else it
+	 * waits for a message or a death, and is a kill of its own after {@link #LOOT_WINDOW_TICKS}.
+	 */
+	void loot(int tick) {
+		prune(counted, tick);
+		if (!counted.isEmpty()) {
+			return;
+		}
+		for (Death d : deaths) {
+			if (tick - d.tick <= LOOT_WINDOW_TICKS) {
+				if (d.countsAsKill) {
+					// Already a kill when it settles: the drop is its.
+					return;
+				}
+				d.countsAsKill = true;
+				return;
+			}
+		}
+		loots.addLast(tick);
 	}
 
 	/**
@@ -128,11 +174,17 @@ final class BossKillMatcher {
 			Death d = deaths.pollFirst();
 			if (d.countsAsKill) {
 				out.deathKills++;
+				counted.addLast(d.tick);
 				if (d.fightMs > 0) {
 					out.fightMs.add(d.fightMs);
 				}
 			}
 		}
+		while (!loots.isEmpty() && tick - loots.peekFirst() > LOOT_WINDOW_TICKS) {
+			loots.pollFirst();
+			out.lootKills++;
+		}
+		prune(counted, tick);
 		if (durationMs > 0 && tick - durationTick > WINDOW_TICKS) {
 			durationMs = -1;
 		}
@@ -141,14 +193,32 @@ final class BossKillMatcher {
 
 	/** Everything waiting is settled now (the session closes): as {@link #tick} far in the future. */
 	Result flush(int tick) {
-		return tick(tick + WINDOW_TICKS + DURATION_TICKS + 2);
+		return tick(tick + LOOT_WINDOW_TICKS + DURATION_TICKS + 2);
 	}
 
 	void clear() {
 		deaths.clear();
 		kills.clear();
 		settled.clear();
+		counted.clear();
+		loots.clear();
 		durationMs = -1;
+	}
+
+	/** A waiting drop within the window of this kill: taken (it was this kill's). */
+	private boolean pollLoot(int tick) {
+		Integer t = loots.peekFirst();
+		if (t != null && tick - t <= LOOT_WINDOW_TICKS) {
+			loots.pollFirst();
+			return true;
+		}
+		return false;
+	}
+
+	private static void prune(Deque<Integer> ticks, int tick) {
+		while (!ticks.isEmpty() && tick - ticks.peekFirst() > LOOT_WINDOW_TICKS) {
+			ticks.pollFirst();
+		}
 	}
 
 	/** A kill count message waiting for its death (the message came first). */
