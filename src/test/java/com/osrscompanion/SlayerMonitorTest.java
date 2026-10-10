@@ -323,4 +323,35 @@ public class SlayerMonitorTest {
 				"Select an option", "Yes", "No", "Cancel");
 		org.junit.Assert.assertTrue(SlayerMonitor.parseTaskOffers(texts).isEmpty());
 	}
+
+	@Test
+	public void taskSizeIsNeverBelowTheCountOfTheAssignment() {
+		// The report: Mortimer's hydras, SLAYER_COUNT_ORIGINAL 181 while the count was 263 (a quantity
+		// modifier on top of the roll): 222 left showed -41 killed. The size is the highest count seen.
+		SlayerMonitor.TaskSize size = new SlayerMonitor.TaskSize();
+		assertEquals(263, size.update("a", 181, 263));
+		assertEquals(263, size.update("a", 181, 222));
+		// A right varp size stays as it is.
+		assertEquals(300, size.update("b", 300, 290));
+		assertEquals(300, size.update("b", 300, 120));
+		// Another assignment starts over; no task: the varp's.
+		assertEquals(181, size.update("c", 181, 150));
+		assertEquals(181, size.update("c", 181, 0));
+	}
+
+	@Test
+	public void taskSizeSurvivesARestart() {
+		SlayerMonitor.TaskSize size = new SlayerMonitor.TaskSize();
+		size.update("42:0:0:10:181", 181, 263);
+		size.update("42:0:0:10:181", 181, 240);
+		SlayerMonitor.TaskSize back = new SlayerMonitor.TaskSize();
+		back.restore(size.stored());
+		assertEquals("42:0:0:10:181|263", back.stored());
+		// Started mid-task: the stored highest count, not what is left now.
+		assertEquals(263, back.update("42:0:0:10:181", 181, 222));
+		// Junk in the config is ignored.
+		SlayerMonitor.TaskSize junk = new SlayerMonitor.TaskSize();
+		junk.restore("nonsense|x");
+		assertEquals(null, junk.stored());
+	}
 }

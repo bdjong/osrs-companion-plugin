@@ -86,8 +86,43 @@ public class SlayerSessionTest {
 		assertEquals(1_200, s.timeInAreaMs);
 		s.tick(true, START + 120_600);
 		assertEquals(1_800, s.timeInAreaMs);
-		// The trip timer runs from the start, inside or not.
-		assertEquals(120_600, s.totalMs(START + 120_600));
+		// The trip timer: the time inside plus the time away, back within 15 minutes.
+		assertEquals(1_800 + 118_200, s.tripMs(START + 120_600, 0));
+	}
+
+	@Test
+	public void tripTimerCountsUpTo15MinutesAwayThenPauses() {
+		SlayerSession s = session();
+		for (long t = 0; t <= 600_000; t += 600) {
+			s.tick(true, START + t);
+		}
+		assertEquals(600_000, s.tripMs(START + 600_000, 0));
+		// Left at 10 min: counting on while away...
+		s.tick(false, START + 600_600);
+		assertEquals(600_000 + 300_000 - 600, s.tripMs(START + 900_000, 0));
+		// ...up to 15 minutes; past that the time away comes off and it pauses.
+		assertEquals(600_000 + SlayerSession.TRIP_GRACE_MS, s.tripMs(START + 600_600 + SlayerSession.TRIP_GRACE_MS, 0));
+		assertEquals(600_000, s.tripMs(START + 600_600 + SlayerSession.TRIP_GRACE_MS + 1, 0));
+		assertEquals(600_000, s.tripMs(START + 36_000_000, 0));
+		// Back after an hour: the hour never counted, it goes on from 10:00.
+		assertTrue(s.tick(true, START + 4_200_000));
+		s.tick(true, START + 4_200_600);
+		assertEquals(600_600, s.tripMs(START + 4_200_600, 0));
+		assertEquals(0, s.awayCountedMs);
+		// A bank trip of 5 minutes stays on it.
+		s.tick(false, START + 4_201_200);
+		s.bankOpened();
+		s.tick(true, START + 4_501_200);
+		assertEquals(300_000, s.awayCountedMs);
+		assertEquals(1, s.bankTrips);
+		assertEquals(900_600, s.tripMs(START + 4_501_200, 0));
+		// The website gets the timer without the time away now, and when you left.
+		s.tick(false, START + 4_600_000);
+		Map<String, Object> body = s.payload("Zezima");
+		assertEquals(900L, body.get("trip_sec"));
+		assertEquals("2026-10-07T13:16:40Z", body.get("left_at"));
+		s.tick(true, START + 4_700_000);
+		assertEquals(null, s.payload("Zezima").get("left_at"));
 	}
 
 	@Test
@@ -151,7 +186,7 @@ public class SlayerSessionTest {
 		Map<String, Object> body = s.payload("Zezima");
 		List<String> keys = Arrays.asList("player", "session_uuid", "task_id", "task_name", "area_id", "master", "location_key",
 			"amount_original", "amount_at_start", "amount_remaining", "started_at", "ended_at", "completed", "time_in_area_sec",
-			"trip_count", "bank_trips", "bank_trip_sec", "kills", "avg_kill_ms", "kills_per_hour", "loot_gp", "avg_loot_gp", "slayer_xp", "kill_times_ms",
+			"trip_count", "bank_trips", "bank_trip_sec", "trip_sec", "left_at", "kills", "avg_kill_ms", "kills_per_hour", "loot_gp", "avg_loot_gp", "slayer_xp", "kill_times_ms",
 			"boss_kills", "boss_kill_time_ms_total", "regular_kill_time_ms_total", "kill_log");
 		assertEquals(keys, new ArrayList<>(body.keySet()));
 
@@ -185,7 +220,8 @@ public class SlayerSessionTest {
 		// Closing twice keeps the first end.
 		s.close(false, START + 3_000_000);
 		assertEquals("2026-10-07T12:40:00Z", s.payload("Zezima").get("ended_at"));
-		assertEquals(2_400_000, s.totalMs(START + 9_999_999));
+		// Closed: the trip timer stands still (here nothing inside was ticked).
+		assertEquals(0, s.tripMs(START + 9_999_999, 0));
 	}
 
 	@Test
@@ -207,5 +243,51 @@ public class SlayerSessionTest {
 		assertTrue(back.inside);
 		assertTrue(back.isOpen());
 		assertEquals(s.payload("Zezima"), back.payload("Zezima"));
+	}
+
+	@Test
+	public void notBackWithin15MinutesEndsWhenYouLeft() {
+		// Leave at T, not back by T + 15 min: the trip ends at T, the timer paused at its value at T.
+		SlayerSession s = session();
+		for (long t = 0; t <= 300_000; t += 600) {
+			s.tick(true, START + t);
+		}
+		long leftAt = START + 300_600;
+		s.tick(false, leftAt);
+		long atLeave = s.tripMs(leftAt, 0);
+		assertEquals(300_000, atLeave);
+		long late = leftAt + SlayerSession.TRIP_GRACE_MS + 60_000;
+		assertEquals(atLeave, s.tripMs(late, 0));
+		// The session ends there (another location / task) at the moment you left, not at leave + 15 min or now.
+		s.close(false, late);
+		assertEquals(leftAt, s.endedMs);
+		assertEquals(atLeave, s.tripMs(late + 3_600_000, 0));
+		assertEquals(300_000, s.timeInAreaMs);
+		assertEquals(0, s.awayCountedMs);
+		assertEquals("2026-10-07T12:05:00Z", s.payload("Zezima").get("ended_at"));
+		assertEquals(null, s.payload("Zezima").get("left_at"));
+	}
+
+	@Test
+	public void waitingIsNoBankTripAndLogoutLeavesTheArea() {
+		SlayerSession s = session();
+		s.tick(true, START);
+		s.tick(true, START + 600);
+		// Banked but back after 16 minutes: the waiting is no bank trip (nor in the estimate).
+		s.tick(false, START + 1_200);
+		s.bankOpened();
+		s.tick(true, START + 1_200 + 16 * 60_000);
+		assertEquals(0, s.bankTrips);
+		assertEquals(0, s.bankTripMs);
+		// Logging out inside: away from then on, the session still open.
+		s.loggedOut(START + 2_000_000);
+		assertFalse(s.inside);
+		assertEquals(START + 2_000_000, s.leftMs);
+		assertTrue(s.isOpen());
+		// A completion keeps the moment of the last kill.
+		SlayerSession done = session();
+		done.tick(true, START);
+		done.close(true, START + 60_000);
+		assertEquals(START + 60_000, done.endedMs);
 	}
 }

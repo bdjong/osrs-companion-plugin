@@ -151,9 +151,14 @@ public class SlayerHelperManager {
 		final long avgLootGp;
 		final long estimatedLeftMs;
 		final String locationName;
+		/** The trip timer's parts: time in the area plus the counted times away, and when you left (0: inside). */
+		final long tripBaseMs;
+		final long leftMs;
 
 		Stats(SlayerSession s, long nowMs) {
 			inside = s.inside;
+			tripBaseMs = s.timeInAreaMs + s.awayCountedMs;
+			leftMs = s.leftMs;
 			snapshotMs = nowMs;
 			startedMs = s.startedMs;
 			endedMs = s.endedMs;
@@ -173,9 +178,20 @@ public class SlayerHelperManager {
 			return timeInAreaMs + (inside && endedMs == 0 ? Math.max(0, Math.min(nowMs - snapshotMs, SlayerSession.MAX_TICK_GAP_MS)) : 0);
 		}
 
-		/** The trip timer: since the session started. */
+		/**
+		 * The trip timer (see {@link SlayerSession#tripMs}): the time in the area, running on between ticks
+		 * while inside, plus the times away back within 15 minutes; while away it runs on for up to 15
+		 * minutes, then those come off again and it pauses until you are back.
+		 */
 		long total(long nowMs) {
-			return Math.max(0, (endedMs > 0 ? endedMs : nowMs) - startedMs);
+			long ms = tripBaseMs + (timeInArea(nowMs) - timeInAreaMs);
+			if (endedMs == 0 && !inside && leftMs > 0) {
+				long away = nowMs - leftMs;
+				if (away > 0 && away <= SlayerSession.TRIP_GRACE_MS) {
+					ms += away;
+				}
+			}
+			return Math.max(0, ms);
 		}
 	}
 
@@ -538,6 +554,8 @@ public class SlayerHelperManager {
 			closeSession(closeCompleted, System.currentTimeMillis());
 		}
 		if (session != null) {
+			// Out of the area from the logout on: the trip timer pauses after 15 minutes, as after leaving.
+			session.loggedOut(System.currentTimeMillis());
 			persist(true);
 			sync(true);
 		}
@@ -635,8 +653,12 @@ public class SlayerHelperManager {
 				taskNames.put(cacheKey, name);
 			}
 		}
-		return new Task(id, boss, client.getVarpValue(VarPlayerID.SLAYER_AREA), client.getVarbitValue(VarbitID.SLAYER_MASTER), name, left,
-			client.getVarpValue(VarPlayerID.SLAYER_COUNT_ORIGINAL));
+		int area = client.getVarpValue(VarPlayerID.SLAYER_AREA);
+		int master = client.getVarbitValue(VarbitID.SLAYER_MASTER);
+		// The size never below the count seen on this assignment (SlayerMonitor#originalAmount).
+		int original = slayerMonitor.originalAmount(id, boss, area, master,
+			client.getVarpValue(VarPlayerID.SLAYER_COUNT_ORIGINAL), left);
+		return new Task(id, boss, area, master, name, left, original);
 	}
 
 	/** Kills counted down, a task finished or swapped for another. Client thread. */
@@ -811,9 +833,14 @@ public class SlayerHelperManager {
 		// An area round a boss or a spot is known without the guide; the guide's locations only once it is loaded.
 		boolean adhocSession = session != null && isAdhocKey(session.locationKey);
 		if (session != null && (known || adhocSession)) {
+			boolean wasInside = session.inside;
 			if (session.tick(in != null, nowMs)) {
 				log.debug("Slayer helper: trip {} at {}", session.tripCount, session.locationName);
 				persist(true);
+			} else if (wasInside && !session.inside) {
+				// Left the area: the website's trip timer runs on from here for 15 minutes at most.
+				persist(true);
+				sync(true);
 			}
 		}
 
