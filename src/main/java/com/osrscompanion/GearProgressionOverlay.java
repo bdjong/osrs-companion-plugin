@@ -14,25 +14,14 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.Stroke;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.client.game.ItemManager;
-import net.runelite.client.input.KeyListener;
-import net.runelite.client.input.MouseListener;
-import net.runelite.client.input.MouseWheelListener;
 import net.runelite.client.ui.FontManager;
-import net.runelite.client.ui.overlay.Overlay;
-import net.runelite.client.ui.overlay.OverlayLayer;
-import net.runelite.client.ui.overlay.OverlayPosition;
 
 /**
  * The gear progression window, drawn over the game in the style of the game's own
@@ -45,7 +34,7 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  * they never reach the game; clicks outside pass through untouched.
  */
 @Singleton
-public class GearProgressionOverlay extends Overlay implements MouseListener, MouseWheelListener, KeyListener {
+public class GearProgressionOverlay extends GameWindow {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
 	static final String GUARD_FEATURE = "gear-progression-window";
 
@@ -53,8 +42,6 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 	private static final int MAX_HEIGHT = 600;
 	private static final int MIN_WIDTH = 420;
 	private static final int MIN_HEIGHT = 300;
-	private static final int SCREEN_MARGIN = 10;
-	private static final int TITLE_HEIGHT = 28;
 	private static final int SUBTITLE_HEIGHT = 22;
 	private static final int TAB_WIDTH = 150;
 	private static final int TAB_HEIGHT = 50;
@@ -68,42 +55,23 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 	private static final int BUTTON_HEIGHT = 20;
 	private static final int SCROLL_STEP = 24;
 
-	private final Client client;
 	private final GearProgressionManager manager;
 	private final ItemManager itemManager;
 	private final GoalImageCache imageCache;
 
 	/** Clickable areas of the last frame, replaced as a whole each frame. */
-	private volatile List<Hit> hits = Collections.emptyList();
-	private volatile Rectangle window;
 	private volatile Rectangle stepsArea;
-	private volatile Point mouse;
 	private volatile int scroll;
 	private volatile int maxScroll;
 	private int scrolledTier = -1;
 	/** Whether the roadmap list under the Switch button is open. */
-	private volatile boolean switcherOpen;
-
-	private static final class Hit {
-		final Rectangle area;
-		final Runnable action;
-		final String tooltip;
-
-		Hit(Rectangle area, Runnable action, String tooltip) {
-			this.area = area;
-			this.action = action;
-			this.tooltip = tooltip;
-		}
-	}
 
 	@Inject
 	public GearProgressionOverlay(Client client, GearProgressionManager manager, ItemManager itemManager, GoalImageCache imageCache) {
-		this.client = client;
+		super(client, GUARD_FEATURE);
 		this.manager = manager;
 		this.itemManager = itemManager;
 		this.imageCache = imageCache;
-		setPosition(OverlayPosition.DYNAMIC);
-		setLayer(OverlayLayer.ABOVE_WIDGETS);
 	}
 
 	// ------------------------------------------------------------------ render
@@ -111,52 +79,19 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 	@Override
 	public Dimension render(Graphics2D g) {
 		return Guard.render(GUARD_FEATURE, () -> {
-			if (!manager.isOpen()) {
-				window = null;
-				stepsArea = null;
-				hits = Collections.emptyList();
-				return null;
+			boolean shown = manager.isOpen();
+			if (shown) {
+				manager.refreshIfStale();
 			}
-			manager.refreshIfStale();
-
-			int canvasW = client.getCanvasWidth();
-			int canvasH = client.getCanvasHeight();
-			int w = Math.min(MAX_WIDTH, canvasW - 2 * SCREEN_MARGIN);
-			int h = Math.min(MAX_HEIGHT, canvasH - 2 * SCREEN_MARGIN);
-			if (w < MIN_WIDTH || h < MIN_HEIGHT) {
-				window = null;
-				hits = Collections.emptyList();
-				return null;
-			}
-			int x = (canvasW - w) / 2;
-			int y = (canvasH - h) / 2;
-			Rectangle win = new Rectangle(x, y, w, h);
 			List<Hit> newHits = new ArrayList<>();
-
-			// Frame and title bar.
-			g.setColor(BG);
-			g.fillRect(x, y, w, h);
-			g.setColor(FRAME_DARK);
-			g.setStroke(new BasicStroke(3));
-			g.drawRect(x + 1, y + 1, w - 3, h - 3);
-			g.setStroke(new BasicStroke(1));
-			g.setColor(FRAME_LIGHT);
-			g.drawRect(x + 3, y + 3, w - 7, h - 7);
-
-			g.setFont(FontManager.getRunescapeBoldFont());
-			centred(g, "Gear Progression", x + w / 2, y + 20, ORANGE);
-			Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
-			box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
-			g.setColor(new Color(0xC8A24A));
-			g.setStroke(new BasicStroke(2));
-			g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
-			g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
-			g.setStroke(new BasicStroke(1));
-			newHits.add(new Hit(close, manager::close, null));
-			g.setColor(PANEL_EDGE);
-			g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
-			g.setColor(FRAME_LIGHT);
-			g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
+			Rectangle win = frame(g, shown, MAX_WIDTH, MAX_HEIGHT, MIN_WIDTH, MIN_HEIGHT, "Gear Progression", newHits);
+			if (win == null) {
+				return null;
+			}
+			int x = win.x;
+			int y = win.y;
+			int w = win.width;
+			int h = win.height;
 
 			GearPlan plan = manager.getPlan();
 			if (plan == null) {
@@ -246,19 +181,8 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 	}
 
 	private void finish(Graphics2D g, Rectangle win, List<Hit> newHits, Rectangle steps) {
-		// Tooltip for whatever the mouse is over.
-		Point m = mouse;
-		if (m != null && win.contains(m)) {
-			for (Hit hit : newHits) {
-				if (hit.tooltip != null && hit.area.contains(m)) {
-					tooltip(g, hit.tooltip, m, win);
-					break;
-				}
-			}
-		}
-		window = win;
 		stepsArea = steps;
-		hits = Collections.unmodifiableList(newHits);
+		finish(g, win, newHits);
 	}
 
 	private void renderMessage(Graphics2D g, Rectangle win) {
@@ -531,131 +455,26 @@ public class GearProgressionOverlay extends Overlay implements MouseListener, Mo
 
 	// ------------------------------------------------------------------ input
 
-	private boolean inside(MouseEvent e) {
-		Rectangle win = window;
-		return manager.isOpen() && win != null && win.contains(e.getPoint());
+	@Override
+	boolean isShown() {
+		return manager.isOpen();
 	}
 
 	@Override
-	public MouseEvent mousePressed(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (!inside(e)) {
-				return e;
-			}
-			if (SwingUtilities.isLeftMouseButton(e)) {
-				Point p = e.getPoint();
-				boolean listWasOpen = switcherOpen;
-				Hit clicked = null;
-				for (Hit hit : hits) {
-					if (hit.area.contains(p)) {
-						clicked = hit;
-						break;
-					}
-				}
-				if (clicked != null) {
-					clicked.action.run();
-				}
-				// Any click outside the open roadmap list (and not on its Switch button) closes it.
-				if (listWasOpen && switcherOpen && (clicked == null || clicked.tooltip == null || !clicked.tooltip.startsWith("Switch"))) {
-					switcherOpen = false;
-				}
-			}
-			e.consume();
-			return e;
-		}, e);
+	void closeWindow() {
+		manager.close();
 	}
 
 	@Override
-	public MouseEvent mouseReleased(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
+	void scrolled(Point p, int rotation) {
+		Rectangle area = stepsArea;
+		if (area != null && area.contains(p)) {
+			scroll = Math.max(0, Math.min(maxScroll, scroll + rotation * SCROLL_STEP));
+		}
 	}
 
 	@Override
-	public MouseEvent mouseClicked(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseMoved(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			mouse = e.getPoint();
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseDragged(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseEntered(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseExited(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			mouse = null;
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseWheelEvent mouseWheelMoved(MouseWheelEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			Rectangle area = stepsArea;
-			if (!inside(e)) {
-				return e;
-			}
-			if (area != null && area.contains(e.getPoint())) {
-				scroll = Math.max(0, Math.min(maxScroll, scroll + e.getWheelRotation() * SCROLL_STEP));
-			}
-			e.consume();
-			return e;
-		}, e);
-	}
-
-	@Override
-	public void keyTyped(KeyEvent e) {
-	}
-
-	@Override
-	public void keyPressed(KeyEvent e) {
-		Guard.run(GUARD_FEATURE, () -> {
-			if (manager.isOpen() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-				// Escape closes the roadmap list first, then the window.
-				if (switcherOpen) {
-					switcherOpen = false;
-				} else {
-					manager.close();
-				}
-				e.consume();
-			}
-		});
-	}
-
-	@Override
-	public void keyReleased(KeyEvent e) {
+	boolean keepsSwitcherOpen(Hit clicked) {
+		return clicked != null && clicked.tooltip != null && clicked.tooltip.startsWith("Switch");
 	}
 }
