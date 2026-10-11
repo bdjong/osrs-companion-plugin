@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.BossGear;
@@ -56,6 +57,7 @@ import net.runelite.client.eventbus.Subscribe;
  *       nothing more: the website then shows you as offline after its timeout.</li>
  * </ul>
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Slf4j
 @Singleton
 public class LiveActivityMonitor {
@@ -174,18 +176,6 @@ public class LiveActivityMonitor {
 	private long lastChangeSentMs;
 	/** The player a status was sent for this login; an offline status goes out for them at logout. */
 	private String sentFor;
-
-	@Inject
-	public LiveActivityMonitor(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient, Gson gson,
-			SlayerHelperManager slayerHelper, FarmRunManager farmRun, BossGearManager bossGear) {
-		this.client = client;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.gson = gson;
-		this.slayerHelper = slayerHelper;
-		this.farmRun = farmRun;
-		this.bossGear = bossGear;
-	}
 
 	/** Every outbox batch carries the current status from now on. */
 	public void start() {

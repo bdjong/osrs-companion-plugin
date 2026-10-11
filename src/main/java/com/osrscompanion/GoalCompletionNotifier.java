@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import lombok.Getter;
 import com.osrscompanion.model.RoadmapGoal;
 import java.util.ArrayDeque;
@@ -26,6 +27,7 @@ import net.runelite.client.util.Text;
  * Popups queue so two quick completions show one after the other. Other features
  * (a finished farm run) show their own title and body the same way.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class GoalCompletionNotifier {
 	/** Fills the notification interface with a title and body; RuneLite's
@@ -67,16 +69,6 @@ public class GoalCompletionNotifier {
 	/** The popup currently on screen (read by the overlay on the render thread). */
 	@Getter
 	private volatile Popup active;
-
-	@Inject
-	public GoalCompletionNotifier(
-			Client client,
-			ClientThread clientThread,
-			OSRSCompanionConfig config) {
-		this.client = client;
-		this.clientThread = clientThread;
-		this.config = config;
-	}
 
 	/**
 	 * Queues a popup for the goal; safe to call from any thread.

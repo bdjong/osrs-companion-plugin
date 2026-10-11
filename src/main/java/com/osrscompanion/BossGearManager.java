@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import lombok.Getter;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.BossGear;
@@ -21,6 +22,7 @@ import net.runelite.client.game.ItemVariationMapping;
  *
  * <p>Network work runs on OkHttp threads; fields the window and the bank layout read are volatile.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class BossGearManager {
 	private final Client client;
@@ -47,17 +49,6 @@ public class BossGearManager {
 	private volatile boolean loaded;
 	@Getter
 	private volatile boolean open;
-
-	@Inject
-	public BossGearManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, FarmRunManager farmRunManager,
-			OSRSCompanionConfig config, ConfigManager configManager) {
-		this.client = client;
-		this.apiClient = apiClient;
-		this.roadmapManager = roadmapManager;
-		this.farmRunManager = farmRunManager;
-		this.config = config;
-		this.configManager = configManager;
-	}
 
 	// ---- Loading ---------------------------------------------------------------------
 
