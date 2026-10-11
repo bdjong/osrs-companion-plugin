@@ -1,9 +1,12 @@
 package com.osrscompanion;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.gson.Gson;
-import com.osrscompanion.model.DiaryTierResult;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
@@ -11,32 +14,48 @@ import java.util.TreeMap;
 import org.junit.Test;
 
 public class VarPumpTest {
-	private final VarPump pump = new VarPump(null, null, null, null, new Gson(), null);
+	private final OSRSCompanionConfig config = mock(OSRSCompanionConfig.class);
+	private final VarPump pump = new VarPump(null, null, config, null, new Gson());
 
 	@Test
-	public void sendsTheRawValuesWithWhatTheReaderMadeForComparison() {
+	public void sendsTheRawValuesOfTheSourcesThatAreOn() {
 		Map<Integer, Integer> varbits = new TreeMap<>();
 		varbits.put(4499, 1);
 		varbits.put(3566, 5);
 		Map<Integer, Integer> varps = new TreeMap<>();
 		varps.put(1196, 3);
-		Map<String, Object> compare = Collections.singletonMap("achievement_diaries",
-			Collections.singletonMap("Ardougne", Collections.singletonMap("Easy", new DiaryTierResult(true, Arrays.asList(true, true, false)))));
-		assertEquals("{\"player_username\":\"Zezima\",\"varbits\":{\"3566\":5,\"4499\":1},\"varps\":{\"1196\":3},"
-				+ "\"compare\":{\"achievement_diaries\":{\"Ardougne\":{\"Easy\":{\"complete\":true,\"tasks\":[true,true,false]}}}}}",
-			pump.json("Zezima", varbits, varps, compare));
+		assertEquals("{\"player_username\":\"Zezima\",\"sources\":[\"achievement_diaries\",\"kingdom\"],"
+				+ "\"varbits\":{\"3566\":5,\"4499\":1},\"varps\":{\"1196\":3},\"quests\":{\"THRONE_OF_MISCELLANIA\":\"FINISHED\"},"
+				+ "\"region\":10044,\"session_start\":1760000000000}",
+			pump.json("Zezima", Arrays.asList("achievement_diaries", "kingdom"), varbits, varps,
+				Collections.singletonMap("THRONE_OF_MISCELLANIA", "FINISHED"), 10044, 1760000000000L));
 	}
 
 	@Test
-	public void withoutComparison() {
-		assertEquals("{\"player_username\":\"Zezima\",\"varbits\":{},\"varps\":{}}",
-			pump.json("Zezima", new TreeMap<>(), new TreeMap<>(), null));
+	public void leavesOutWhatIsNotKnown() {
+		assertEquals("{\"player_username\":\"Zezima\",\"sources\":[],\"varbits\":{},\"varps\":{},\"quests\":{}}",
+			pump.json("Zezima", Collections.emptyList(), new TreeMap<>(), new TreeMap<>(), new TreeMap<>(), null, 0));
 	}
 
 	@Test
 	public void theWatchListReadsTheWebsitesAnswer() {
-		VarPump.WatchList w = new Gson().fromJson("{\"varbits\":[4499,3566],\"varps\":[1196,1198,1199]}", VarPump.WatchList.class);
-		assertEquals(2, w.varbits.length);
-		assertEquals(1199, w.varps[2]);
+		VarPump.WatchList w = new Gson().fromJson("{\"sources\":{\"kingdom\":{\"varbits\":[72,74],\"varps\":[],"
+			+ "\"quests\":[\"THRONE_OF_MISCELLANIA\"],\"regions\":[10044,10300]},\"combat_achievements\":{\"varbits\":[],"
+			+ "\"varps\":[3116],\"quests\":[],\"regions\":[]}}}", VarPump.WatchList.class);
+		assertEquals(2, w.sources.size());
+		assertEquals(74, w.sources.get("kingdom").varbits[1]);
+		assertEquals("THRONE_OF_MISCELLANIA", w.sources.get("kingdom").quests[0]);
+		assertEquals(3116, w.sources.get("combat_achievements").varps[0]);
+	}
+
+	@Test
+	public void eachSourceFollowsItsSyncSwitch() {
+		when(config.syncAchievementDiaries()).thenReturn(true);
+		when(config.syncTimeTracking()).thenReturn(true);
+		assertTrue(pump.enabled("achievement_diaries"));
+		assertTrue(pump.enabled("farming_unlocks"));
+		assertFalse(pump.enabled("kingdom"));
+		assertFalse(pump.enabled("dailies"));
+		assertFalse(pump.enabled("something_newer"));
 	}
 }

@@ -11,7 +11,6 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
-import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
@@ -27,7 +26,6 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.banktags.BankTagsPlugin;
-import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -35,7 +33,6 @@ import net.runelite.client.util.ImageUtil;
 import com.osrscompanion.runelite.farming.CompostTracker;
 import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
-import com.osrscompanion.runelite.farming.PaymentTracker;
 
 @Slf4j
 // Bank Tags: its public API (BankTagsService, LayoutManager, TagManager) lays out the bank for the boss gear and farm run.
@@ -91,23 +88,15 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private QuestMonitor questMonitor;
 
-	@Inject
-	private AchievementDiaryMonitor achievementDiaryMonitor;
 
 	@Inject
 	private VarPump varPump;
 
-	@Inject
-	private HouseLocationMonitor houseLocationMonitor;
 
 	@Inject
 	private FarmingUnlocksMonitor farmingUnlocksMonitor;
 
-	@Inject
-	private KingdomMonitor kingdomMonitor;
 
-	@Inject
-	private CombatAchievementMonitor combatAchievementMonitor;
 
 	@Inject
 	private KillCountMonitor killCountMonitor;
@@ -127,8 +116,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private EventBus eventBus;
 
+
 	@Inject
-	private Notifier notifier;
+	private com.google.gson.Gson gson;
 
 	@Inject
 	private ConfigManager configManager;
@@ -244,8 +234,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private KeyManager keyManager;
 
-	@Inject
-	private DailiesManager dailiesManager;
 
 	@Inject
 	private WebVersionWatcher webVersionWatcher;
@@ -290,11 +278,11 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		subscribers = java.util.Arrays.asList(this, timerMonitor, playerSkillsMonitor, bankMemoryMonitor, vaultMonitor,
 				potionStorageMonitor, runePouchMonitor, plankSackMonitor, storageItemMonitor, loadoutMonitor, lootMonitor,
-				collectionLogMonitor, questMonitor, achievementDiaryMonitor, varPump, houseLocationMonitor, farmingUnlocksMonitor,
-				kingdomMonitor, combatAchievementMonitor, killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
+				collectionLogMonitor, questMonitor, varPump, farmingUnlocksMonitor,
+				killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
 				slayerRewardsMonitor, farmRunManager, farmHarvestTracker, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
-				bossTripTracker, suppliesCheck, dailiesManager, liveActivityMonitor);
+				bossTripTracker, suppliesCheck, liveActivityMonitor);
 		for (Object subscriber : subscribers) {
 			if (subscriber != null) {
 				step("register " + subscriber.getClass().getSimpleName(), () -> eventBus.register(subscriber));
@@ -453,23 +441,12 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	private void startFarming() {
-		TimeTrackingConfig timeTrackingConfig = configManager.getConfig(TimeTrackingConfig.class);
 		FarmingWorld farmingWorld = new FarmingWorld();
-		CompostTracker compostTracker = new CompostTracker(client, farmingWorld, configManager);
-		PaymentTracker paymentTracker = new PaymentTracker(client, configManager, farmingWorld);
-		FarmingTracker farmingTracker = new FarmingTracker(
-				client,
-				itemManager,
-				configManager,
-				timeTrackingConfig,
-				farmingWorld,
-				notifier,
-				compostTracker,
-				paymentTracker);
+		CompostTracker compostTracker = new CompostTracker(configManager);
+		FarmingTracker farmingTracker = new FarmingTracker(client, configManager);
 
-		timerMonitor = new TimerMonitor(
-				client, config, apiClient, configManager, GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService),
-				farmingTracker, farmingWorld);
+		timerMonitor = new TimerMonitor(client, config, apiClient, configManager,
+				GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService), gson);
 		farmRunManager.setFarming(farmingWorld, farmingTracker, compostTracker);
 		farmHarvestTracker.setFarming(farmingWorld, farmingTracker, compostTracker);
 	}
@@ -605,7 +582,6 @@ public class OSRSCompanionPlugin extends Plugin {
 			suppliesCheck.clear();
 			overlayManager.remove(suppliesOverlay);
 		});
-		step("dailies", dailiesManager::clear);
 		step("goal progress", this::disconnectGoalProgress);
 
 		step("stop timerMonitor", () -> timerMonitor.stop());
@@ -620,12 +596,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("stop lootMonitor", () -> lootMonitor.stop());
 		step("stop collectionLogMonitor", () -> collectionLogMonitor.stop());
 		step("stop questMonitor", () -> questMonitor.stop());
-		step("stop achievementDiaryMonitor", () -> achievementDiaryMonitor.stop());
 		step("stop varPump", () -> varPump.stop());
-		step("stop houseLocationMonitor", () -> houseLocationMonitor.stop());
 		step("stop farmingUnlocksMonitor", () -> farmingUnlocksMonitor.stop());
-		step("stop kingdomMonitor", () -> kingdomMonitor.stop());
-		step("stop combatAchievementMonitor", () -> combatAchievementMonitor.stop());
 		step("stop killCountMonitor", () -> killCountMonitor.stop());
 		step("stop deathMonitor", () -> deathMonitor.stop());
 		step("stop slayerMonitor", () -> slayerMonitor.stop());
@@ -803,17 +775,12 @@ public class OSRSCompanionPlugin extends Plugin {
 		lootMonitor.forceSync();
 		collectionLogMonitor.forceSync();
 		questMonitor.forceSync();
-		achievementDiaryMonitor.forceSync();
 		varPump.forceSync();
-		houseLocationMonitor.forceSync();
 		farmingUnlocksMonitor.forceSync();
-		kingdomMonitor.forceSync();
-		combatAchievementMonitor.forceSync();
 		killCountMonitor.forceSync();
 		deathMonitor.forceSync();
 		slayerMonitor.forceSync();
 		slayerCatalogMonitor.forceSync();
-		dailiesManager.forceSync();
 	}
 
 	@Subscribe

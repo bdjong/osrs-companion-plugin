@@ -1,15 +1,12 @@
 package com.osrscompanion;
 
-import lombok.Getter;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.PlayerSkillsSyncPayload;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;

@@ -46,3 +46,6 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 | One switcher list for three windows | -398 |
 | Data pump added (generic; diaries compared side by side) | +1,492 |
 | Goal progress from the website (local goal layer and its hooks in the monitors removed) | -11,899 |
+| Data pump: diaries, combat achievements, Kingdom, house location, farming unlocks, dailies (six monitors removed; diaries and dailies proven with 100 and 600 oracle cases) | -10,718 |
+| Farming: RuneLite's patch list as a data file (`farming-patches.txt`, checked against RuneLite for every tab); the unused parts of the copied RuneLite trackers removed (nothing wrote or subscribed them); unused imports and fields | -10,158 |
+| Timers from the website: the plugin sends RuneLite's stored Time Tracking data, the website works out every timer (proven with 150 oracle cases) | -3,844 |

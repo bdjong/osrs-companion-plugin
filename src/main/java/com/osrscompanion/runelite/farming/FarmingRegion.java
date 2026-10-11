@@ -27,31 +27,23 @@
 package com.osrscompanion.runelite.farming;
 
 import lombok.Getter;
-import net.runelite.api.coords.WorldPoint;
 
 @Getter
 public class FarmingRegion
 {
 	private final String name;
 	private final int regionID;
-	private final boolean definite;
 	private final FarmingPatch[] patches;
 
-	public FarmingRegion(String name, int regionID, boolean definite, FarmingPatch... patches)
+	FarmingRegion(String name, int regionID, FarmingPatch... patches)
 	{
 		this.name = name;
 		this.regionID = regionID;
-		this.definite = definite;
 		this.patches = patches;
 		for (FarmingPatch p : patches)
 		{
 			p.setRegion(this);
 		}
-	}
-
-	public boolean isInBounds(WorldPoint loc)
-	{
-		return true;
 	}
 
 	@Override
