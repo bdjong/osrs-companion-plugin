@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.osrscompanion.OSRSCompanionConfig;
 import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.PlayerSkillsSyncPayload;
+import com.osrscompanion.model.Roadmap;
+import com.osrscompanion.model.RoadmapList;
 import com.osrscompanion.model.TimerSyncItem;
 import com.osrscompanion.model.TimersSyncPayload;
 import java.time.Instant;
@@ -105,6 +107,44 @@ public class OSRSCompanionApiClientTest {
 	}
 
 	@Test
+	public void testGetRoadmapsWithEmptyKeyCallsOnError() {
+		OSRSCompanionApiClient client = new OSRSCompanionApiClient(emptyKeyConfig(), new Gson(), new OkHttpClient());
+		AtomicReference<String> error = new AtomicReference<>();
+		AtomicBoolean success = new AtomicBoolean(false);
+		client.getRoadmaps("TestPlayer", new OSRSCompanionApiClient.RoadmapCallback<RoadmapList>() {
+			@Override
+			public void onSuccess(RoadmapList result) {
+				success.set(true);
+			}
+
+			@Override
+			public void onError(String message) {
+				error.set(message);
+			}
+		});
+		// No key => synchronous onError, no network call.
+		assertFalse(success.get());
+		assertNotNull(error.get());
+	}
+
+	@Test
+	public void testRecomputeRoadmapWithEmptyKeyCallsOnError() {
+		OSRSCompanionApiClient client = new OSRSCompanionApiClient(emptyKeyConfig(), new Gson(), new OkHttpClient());
+		AtomicReference<String> error = new AtomicReference<>();
+		client.recomputeRoadmap(1, "TestPlayer", new OSRSCompanionApiClient.RoadmapCallback<Roadmap>() {
+			@Override
+			public void onSuccess(Roadmap result) {
+			}
+
+			@Override
+			public void onError(String message) {
+				error.set(message);
+			}
+		});
+		assertEquals("No OSRS Companion App Key configured", error.get());
+	}
+
+	@Test
 	public void testIsDuplicateReturnsFalseWhenPreviousNull() {
 		/* First-ever send for a syncType always goes out. */
 		assertFalse(OSRSCompanionApiClient.isDuplicate(null, "{\"timers\":[]}"));
@@ -160,9 +200,9 @@ public class OSRSCompanionApiClientTest {
 		CountDownLatch done = new CountDownLatch(1);
 		OSRSCompanionApiClient client = new OSRSCompanionApiClient(config, new Gson(), recordingClient(sent, done));
 
-		client.getWebVersion("Zezima", new OSRSCompanionApiClient.RoadmapCallback<Integer>() {
+		client.getRoadmaps("Zezima", new OSRSCompanionApiClient.RoadmapCallback<RoadmapList>() {
 			@Override
-			public void onSuccess(Integer result) {
+			public void onSuccess(RoadmapList result) {
 			}
 
 			@Override

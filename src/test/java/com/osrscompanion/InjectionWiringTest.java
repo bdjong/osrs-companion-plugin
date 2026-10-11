@@ -58,7 +58,7 @@ public class InjectionWiringTest {
 			}
 		}
 		assertTrue("No injectable constructor: " + problems, problems.isEmpty());
-		assertTrue("LiveActivityMonitor should be reached", seen.contains(LiveActivityMonitor.class));
+		assertTrue("RoadmapManager should be reached", seen.contains(RoadmapManager.class));
 	}
 
 	private static boolean isInject(java.lang.annotation.Annotation[] annotations) {
