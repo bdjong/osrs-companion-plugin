@@ -380,15 +380,6 @@ public interface OSRSCompanionConfig extends Config {
 	}
 
 	@ConfigItem(
-			keyName = "slayerDebug",
-			name = "Slayer debug mode",
-			description = "Developer aid: a box with your tile, region, the task and the location the website sent (tile, radius, regions, whether you count as inside); attacking a task monster also puts your coordinates in the chat. Only offered to the developer's characters.",
-			hidden = true)
-	default boolean slayerDebug() {
-		return false;
-	}
-
-	@ConfigItem(
 			keyName = "slayerGearBankLayout",
 			name = "Slayer gear bank layout",
 			description = "With a slayer task, when you open the bank, it shows only the worn gear of the setup picked in the Slayer gear window (the best until you pick one), laid out like the worn equipment (see Exact bank layout). Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Farm run bank layouts off.",

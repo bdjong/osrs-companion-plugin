@@ -1,9 +1,9 @@
 package com.osrscompanion;
 
 /**
- * Where an item is, as the website names its sources: "teammate:Zeekr:worn" (a GIM teammate's worn gear),
- * "teammate:Zeekr:bank", "group_storage"... Turns a source key into "worn by Zeekr", "in Zeekr's inventory",
- * "in Zeekr's bank" or "in group storage". Pure.
+ * Where an item is, as the website names its sources: "teammate:Bob:worn" (a GIM teammate's worn gear),
+ * "teammate:Bob:bank", "group_storage"... Turns a source key into "worn by Bob", "in Bob's inventory",
+ * "in Bob's bank" or "in group storage". Pure.
  */
 final class ItemWhere {
 	static final String TEAMMATE_PREFIX = "teammate:";
