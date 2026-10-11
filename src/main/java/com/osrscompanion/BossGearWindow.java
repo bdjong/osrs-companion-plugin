@@ -3,16 +3,12 @@ package com.osrscompanion;
 import static com.osrscompanion.GameUi.*;
 
 import com.osrscompanion.model.BossGear;
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,17 +16,10 @@ import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.game.ItemManager;
-import net.runelite.client.input.KeyListener;
-import net.runelite.client.input.MouseListener;
-import net.runelite.client.input.MouseWheelListener;
 import net.runelite.client.ui.FontManager;
-import net.runelite.client.ui.overlay.Overlay;
-import net.runelite.client.ui.overlay.OverlayLayer;
-import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.util.LinkBrowser;
 
 /**
@@ -40,7 +29,7 @@ import net.runelite.client.util.LinkBrowser;
  * whether you carry it, have it stored, or miss it; the gear mode chips and Go to wiki on the right.
  */
 @Singleton
-public class BossGearWindow extends Overlay implements MouseListener, MouseWheelListener, KeyListener {
+public class BossGearWindow extends GameWindow {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
 	static final String GUARD_FEATURE = "boss-gear-window";
 
@@ -48,8 +37,6 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	private static final int MAX_HEIGHT = 440;
 	private static final int MIN_WIDTH = 480;
 	private static final int MIN_HEIGHT = 320;
-	private static final int SCREEN_MARGIN = 10;
-	private static final int TITLE_HEIGHT = 28;
 	private static final int SUBTITLE_HEIGHT = 22;
 	private static final int SLOT_GAP = 3;
 	private static final int BUTTON_WIDTH = 110;
@@ -66,19 +53,13 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		{null, "head", null}, {"cape", "neck", "ammo"}, {"weapon", "body", "shield"}, {null, "legs", null}, {"hands", "feet", "ring"},
 	};
 
-	private final Client client;
 	private final BossGearManager manager;
 	private final ItemManager itemManager;
 	private final SuppliesCheck supplies;
 
-	private volatile List<Hit> hits = Collections.emptyList();
-	private volatile Rectangle window;
-	private volatile Point mouse;
-	private volatile boolean switcherOpen;
 	/** In the switcher: first row shown (mouse wheel scrolls) and the boss whose setups are unfolded. */
 	private volatile int switcherScroll;
 	private volatile String expandedBoss;
-	private volatile Rectangle switcherArea;
 	/** The switcher's tab: {@link #TAB_RECENT}, {@link #TAB_WIKI} or {@link #TAB_CUSTOM}. */
 	private volatile int tab;
 	private static final int TAB_RECENT = 0;
@@ -87,39 +68,18 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	/** How many builds the Recently used tab lists. */
 	private static final int RECENT_MAX = 10;
 
-	private static final class Hit {
-		final Rectangle area;
-		final Runnable action;
-		final String tooltip;
-		/** Clicking it leaves the switcher list open (tabs, unfolding a boss, the list itself). */
-		final boolean keepOpen;
-
-		Hit(Rectangle area, Runnable action, String tooltip) {
-			this(area, action, tooltip, false);
-		}
-
-		Hit(Rectangle area, Runnable action, String tooltip, boolean keepOpen) {
-			this.area = area;
-			this.action = action;
-			this.tooltip = tooltip;
-			this.keepOpen = keepOpen;
-		}
-	}
-
 	private final net.runelite.client.game.chatbox.ChatboxPanelManager chatbox;
 	private final net.runelite.client.callback.ClientThread clientThread;
 
 	@Inject
 	public BossGearWindow(Client client, BossGearManager manager, ItemManager itemManager, SuppliesCheck supplies,
 		net.runelite.client.game.chatbox.ChatboxPanelManager chatbox, net.runelite.client.callback.ClientThread clientThread) {
-		this.client = client;
+		super(client, GUARD_FEATURE);
 		this.manager = manager;
 		this.itemManager = itemManager;
 		this.supplies = supplies;
 		this.chatbox = chatbox;
 		this.clientThread = clientThread;
-		setPosition(OverlayPosition.DYNAMIC);
-		setLayer(OverlayLayer.ABOVE_WIDGETS);
 	}
 
 	// ------------------------------------------------------------------ render
@@ -127,46 +87,15 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 	@Override
 	public Dimension render(Graphics2D g) {
 		return Guard.render(GUARD_FEATURE, () -> {
-			// Out of the way while the bank is open (it is laid out underneath).
-			if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null || !manager.isOpen()) {
-				window = null;
-				hits = Collections.emptyList();
-				return null;
-			}
-			int w = Math.min(MAX_WIDTH, client.getCanvasWidth() - 2 * SCREEN_MARGIN);
-			int h = Math.min(MAX_HEIGHT, client.getCanvasHeight() - 2 * SCREEN_MARGIN);
-			if (w < MIN_WIDTH || h < MIN_HEIGHT) {
-				window = null;
-				hits = Collections.emptyList();
-				return null;
-			}
-			int x = (client.getCanvasWidth() - w) / 2;
-			int y = (client.getCanvasHeight() - h) / 2;
-			Rectangle win = new Rectangle(x, y, w, h);
 			List<Hit> newHits = new ArrayList<>();
-
-			g.setColor(BG);
-			g.fillRect(x, y, w, h);
-			g.setColor(FRAME_DARK);
-			g.setStroke(new BasicStroke(3));
-			g.drawRect(x + 1, y + 1, w - 3, h - 3);
-			g.setStroke(new BasicStroke(1));
-			g.setColor(FRAME_LIGHT);
-			g.drawRect(x + 3, y + 3, w - 7, h - 7);
-			g.setFont(FontManager.getRunescapeBoldFont());
-			centred(g, "Boss Gear", x + w / 2, y + 20, ORANGE);
-			Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
-			box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
-			g.setColor(new Color(0xC8A24A));
-			g.setStroke(new BasicStroke(2));
-			g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
-			g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
-			g.setStroke(new BasicStroke(1));
-			newHits.add(new Hit(close, manager::close, null));
-			g.setColor(PANEL_EDGE);
-			g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
-			g.setColor(FRAME_LIGHT);
-			g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
+			Rectangle win = frame(g, client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null && manager.isOpen(), MAX_WIDTH, MAX_HEIGHT, MIN_WIDTH, MIN_HEIGHT, "Boss Gear", newHits);
+			if (win == null) {
+				return null;
+			}
+			int x = win.x;
+			int y = win.y;
+			int w = win.width;
+			int h = win.height;
 
 			BossGear set = manager.getSet();
 			if (set == null) {
@@ -723,154 +652,27 @@ public class BossGearWindow extends Overlay implements MouseListener, MouseWheel
 		newHits.add(new Hit(r, () -> { }, manager.slotTooltip(it, need, synced)));
 	}
 
-	private void finish(Graphics2D g, Rectangle win, List<Hit> newHits) {
-		Point m = mouse;
-		Rectangle list = switcherArea;
-		// No tooltips over the open switcher list (its rows say what they do).
-		boolean overList = switcherOpen && list != null && m != null && list.contains(m);
-		if (!switcherOpen) {
-			switcherArea = null;
-		}
-		if (m != null && win.contains(m) && !overList) {
-			for (Hit hit : newHits) {
-				if (hit.tooltip != null && hit.area.contains(m)) {
-					tooltip(g, hit.tooltip, m, win);
-					break;
-				}
-			}
-		}
-		window = win;
-		hits = Collections.unmodifiableList(newHits);
-	}
-
 	BufferedImage icon(int itemId, int quantity, boolean stackable) {
 		return itemManager.getImage(itemId, quantity, stackable);
 	}
 
 	// ------------------------------------------------------------------ input
 
-	private boolean inside(MouseEvent e) {
-		Rectangle win = window;
-		return manager.isOpen() && win != null && win.contains(e.getPoint());
+	@Override
+	boolean isShown() {
+		return manager.isOpen();
 	}
 
 	@Override
-	public MouseEvent mousePressed(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (!inside(e)) {
-				return e;
-			}
-			if (SwingUtilities.isLeftMouseButton(e)) {
-				Point p = e.getPoint();
-				boolean listWasOpen = switcherOpen;
-				Hit clicked = null;
-				for (Hit hit : hits) {
-					if (hit.area.contains(p)) {
-						clicked = hit;
-						break;
-					}
-				}
-				if (clicked != null) {
-					clicked.action.run();
-				}
-				if (listWasOpen && switcherOpen && (clicked == null || !clicked.keepOpen)) {
-					switcherOpen = false;
-				}
-			}
-			e.consume();
-			return e;
-		}, e);
+	void closeWindow() {
+		manager.close();
 	}
 
 	@Override
-	public MouseEvent mouseReleased(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseClicked(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseMoved(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			mouse = e.getPoint();
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseDragged(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseEntered(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseExited(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			mouse = null;
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseWheelEvent mouseWheelMoved(MouseWheelEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				Rectangle list = switcherArea;
-				if (switcherOpen && list != null && list.contains(e.getPoint())) {
-					switcherScroll = Math.max(0, switcherScroll + e.getWheelRotation() * 3);
-				}
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public void keyTyped(KeyEvent e) {
-	}
-
-	@Override
-	public void keyPressed(KeyEvent e) {
-		Guard.run(GUARD_FEATURE, () -> {
-			if (manager.isOpen() && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-				if (switcherOpen) {
-					switcherOpen = false;
-				} else {
-					manager.close();
-				}
-				e.consume();
-			}
-		});
-	}
-
-	@Override
-	public void keyReleased(KeyEvent e) {
+	void scrolled(Point p, int rotation) {
+		Rectangle list = switcherArea;
+		if (switcherOpen && list != null && list.contains(p)) {
+			switcherScroll = Math.max(0, switcherScroll + rotation * 3);
+		}
 	}
 }
