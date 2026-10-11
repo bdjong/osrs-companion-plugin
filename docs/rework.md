@@ -20,12 +20,21 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 ## The plan (checked off as it lands on `development`)
 
 1. [x] Goal progress from the website: drop the plugin's local goal progress layer (GoalProgressState/Tracker hooks in the monitors); the goal box shows the website's progress.
-2. [ ] Data pump, varbit sources (proof: oracle fixtures): achievement diaries, combat achievements, Kingdom, house location, farming unlocks, slayer state and rewards, dailies.
+2. [x] Data pump, varbit sources (proof: oracle fixtures): achievement diaries, combat achievements, Kingdom, house location, farming unlocks, dailies; also the timers (RuneLite's Time Tracking data). The slayer state moves with step 4.
 3. [ ] Data pump, item containers and game events: bank and storage, loadouts, loot, deaths, kill counts, skills, play sessions, live activity signals.
 4. [ ] Boss trips and boss history, slayer task sessions: built on the website from the pumped events.
 5. [ ] Guides driven by the website: farm run (patch states from the pump), Slayer guide, boss gear (bank layout stays local), trip planner, gear progression, roadmap window actions; the last guide state stored locally.
 6. [ ] Remaining fixed tables as data files; UI sharing (same look, goldens).
 7. [ ] Turn `PluginSizeTest` enforcement on (195k), final count, then the open decision below.
+
+## Projection (2026-10-11, at 275,672)
+
+Per file, what is left once every planned step is done: UI kept as it is (≈ 73k, ≈ 65k after compacting), the
+plumbing (plugin, settings, error reports, outbox, data pump: ≈ 36k), the website client (≈ 6k after making it
+generic), the local features (bank layouts, teleport swaps: ≈ 10k), the website's answers the UI reads (≈ 9k), the
+guides once website-driven (≈ 20k of 40k), and the sync monitors with their logic on the website (≈ 50k of 96k).
+**About 198k, give or take 15k**: at the limit rather than the 170-190k first expected, so the way on is the
+owner's decision.
 
 ## Open: decide when the rework is done
 
