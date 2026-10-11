@@ -17,16 +17,22 @@ import com.osrscompanion.model.CombatAchievementsSyncPayload;
 import com.osrscompanion.model.Dailies;
 import com.osrscompanion.model.DeathSyncPayload;
 import com.osrscompanion.model.BossAreasResponse;
+import com.osrscompanion.model.BossGear;
+import com.osrscompanion.model.FarmRoute;
+import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.KillCountsSyncPayload;
 import com.osrscompanion.model.KingdomSyncPayload;
 import com.osrscompanion.model.LoadoutSyncPayload;
 import com.osrscompanion.model.LootDropPayload;
 import com.osrscompanion.model.LootSyncPayload;
 import com.osrscompanion.model.SlayerCatalogPayload;
+import com.osrscompanion.model.SlayerGuide;
 import com.osrscompanion.model.SlayerRewardsPayload;
 import com.osrscompanion.model.SlayerSyncPayload;
 import com.osrscompanion.model.PlayerSkillsSyncPayload;
 import com.osrscompanion.model.QuestsSyncPayload;
+import com.osrscompanion.model.Roadmap;
+import com.osrscompanion.model.RoadmapList;
 import com.osrscompanion.model.TimerSyncItem;
 import com.osrscompanion.model.TimersSyncPayload;
 import java.io.IOException;
@@ -259,6 +265,13 @@ public class OSRSCompanionApiClient
 			() -> log.debug("OSRS Companion farm harvest recorded"));
 	}
 
+	/** A guided farm run that ended (Run history); an event, so never deduped. */
+	public void sendFarmRun(Map<String, Object> body)
+	{
+		postAsync(FARM_RUNS_ENDPOINT, gson.toJson(body), "farm-run", false, false, null, false,
+			() -> log.debug("OSRS Companion farm run recorded"));
+	}
+
 	/** One finished boss trip (Boss Gear page, Trips); an event, so never deduped. */
 	public void sendBossTrip(String json)
 	{
@@ -366,6 +379,42 @@ public class OSRSCompanionApiClient
 				payload.getRows().size(), payload.getPlayerUsername()));
 	}
 
+	/** Fetches the current slayer task and its locations, best first (see the Slayer helper contract). */
+	/** The DPS calculator's best owned setups against the current slayer task's monster. */
+	public void getSlayerGear(String playerUsername, RoadmapCallback<com.osrscompanion.model.SlayerGear> callback)
+	{
+		getAsync(SLAYER_GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "slayer-gear", com.osrscompanion.model.SlayerGear.class, callback);
+	}
+
+	public void getSlayerGuide(String playerUsername, RoadmapCallback<SlayerGuide> callback)
+	{
+		getAsync(SLAYER_GUIDE_ENDPOINT + "?player=" + urlEncode(playerUsername), "slayer-guide", SlayerGuide.class, callback);
+	}
+
+	/**
+	 * Sends one Slayer helper session (upserted by its session_uuid, so re-sending it as it grows is
+	 * fine). Never deduped: the helper only sends when something changed. The callback runs on the
+	 * OkHttp thread.
+	 */
+	public void sendSlayerSession(Map<String, Object> body, Runnable onSuccess)
+	{
+		sendSlayerSession(body, onSuccess, false);
+	}
+
+	/** @param urgent send at once (a kill), not with the next timed flush */
+	public void sendSlayerSession(Map<String, Object> body, Runnable onSuccess, boolean urgent)
+	{
+		postAsync(SLAYER_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "slayer-session", false, false,
+			key("slayer-session", String.valueOf(body.get("session_uuid"))), urgent,
+			() -> {
+				log.debug("OSRS Companion slayer session {} synced", body.get("session_uuid"));
+				if (onSuccess != null)
+				{
+					onSuccess.run();
+				}
+			});
+	}
+
 	/**
 	 * Sends one boss history session (upserted by its session_uuid, so re-sending it as it grows is fine; a
 	 * queued older copy is replaced). The callback runs on the OkHttp thread.
@@ -439,6 +488,102 @@ public class OSRSCompanionApiClient
 		void onError(String message);
 	}
 
+	/**
+	 * Fetches the player's roadmaps (id/title/goal_count) for the panel selector.
+	 */
+	public void getRoadmaps(String playerUsername, RoadmapCallback<RoadmapList> callback)
+	{
+		String url = ROADMAPS_ENDPOINT + "?player=" + urlEncode(playerUsername);
+		getAsync(url, "roadmaps", RoadmapList.class, callback);
+	}
+
+	/**
+	 * Fetches a single roadmap fully rendered (goals + progress).
+	 */
+	public void getRoadmap(int collectionId, String playerUsername, RoadmapCallback<Roadmap> callback)
+	{
+		String url = ROADMAPS_ENDPOINT + collectionId + "/?player=" + urlEncode(playerUsername);
+		getAsync(url, "roadmap", Roadmap.class, callback);
+	}
+
+	/**
+	 * Recomputes a roadmap's goal completion against current synced data and
+	 * returns the re-rendered roadmap.
+	 */
+	public void recomputeRoadmap(int collectionId, String playerUsername, RoadmapCallback<Roadmap> callback)
+	{
+		String url = ROADMAPS_ENDPOINT + collectionId + "/recompute/";
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(url, gson.toJson(body), "roadmap-recompute", Roadmap.class, callback);
+	}
+
+	/**
+	 * Manually marks a single goal complete and returns the re-rendered roadmap.
+	 */
+	public void completeRoadmapGoal(int collectionId, int goalId, String playerUsername,
+		RoadmapCallback<Roadmap> callback)
+	{
+		String url = ROADMAPS_ENDPOINT + collectionId + "/goals/" + goalId + "/complete/";
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(url, gson.toJson(body), "roadmap-goal-complete", Roadmap.class, callback);
+	}
+
+	/**
+	 * Deletes a single goal from a roadmap and returns the re-rendered roadmap.
+	 */
+	public void deleteRoadmapGoal(int collectionId, int goalId, String playerUsername,
+		RoadmapCallback<Roadmap> callback)
+	{
+		String url = ROADMAPS_ENDPOINT + collectionId + "/goals/" + goalId + "/delete/";
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(url, gson.toJson(body), "roadmap-goal-delete", Roadmap.class, callback);
+	}
+
+	/** Fetches the player's gear progression ({ plan: null } until loaded on the website). */
+	public void getGearPlan(String playerUsername, RoadmapCallback<GearPlan.Response> callback)
+	{
+		getAsync(GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "gear", GearPlan.Response.class, callback);
+	}
+
+	/** Toggles the player's own "done" tick on a gear item and returns the re-rendered plan. */
+	public void toggleGearDone(int itemId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/done/", gson.toJson(body), "gear-done",
+			GearPlan.Response.class, callback);
+	}
+
+	/** Hides (or unhides) a gear item and returns the re-rendered roadmap. */
+	public void toggleGearHidden(int itemId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/hide/", gson.toJson(body), "gear-hide",
+			GearPlan.Response.class, callback);
+	}
+
+	/** Makes another of the player's gear roadmaps the active one and returns the new state. */
+	public void activateGearPlan(int planId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(GEAR_ENDPOINT + "plans/" + planId + "/activate/", gson.toJson(body), "gear-activate",
+			GearPlan.Response.class, callback);
+	}
+
+	/** Puts a gear item at the top of the player's roadmap. */
+	public void setGearGoal(int itemId, String playerUsername, RoadmapCallback<GearPlan.GoalResult> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/goal/", gson.toJson(body), "gear-goal",
+			GearPlan.GoalResult.class, callback);
+	}
+
 	/** Reports a login ("start"), a "still playing" ping or a logout ("end"). */
 	public void sendSessionEvent(String playerUsername, String event, String at)
 	{
@@ -504,6 +649,21 @@ public class OSRSCompanionApiClient
 		return new SyncOutbox.Item(baseUrl, appKey, ACTIVITY_ENDPOINT, "POST", json, ACTIVITY_LABEL, null, false, false, null);
 	}
 
+	/** Fetches the player's active farm route ({ route: null } until one is saved on the website). */
+	public void getFarmRoute(String playerUsername, RoadmapCallback<FarmRoute.Response> callback)
+	{
+		getAsync(FARM_ROUTE_ENDPOINT + "?player=" + urlEncode(playerUsername), "farm-route", FarmRoute.Response.class, callback);
+	}
+
+	/** Makes another farm route the active one and returns it. */
+	public void activateFarmRoute(int routeId, String playerUsername, RoadmapCallback<FarmRoute.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(FARM_ROUTE_ENDPOINT + "routes/" + routeId + "/activate/", gson.toJson(body), "farm-route-activate",
+			FarmRoute.Response.class, callback);
+	}
+
 	/**
 	 * Fetches the website's boss lairs (boss key -> map regions). With the version the plugin has, the answer
 	 * is only { version, unchanged: true } while it is still current.
@@ -511,6 +671,58 @@ public class OSRSCompanionApiClient
 	public void getBossAreas(String version, RoadmapCallback<BossAreasResponse> callback)
 	{
 		getAsync(BOSS_AREAS_ENDPOINT + (version == null ? "" : "?version=" + urlEncode(version)), "boss-areas", BossAreasResponse.class, callback);
+	}
+
+	/** Fetches the player's active boss gear set ({ set: null } until one is picked on the website). */
+	public void getBossGear(String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		getAsync(BOSS_GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "boss-gear", BossGear.Response.class, callback);
+	}
+
+	/** Makes any boss preset (boss key + setup index) the active boss gear and returns it. */
+	public void activateBossGearPreset(String bossKey, int setup, String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("boss", bossKey);
+		body.put("setup", setup);
+		postForResult(BOSS_GEAR_ENDPOINT + "activate/", gson.toJson(body), "boss-gear-activate-preset",
+			BossGear.Response.class, callback);
+	}
+
+	/** Sets the gear mode of wiki presets (bis | owned | alternatives), on the website too, and returns the reloaded set. */
+	public void setBossGearMode(String mode, String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("mode", mode);
+		postForResult(BOSS_GEAR_ENDPOINT + "mode/", gson.toJson(body), "boss-gear-mode",
+			BossGear.Response.class, callback);
+	}
+
+	/**
+	 * Saves what you wear and carry as your own set for a boss ({@code loadout}: equipment by slot name,
+	 * 28 inventory cells, the rune pouch), makes it the active set and returns it.
+	 */
+	public void saveBossGearCustom(String bossKey, int setup, String name, Map<String, Object> loadout, String playerUsername,
+		RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("boss", bossKey);
+		body.put("setup", setup);
+		body.put("name", name);
+		body.put("loadout", loadout);
+		postForResult(BOSS_GEAR_ENDPOINT + "custom/", gson.toJson(body), "boss-gear-custom", BossGear.Response.class, callback);
+	}
+
+	/** Makes another saved boss gear set the active one and returns it. */
+	public void activateBossGear(int setId, String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(BOSS_GEAR_ENDPOINT + "sets/" + setId + "/activate/", gson.toJson(body), "boss-gear-activate",
+			BossGear.Response.class, callback);
 	}
 
 	/** Which dailies are done, open or locked (and the ones ticked by hand); deduped like the other syncs. */

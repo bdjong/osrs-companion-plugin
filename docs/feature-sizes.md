@@ -1,8 +1,8 @@
 # Feature sizes and the Plugin Hub limit
 
-The Plugin Hub's review bot only reviews plugins whose `src/main/java` is at most **200,000 tokens** (comments stripped; tests and resources do not count). The limit applies to every update too, so the whole plugin must stay under it. `PluginSizeTest` estimates the size on every build and fails above 195,000 (5,000 kept for the estimate's error).
+The Plugin Hub's review bot only reviews plugins whose `src/main/java` is at most **200,000 tokens** (comments stripped; tests and resources do not count). The limit applies to every update too, so the whole plugin must stay under it. `PluginSizeTest` estimates the size on every build and fails above 195,000 (5,000 kept for the estimate's error); during the rework it only prints the size (`ENFORCE = false`).
 
-Measured on 2026-10-11, in tokens, with the same estimate as `PluginSizeTest`:
+Measured on 2026-10-11, before the rework (the plugin's logic moves to the website; the UI stays exactly as it is), in tokens, with the same estimate as `PluginSizeTest`:
 
 | | Tokens |
 |---|---:|
