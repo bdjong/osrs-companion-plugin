@@ -1,0 +1,31 @@
+fill rect(0,0,220,208) #463d329c
+draw rect(0,0,219,207) #383028da w=1
+draw rect(1,1,217,205) #54493cda w=1
+text 'Dailies' 5,21 RuneScape/0/16 #000000ff
+text 'Dailies' 4,20 RuneScape/0/16 #f472b6ff
+text '0/1 done' 166,21 RuneScape/0/16 #000000ff
+text '0/1 done' 165,20 RuneScape/0/16 #a5a5a5ff
+image item:1783 4,20 #a5a5a5ff
+text 'Buckets of sand' 47,37 RuneScape/0/16 #000000ff
+text 'Buckets of sand' 46,36 RuneScape/0/16 #ffffffff
+text 'Cast Watchtower Teleport (normal' 5,69 RuneScape/0/16 #000000ff
+text 'Cast Watchtower Teleport (normal' 4,68 RuneScape/0/16 #00ffffff
+text 'spellbook)' 5,85 RuneScape/0/16 #000000ff
+text 'spellbook)' 4,84 RuneScape/0/16 #00ffffff
+text 'Needs Watchtower; lands in the' 5,101 RuneScape/0/16 #000000ff
+text 'Needs Watchtower; lands in the' 4,100 RuneScape/0/16 #a5a5a5ff
+text 'middle of Yanille.' 5,117 RuneScape/0/16 #000000ff
+text 'middle of Yanille.' 4,116 RuneScape/0/16 #a5a5a5ff
+image img:1x4:ecbb4b55 4,116 #a5a5a5ff
+text 'Yanille' 5,137 RuneScape/0/16 #000000ff
+text 'Yanille' 4,136 RuneScape/0/16 #ffffffff
+text 'Talk to Bert in the house south of' 5,153 RuneScape/0/16 #000000ff
+text 'Talk to Bert in the house south of' 4,152 RuneScape/0/16 #a5a5a5ff
+text 'the bank.' 5,169 RuneScape/0/16 #000000ff
+text 'the bank.' 4,168 RuneScape/0/16 #a5a5a5ff
+image img:1x4:ecbb4b55 4,168 #a5a5a5ff
+text 'Tick it off in the side panel when' 5,189 RuneScape/0/16 #000000ff
+text 'Tick it off in the side panel when' 4,188 RuneScape/0/16 #0dc10dff
+text 'done.' 5,205 RuneScape/0/16 #000000ff
+text 'done.' 4,204 RuneScape/0/16 #0dc10dff
+=> 220x208

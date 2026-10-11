@@ -1,0 +1,20 @@
+fillRect 50,50,900,600 #3e3529ff
+drawRect 51,51,897,597 #0e0c08ff w=3
+drawRect 53,53,893,593 #5d5240ff w=1
+text 'Farm Run' 472,71 RuneScape Bold/1/16 #000000ff
+text 'Farm Run' 471,70 RuneScape Bold/1/16 #ff981fff
+fillRect 922,56,20,18 #3e3529ff
+drawRect 922,56,19,17 #14110cff w=1
+drawRect 923,57,17,15 #6a5c48ff w=1
+line 928,61-936,69 #c8a24aff w=2
+line 936,61-928,69 #c8a24aff w=2
+line 58,78-941,78 #14110cff w=1
+line 58,79-941,79 #5d5240ff w=1
+text 'Loading your farm route...' 428,327 RuneScape/0/16 #000000ff
+text 'Loading your farm route...' 427,326 RuneScape/0/16 #ffffffff
+fillRect 440,350,120,20 #3e3529ff
+drawRect 440,350,119,19 #14110cff w=1
+drawRect 441,351,117,17 #6a5c48ff w=1
+text 'Loading...' 478,365 RuneScape Small/0/16 #000000ff
+text 'Loading...' 477,364 RuneScape Small/0/16 #9a9080ff
+=> 900x600

@@ -1,0 +1,9 @@
+fill rect(0,0,178,44) #463d329c
+draw rect(0,0,177,43) #383028da w=1
+draw rect(1,1,175,41) #54493cda w=1
+text 'Quests - Current Goal' 5,21 RuneScape/0/16 #000000ff
+text 'Quests - Current Goal' 4,20 RuneScape/0/16 #f28c28ff
+image img:1x4:ecbb4b55 4,20 #f28c28ff
+text 'Complete Recipe for Disaster' 5,41 RuneScape/0/16 #000000ff
+text 'Complete Recipe for Disaster' 4,40 RuneScape/0/16 #ffffffff
+=> 178x44

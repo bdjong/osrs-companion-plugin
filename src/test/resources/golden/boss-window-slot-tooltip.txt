@@ -1,0 +1,279 @@
+fillRect 180,130,640,440 #3e3529ff
+drawRect 181,131,637,437 #0e0c08ff w=3
+drawRect 183,133,633,433 #5d5240ff w=1
+text 'Boss Gear' 468,151 RuneScape Bold/1/16 #000000ff
+text 'Boss Gear' 467,150 RuneScape Bold/1/16 #ff981fff
+fillRect 792,136,20,18 #3e3529ff
+drawRect 792,136,19,17 #14110cff w=1
+drawRect 793,137,17,15 #6a5c48ff w=1
+line 798,141-806,149 #c8a24aff w=2
+line 806,141-798,149 #c8a24aff w=2
+line 188,158-811,158 #14110cff w=1
+line 188,159-811,159 #5d5240ff w=1
+text 'Vorkath' 193,175 RuneScape/0/16 #000000ff
+text 'Vorkath' 192,174 RuneScape/0/16 #ffffffff
+text '  Ranged (Dragon hunt...' 237,175 RuneScape Small/0/16 #000000ff
+text '  Ranged (Dragon hunt...' 236,174 RuneScape Small/0/16 #c9b98fff
+fillRect 363,162,66,15 #2e2820ff
+drawRect 363,162,65,14 #14110cff w=1
+drawRect 364,163,63,12 #4a4134ff w=1
+text 'Wiki preset' 369,174 RuneScape Small/0/16 #000000ff
+text 'Wiki preset' 368,173 RuneScape Small/0/16 #c9b98fff
+fillRect 724,161,84,17 #3e3529ff
+drawRect 724,161,83,16 #14110cff w=1
+drawRect 725,162,81,14 #6a5c48ff w=1
+text 'Change build' 735,176 RuneScape Small/0/16 #000000ff
+text 'Change build' 734,175 RuneScape Small/0/16 #ff981fff
+fillRect 628,161,88,17 #3e3529ff
+drawRect 628,161,87,16 #14110cff w=1
+drawRect 629,162,85,14 #6a5c48ff w=1
+text 'Save my gear' 639,176 RuneScape Small/0/16 #000000ff
+text 'Save my gear' 638,175 RuneScape Small/0/16 #ff981fff
+fillRect 188,186,149,374 #2e2820ff
+drawRect 188,186,148,373 #14110cff w=1
+drawRect 189,187,146,371 #4a4134ff w=1
+text 'Worn' 199,205 RuneScape Bold/1/16 #000000ff
+text 'Worn' 198,204 RuneScape Bold/1/16 #ff981fff
+fillRect 241,212,40,40 #2b251cff
+drawRect 241,212,39,39 #13100bff w=1
+drawRect 242,213,37,37 #3f3629ff w=1
+image item:11664 243,216 36x32 #3f3629ff
+drawRect 241,212,39,39 #ff981fff w=1
+text 'B' 274,250 RuneScape Small/0/16 #000000ff
+text 'B' 273,249 RuneScape Small/0/16 #ff981fff
+fillRect 198,255,40,40 #2b251cff
+drawRect 198,255,39,39 #13100bff w=1
+drawRect 199,256,37,37 #3f3629ff w=1
+image item:22109 200,259 36x32 #3f3629ff
+drawRect 198,255,39,39 #0dc10dff w=1
+fillRect 241,255,40,40 #2b251cff
+drawRect 241,255,39,39 #13100bff w=1
+drawRect 242,256,37,37 #3f3629ff w=1
+image item:19547 243,259 36x32 #3f3629ff
+drawRect 241,255,39,39 #0dc10dff w=1
+fillRect 284,255,40,40 #2b251cff
+drawRect 284,255,39,39 #13100bff w=1
+drawRect 285,256,37,37 #3f3629ff w=1
+image item:21944x180s 286,259 36x32 #3f3629ff
+drawRect 284,255,39,39 #0dc10dff w=1
+fillRect 198,298,40,40 #2b251cff
+drawRect 198,298,39,39 #13100bff w=1
+drawRect 199,299,37,37 #3f3629ff w=1
+image item:21012 200,302 36x32 #3f3629ff
+drawRect 198,298,39,39 #ff981fff w=1
+text 'B' 231,336 RuneScape Small/0/16 #000000ff
+text 'B' 230,335 RuneScape Small/0/16 #ff981fff
+fillRect 241,298,40,40 #2b251cff
+drawRect 241,298,39,39 #13100bff w=1
+drawRect 242,299,37,37 #3f3629ff w=1
+image item:8839 243,302 36x32 #3f3629ff
+drawRect 241,298,39,39 #0dc10dff w=1
+text 'A' 244,309 RuneScape Small/0/16 #000000ff
+text 'A' 243,308 RuneScape Small/0/16 #93b4ffff
+fillRect 284,298,40,40 #2b251cff
+drawRect 284,298,39,39 #13100bff w=1
+drawRect 285,299,37,37 #3f3629ff w=1
+image item:22002 286,302 36x32 #3f3629ff
+drawRect 284,298,39,39 #ff981fff w=1
+text 'B' 317,336 RuneScape Small/0/16 #000000ff
+text 'B' 316,335 RuneScape Small/0/16 #ff981fff
+fillRect 241,341,40,40 #2b251cff
+drawRect 241,341,39,39 #13100bff w=1
+drawRect 242,342,37,37 #3f3629ff w=1
+image item:8840 243,345 36x32 #3f3629ff
+drawRect 241,341,39,39 #0dc10dff w=1
+fillRect 198,384,40,40 #2b251cff
+drawRect 198,384,39,39 #13100bff w=1
+drawRect 199,385,37,37 #3f3629ff w=1
+image item:8842 200,388 36x32 #3f3629ff
+drawRect 198,384,39,39 #0dc10dff w=1
+fillRect 241,384,40,40 #2b251cff
+drawRect 241,384,39,39 #13100bff w=1
+drawRect 242,385,37,37 #3f3629ff w=1
+image item:19921 243,388 36x32 #3f3629ff
+drawRect 241,384,39,39 #0dc10dff w=1
+fillRect 284,384,40,40 #2b251cff
+drawRect 284,384,39,39 #13100bff w=1
+drawRect 285,385,37,37 #3f3629ff w=1
+image item:11771 286,388 36x32 #3f3629ff
+drawRect 284,384,39,39 #0dc10dff w=1
+fillRect 345,186,192,374 #2e2820ff
+drawRect 345,186,191,373 #14110cff w=1
+drawRect 346,187,189,371 #4a4134ff w=1
+text 'Inventory' 356,205 RuneScape Bold/1/16 #000000ff
+text 'Inventory' 355,204 RuneScape Bold/1/16 #ff981fff
+fillRect 355,212,40,40 #2b251cff
+drawRect 355,212,39,39 #13100bff w=1
+drawRect 356,213,37,37 #3f3629ff w=1
+image item:12791 357,216 36x32 #3f3629ff
+drawRect 355,212,39,39 #0dc10dff w=1
+fillRect 398,212,40,40 #2b251cff
+drawRect 398,212,39,39 #13100bff w=1
+drawRect 399,213,37,37 #3f3629ff w=1
+image item:2444 400,216 36x32 #3f3629ff
+drawRect 398,212,39,39 #0dc10dff w=1
+fillRect 441,212,40,40 #2b251cff
+drawRect 441,212,39,39 #13100bff w=1
+drawRect 442,213,37,37 #3f3629ff w=1
+image item:22461x2s 443,216 36x32 #3f3629ff
+drawRect 441,212,39,39 #ff981fff w=1
+text 'B' 474,250 RuneScape Small/0/16 #000000ff
+text 'B' 473,249 RuneScape Small/0/16 #ff981fff
+fillRect 484,212,40,40 #2b251cff
+drawRect 484,212,39,39 #13100bff w=1
+drawRect 485,213,37,37 #3f3629ff w=1
+image item:2434x3s 486,216 36x32 #3f3629ff
+drawRect 484,212,39,39 #ff981fff w=1
+text 'B' 517,250 RuneScape Small/0/16 #000000ff
+text 'B' 516,249 RuneScape Small/0/16 #ff981fff
+fillRect 355,255,40,40 #2b251cff
+drawRect 355,255,39,39 #13100bff w=1
+drawRect 356,256,37,37 #3f3629ff w=1
+image item:385x16s 357,259 36x32 #3f3629ff
+drawRect 355,255,39,39 #ff981fff w=1
+text 'B' 388,293 RuneScape Small/0/16 #000000ff
+text 'B' 387,292 RuneScape Small/0/16 #ff981fff
+fillRect 398,255,40,40 #2b251cff
+drawRect 398,255,39,39 #13100bff w=1
+drawRect 399,256,37,37 #3f3629ff w=1
+image item:11905 400,259 36x32 #3f3629ff
+drawRect 398,255,39,39 #0dc10dff w=1
+text 'A' 401,266 RuneScape Small/0/16 #000000ff
+text 'A' 400,265 RuneScape Small/0/16 #93b4ffff
+fillRect 441,255,40,40 #2b251cff
+drawRect 441,255,39,39 #13100bff w=1
+drawRect 442,256,37,37 #3f3629ff w=1
+fillRect 484,255,40,40 #2b251cff
+drawRect 484,255,39,39 #13100bff w=1
+drawRect 485,256,37,37 #3f3629ff w=1
+fillRect 355,298,40,40 #2b251cff
+drawRect 355,298,39,39 #13100bff w=1
+drawRect 356,299,37,37 #3f3629ff w=1
+fillRect 398,298,40,40 #2b251cff
+drawRect 398,298,39,39 #13100bff w=1
+drawRect 399,299,37,37 #3f3629ff w=1
+fillRect 441,298,40,40 #2b251cff
+drawRect 441,298,39,39 #13100bff w=1
+drawRect 442,299,37,37 #3f3629ff w=1
+fillRect 484,298,40,40 #2b251cff
+drawRect 484,298,39,39 #13100bff w=1
+drawRect 485,299,37,37 #3f3629ff w=1
+fillRect 355,341,40,40 #2b251cff
+drawRect 355,341,39,39 #13100bff w=1
+drawRect 356,342,37,37 #3f3629ff w=1
+fillRect 398,341,40,40 #2b251cff
+drawRect 398,341,39,39 #13100bff w=1
+drawRect 399,342,37,37 #3f3629ff w=1
+fillRect 441,341,40,40 #2b251cff
+drawRect 441,341,39,39 #13100bff w=1
+drawRect 442,342,37,37 #3f3629ff w=1
+fillRect 484,341,40,40 #2b251cff
+drawRect 484,341,39,39 #13100bff w=1
+drawRect 485,342,37,37 #3f3629ff w=1
+fillRect 355,384,40,40 #2b251cff
+drawRect 355,384,39,39 #13100bff w=1
+drawRect 356,385,37,37 #3f3629ff w=1
+fillRect 398,384,40,40 #2b251cff
+drawRect 398,384,39,39 #13100bff w=1
+drawRect 399,385,37,37 #3f3629ff w=1
+fillRect 441,384,40,40 #2b251cff
+drawRect 441,384,39,39 #13100bff w=1
+drawRect 442,385,37,37 #3f3629ff w=1
+fillRect 484,384,40,40 #2b251cff
+drawRect 484,384,39,39 #13100bff w=1
+drawRect 485,385,37,37 #3f3629ff w=1
+fillRect 355,427,40,40 #2b251cff
+drawRect 355,427,39,39 #13100bff w=1
+drawRect 356,428,37,37 #3f3629ff w=1
+fillRect 398,427,40,40 #2b251cff
+drawRect 398,427,39,39 #13100bff w=1
+drawRect 399,428,37,37 #3f3629ff w=1
+fillRect 441,427,40,40 #2b251cff
+drawRect 441,427,39,39 #13100bff w=1
+drawRect 442,428,37,37 #3f3629ff w=1
+fillRect 484,427,40,40 #2b251cff
+drawRect 484,427,39,39 #13100bff w=1
+drawRect 485,428,37,37 #3f3629ff w=1
+fillRect 355,470,40,40 #2b251cff
+drawRect 355,470,39,39 #13100bff w=1
+drawRect 356,471,37,37 #3f3629ff w=1
+fillRect 398,470,40,40 #2b251cff
+drawRect 398,470,39,39 #13100bff w=1
+drawRect 399,471,37,37 #3f3629ff w=1
+fillRect 441,470,40,40 #2b251cff
+drawRect 441,470,39,39 #13100bff w=1
+drawRect 442,471,37,37 #3f3629ff w=1
+fillRect 484,470,40,40 #2b251cff
+drawRect 484,470,39,39 #13100bff w=1
+drawRect 485,471,37,37 #3f3629ff w=1
+fillRect 545,186,267,374 #2e2820ff
+drawRect 545,186,266,373 #14110cff w=1
+drawRect 546,187,264,371 #4a4134ff w=1
+text 'Rune pouch' 556,205 RuneScape Bold/1/16 #000000ff
+text 'Rune pouch' 555,204 RuneScape Bold/1/16 #ff981fff
+fillRect 555,212,40,40 #2b251cff
+drawRect 555,212,39,39 #13100bff w=1
+drawRect 556,213,37,37 #3f3629ff w=1
+image item:560x500s 557,216 36x32 #3f3629ff
+drawRect 555,212,39,39 #ff981fff w=1
+text 'B' 588,250 RuneScape Small/0/16 #000000ff
+text 'B' 587,249 RuneScape Small/0/16 #ff981fff
+fillRect 598,212,40,40 #2b251cff
+drawRect 598,212,39,39 #13100bff w=1
+drawRect 599,213,37,37 #3f3629ff w=1
+image item:565x1000s 600,216 36x32 #3f3629ff
+drawRect 598,212,39,39 #ff981fff w=1
+text 'B' 631,250 RuneScape Small/0/16 #000000ff
+text 'B' 630,249 RuneScape Small/0/16 #ff981fff
+fillRect 641,212,40,40 #2b251cff
+drawRect 641,212,39,39 #13100bff w=1
+drawRect 642,213,37,37 #3f3629ff w=1
+image item:566x200s 643,216 36x32 #3f3629ff
+drawRect 641,212,39,39 #ff3d3dff w=1
+text 'Spellbook: arceuus' 556,267 RuneScape Small/0/16 #000000ff
+text 'Spellbook: arceuus' 555,266 RuneScape Small/0/16 #c9b98fff
+text 'Inventory: Inventory (wiki, owned items)' 556,283 RuneScape Small/0/16 #000000ff
+text 'Inventory: Inventory (wiki, owned items)' 555,282 RuneScape Small/0/16 #c9b98fff
+text 'Carried' 556,300 RuneScape Small/0/16 #000000ff
+text 'Carried' 555,299 RuneScape Small/0/16 #0dc10dff
+text 'In your bank or storage (B)' 556,313 RuneScape Small/0/16 #000000ff
+text 'In your bank or storage (B)' 555,312 RuneScape Small/0/16 #ff981fff
+text 'Missing' 556,326 RuneScape Small/0/16 #000000ff
+text 'Missing' 555,325 RuneScape Small/0/16 #ff3d3dff
+text 'Open your bank with this window open: it shows' 556,344 RuneScape Small/0/16 #000000ff
+text 'Open your bank with this window open: it shows' 555,343 RuneScape Small/0/16 #9a9080ff
+text 'only these items, laid out like your gear and' 556,357 RuneScape Small/0/16 #000000ff
+text 'only these items, laid out like your gear and' 555,356 RuneScape Small/0/16 #9a9080ff
+text 'inventory.' 556,370 RuneScape Small/0/16 #000000ff
+text 'inventory.' 555,369 RuneScape Small/0/16 #9a9080ff
+text 'Gear mode' 556,502 RuneScape Small/0/16 #000000ff
+text 'Gear mode' 555,501 RuneScape Small/0/16 #c9b98fff
+fillRect 555,506,80,18 #2b251cff
+drawRect 555,506,79,17 #14110cff w=1
+drawRect 556,507,77,15 #3f3629ff w=1
+text 'BiS' 588,520 RuneScape Small/0/16 #000000ff
+text 'BiS' 587,519 RuneScape Small/0/16 #9a9080ff
+fillRect 638,506,80,18 #5a4d3aff
+drawRect 638,506,79,17 #14110cff w=1
+drawRect 639,507,77,15 #6a5c48ff w=1
+text 'Owned' 663,520 RuneScape Small/0/16 #000000ff
+text 'Owned' 662,519 RuneScape Small/0/16 #ff981fff
+fillRect 721,506,80,18 #2b251cff
+drawRect 721,506,79,17 #14110cff w=1
+drawRect 722,507,77,15 #3f3629ff w=1
+text 'Alts' 752,520 RuneScape Small/0/16 #000000ff
+text 'Alts' 751,519 RuneScape Small/0/16 #9a9080ff
+fillRect 565,530,110,20 #3e3529ff
+drawRect 565,530,109,19 #14110cff w=1
+drawRect 566,531,107,17 #6a5c48ff w=1
+text 'Go to wiki' 598,545 RuneScape Small/0/16 #000000ff
+text 'Go to wiki' 597,544 RuneScape Small/0/16 #ff981fff
+fillRect 681,530,110,20 #3e3529ff
+drawRect 681,530,109,19 #14110cff w=1
+drawRect 682,531,107,17 #6a5c48ff w=1
+text 'Refresh' 717,545 RuneScape Small/0/16 #000000ff
+text 'Refresh' 716,544 RuneScape Small/0/16 #ff981fff
+fillRect 230,294,165,20 #ffffa0ff
+drawRect 230,294,164,19 #000000ff w=1
+text 'Dragon hunter crossbow x0' 235,309 RuneScape/0/16 #000000ff
+=> 640x440

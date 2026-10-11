@@ -1,0 +1,12 @@
+fill rect(0,0,220,56) #463d329c
+draw rect(0,0,219,55) #383028da w=1
+draw rect(1,1,217,53) #54493cda w=1
+text 'Slayer: Abyssal demons' 5,21 RuneScape/0/16 #000000ff
+text 'Slayer: Abyssal demons' 4,20 RuneScape/0/16 #f28c28ff
+text '143 left' 173,21 RuneScape/0/16 #000000ff
+text '143 left' 172,20 RuneScape/0/16 #a5a5a5ff
+text 'Retrieving location and gear' 5,37 RuneScape/0/16 #000000ff
+text 'Retrieving location and gear' 4,36 RuneScape/0/16 #a5a5a5ff
+text 'information for the new task...' 5,53 RuneScape/0/16 #000000ff
+text 'information for the new task...' 4,52 RuneScape/0/16 #a5a5a5ff
+=> 220x56
