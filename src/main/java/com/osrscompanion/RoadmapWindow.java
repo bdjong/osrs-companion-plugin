@@ -16,9 +16,6 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Shape;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseWheelEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,16 +26,9 @@ import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.gameval.InterfaceID;
-import net.runelite.client.input.KeyListener;
-import net.runelite.client.input.MouseListener;
-import net.runelite.client.input.MouseWheelListener;
 import net.runelite.client.ui.FontManager;
-import net.runelite.client.ui.overlay.Overlay;
-import net.runelite.client.ui.overlay.OverlayLayer;
-import net.runelite.client.ui.overlay.OverlayPosition;
 
 /**
  * The roadmap window, drawn over the game like the farm run and boss gear windows: the selected
@@ -47,7 +37,7 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  * in a "Completed" list. It replaces the goal list that used to live in the side panel.
  */
 @Singleton
-public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelListener, KeyListener {
+public class RoadmapWindow extends GameWindow {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
 	static final String GUARD_FEATURE = "roadmap-window";
 
@@ -55,8 +45,6 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 	private static final int MAX_HEIGHT = 470;
 	private static final int MIN_WIDTH = 400;
 	private static final int MIN_HEIGHT = 300;
-	private static final int SCREEN_MARGIN = 10;
-	private static final int TITLE_HEIGHT = 28;
 	private static final int SUBTITLE_HEIGHT = 22;
 	private static final int BUTTON_HEIGHT = 20;
 	private static final int INDENT = 16;
@@ -68,7 +56,6 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 	private static final Color GUIDE = new Color(0x6B5D48);
 	private static final Color DONE = new Color(0x5CD65C);
 
-	private final Client client;
 	private final RoadmapManager roadmapManager;
 	private final GoalProgressTracker tracker;
 	private final GoalImageCache images;
@@ -79,38 +66,19 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 	private volatile String status;
 	private volatile boolean loading;
 
-	private volatile List<Hit> hits = Collections.emptyList();
-	private volatile Rectangle window;
 	private volatile Rectangle body;
-	private volatile Rectangle switcherArea;
-	private volatile Point mouse;
-	private volatile boolean switcherOpen;
 	private volatile int scroll;
 	private volatile int contentHeight;
 	/** A Complete / Delete click waiting for its second (confirming) click. */
 	private volatile String confirmKey;
 	private volatile long confirmUntil;
 
-	private static final class Hit {
-		final Rectangle area;
-		final Runnable action;
-		final String tooltip;
-
-		Hit(Rectangle area, Runnable action, String tooltip) {
-			this.area = area;
-			this.action = action;
-			this.tooltip = tooltip;
-		}
-	}
-
 	@Inject
 	public RoadmapWindow(Client client, RoadmapManager roadmapManager, GoalProgressTracker tracker, GoalImageCache images) {
-		this.client = client;
+		super(client, GUARD_FEATURE);
 		this.roadmapManager = roadmapManager;
 		this.tracker = tracker;
 		this.images = images;
-		setPosition(OverlayPosition.DYNAMIC);
-		setLayer(OverlayLayer.ABOVE_WIDGETS);
 	}
 
 	// ------------------------------------------------------------------ open / load
@@ -237,46 +205,15 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 	@Override
 	public Dimension render(Graphics2D g) {
 		return Guard.render(GUARD_FEATURE, () -> {
-			// Out of the way while the bank is open.
-			if (client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null || !open) {
-				window = null;
-				hits = Collections.emptyList();
-				return null;
-			}
-			int w = Math.min(MAX_WIDTH, client.getCanvasWidth() - 2 * SCREEN_MARGIN);
-			int h = Math.min(MAX_HEIGHT, client.getCanvasHeight() - 2 * SCREEN_MARGIN);
-			if (w < MIN_WIDTH || h < MIN_HEIGHT) {
-				window = null;
-				hits = Collections.emptyList();
-				return null;
-			}
-			int x = (client.getCanvasWidth() - w) / 2;
-			int y = (client.getCanvasHeight() - h) / 2;
-			Rectangle win = new Rectangle(x, y, w, h);
 			List<Hit> newHits = new ArrayList<>();
-
-			g.setColor(BG);
-			g.fillRect(x, y, w, h);
-			g.setColor(FRAME_DARK);
-			g.setStroke(new BasicStroke(3));
-			g.drawRect(x + 1, y + 1, w - 3, h - 3);
-			g.setStroke(new BasicStroke(1));
-			g.setColor(FRAME_LIGHT);
-			g.drawRect(x + 3, y + 3, w - 7, h - 7);
-			g.setFont(FontManager.getRunescapeBoldFont());
-			centred(g, "Roadmap", x + w / 2, y + 20, ORANGE);
-			Rectangle close = new Rectangle(x + w - 28, y + 6, 20, 18);
-			box(g, close, BG, PANEL_EDGE, BUTTON_INNER);
-			g.setColor(new Color(0xC8A24A));
-			g.setStroke(new BasicStroke(2));
-			g.drawLine(close.x + 6, close.y + 5, close.x + 14, close.y + 13);
-			g.drawLine(close.x + 14, close.y + 5, close.x + 6, close.y + 13);
-			g.setStroke(new BasicStroke(1));
-			newHits.add(new Hit(close, this::close, null));
-			g.setColor(PANEL_EDGE);
-			g.drawLine(x + 8, y + TITLE_HEIGHT, x + w - 9, y + TITLE_HEIGHT);
-			g.setColor(FRAME_LIGHT);
-			g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
+			Rectangle win = frame(g, client.getWidget(InterfaceID.Bankmain.UNIVERSE) == null && open, MAX_WIDTH, MAX_HEIGHT, MIN_WIDTH, MIN_HEIGHT, "Roadmap", newHits);
+			if (win == null) {
+				return null;
+			}
+			int x = win.x;
+			int y = win.y;
+			int w = win.width;
+			int h = win.height;
 
 			Roadmap roadmap = roadmapManager.getCurrentRoadmap();
 			Rectangle switchButton = subtitle(g, roadmap, win, newHits);
@@ -541,22 +478,6 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 		newHits.addAll(0, optionHits);
 	}
 
-	private void finish(Graphics2D g, Rectangle win, List<Hit> newHits) {
-		Point m = mouse;
-		Rectangle list = switcherArea;
-		boolean overList = switcherOpen && list != null && m != null && list.contains(m);
-		if (m != null && win.contains(m) && !overList) {
-			for (Hit hit : newHits) {
-				if (hit.tooltip != null && hit.area.contains(m)) {
-					tooltip(g, hit.tooltip, m, win);
-					break;
-				}
-			}
-		}
-		window = win;
-		hits = Collections.unmodifiableList(newHits);
-	}
-
 	// ------------------------------------------------------------------ tree (as the app draws it)
 
 	private enum Guide { NONE, THROUGH, TEE, CORNER }
@@ -685,130 +606,28 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 
 	// ------------------------------------------------------------------ input
 
-	private boolean inside(MouseEvent e) {
-		Rectangle win = window;
-		return open && win != null && win.contains(e.getPoint());
+	@Override
+	boolean isShown() {
+		return open;
 	}
 
 	@Override
-	public MouseEvent mousePressed(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (!inside(e)) {
-				return e;
-			}
-			if (SwingUtilities.isLeftMouseButton(e)) {
-				Point p = e.getPoint();
-				boolean listWasOpen = switcherOpen;
-				Hit clicked = null;
-				for (Hit hit : hits) {
-					if (hit.area.contains(p)) {
-						clicked = hit;
-						break;
-					}
-				}
-				if (clicked != null) {
-					clicked.action.run();
-				}
-				if (listWasOpen && switcherOpen && (clicked == null || clicked.tooltip == null || !clicked.tooltip.startsWith("Switch"))) {
-					switcherOpen = false;
-				}
-			}
-			e.consume();
-			return e;
-		}, e);
+	void closeWindow() {
+		close();
 	}
 
 	@Override
-	public MouseEvent mouseReleased(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
+	void scrolled(Point p, int rotation) {
+		Rectangle area = body;
+		Rectangle list = switcherArea;
+		boolean overList = switcherOpen && list != null && list.contains(p);
+		if (!overList && area != null && area.contains(p)) {
+			scroll = Math.max(0, scroll + rotation * 40);
+		}
 	}
 
 	@Override
-	public MouseEvent mouseClicked(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseMoved(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			mouse = e.getPoint();
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseDragged(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseEntered(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseEvent mouseExited(MouseEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			mouse = null;
-			return e;
-		}, e);
-	}
-
-	@Override
-	public MouseWheelEvent mouseWheelMoved(MouseWheelEvent e) {
-		return Guard.call(GUARD_FEATURE, () -> {
-			if (inside(e)) {
-				Rectangle area = body;
-				Rectangle list = switcherArea;
-				boolean overList = switcherOpen && list != null && list.contains(e.getPoint());
-				if (!overList && area != null && area.contains(e.getPoint())) {
-					scroll = Math.max(0, scroll + e.getWheelRotation() * 40);
-				}
-				e.consume();
-			}
-			return e;
-		}, e);
-	}
-
-	@Override
-	public void keyTyped(KeyEvent e) {
-	}
-
-	@Override
-	public void keyPressed(KeyEvent e) {
-		Guard.run(GUARD_FEATURE, () -> {
-			if (open && e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-				if (switcherOpen) {
-					switcherOpen = false;
-				} else {
-					close();
-				}
-				e.consume();
-			}
-		});
-	}
-
-	@Override
-	public void keyReleased(KeyEvent e) {
+	boolean keepsSwitcherOpen(Hit clicked) {
+		return clicked != null && clicked.tooltip != null && clicked.tooltip.startsWith("Switch");
 	}
 }

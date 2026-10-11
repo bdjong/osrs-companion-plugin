@@ -96,11 +96,23 @@ final class WindowDriver {
 		((KeyListener) window).keyPressed(new KeyEvent(SOURCE, KeyEvent.KEY_PRESSED, 0, 0, keyCode, KeyEvent.CHAR_UNDEFINED));
 	}
 
+	/** The field on the object's class or one it extends (the windows keep theirs in {@link GameWindow}). */
+	private static Field field(Object target, String name) throws NoSuchFieldException {
+		for (Class<?> c = target.getClass(); c != null; c = c.getSuperclass()) {
+			try {
+				Field f = c.getDeclaredField(name);
+				f.setAccessible(true);
+				return f;
+			} catch (NoSuchFieldException e) {
+				// look in the class it extends
+			}
+		}
+		throw new NoSuchFieldException(name);
+	}
+
 	static Object get(Object target, String field) {
 		try {
-			Field f = target.getClass().getDeclaredField(field);
-			f.setAccessible(true);
-			return f.get(target);
+			return field(target, field).get(target);
 		} catch (ReflectiveOperationException e) {
 			throw new IllegalStateException(e);
 		}
@@ -108,9 +120,7 @@ final class WindowDriver {
 
 	static void set(Object target, String field, Object value) {
 		try {
-			Field f = target.getClass().getDeclaredField(field);
-			f.setAccessible(true);
-			f.set(target, value);
+			field(target, field).set(target, value);
 		} catch (ReflectiveOperationException e) {
 			throw new IllegalStateException(e);
 		}

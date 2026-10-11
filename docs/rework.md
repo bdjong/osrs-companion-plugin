@@ -9,6 +9,7 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 - **Kept in the plugin:** the bank layouts (laid out the moment the bank opens), and the click swaps (teleport left click, Farming cape Force) as readable rules fed by the website's route data.
 - **The last guide state is stored** in the RuneLite profile, so after a restart or while the website is unreachable the guide still shows where you were (it moves on again once the website answers).
 - **No website UI changes:** the website only gets new API endpoints and the calculations behind them.
+- **The in-game dailies guide is dropped** (the owner's choice; the only feature that goes): the side panel's dailies page and tile, the step box, the NPC arrow and map marker, and ticking dailies by hand in the plugin. The dailies sync stays, so the website's Dailies page keeps showing what is done; its instructions and timers are on the website.
 
 ## Open: decide when the rework is done
 
@@ -24,3 +25,4 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 | Developer-only slayer debug mode removed | -2,053 |
 | 219 plain getters as Lombok `@Getter` (same methods) | -2,280 |
 | RuneLite's produce list as a data file (`produce.txt`, checked against RuneLite for every value) | -1,977 |
+| The five windows on one `GameWindow` base (frame, clickable areas, tooltips, mouse and keys) | -5,322 |
