@@ -118,6 +118,9 @@ public class OSRSCompanionPlugin extends Plugin {
 
 
 	@Inject
+	private com.google.gson.Gson gson;
+
+	@Inject
 	private ConfigManager configManager;
 
 	@Inject
@@ -442,9 +445,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		CompostTracker compostTracker = new CompostTracker(configManager);
 		FarmingTracker farmingTracker = new FarmingTracker(client, configManager);
 
-		timerMonitor = new TimerMonitor(
-				client, config, apiClient, configManager, GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService),
-				farmingTracker, farmingWorld);
+		timerMonitor = new TimerMonitor(client, config, apiClient, configManager,
+				GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService), gson);
 		farmRunManager.setFarming(farmingWorld, farmingTracker, compostTracker);
 		farmHarvestTracker.setFarming(farmingWorld, farmingTracker, compostTracker);
 	}
