@@ -19,42 +19,13 @@ import static org.junit.Assert.fail;
 
 public class GuardTest {
 	private final AtomicLong nowMs = new AtomicLong(1_000_000);
-	private final AtomicLong nanos = new AtomicLong(0);
 	private Guard guard;
-	private RecordingListener listener;
-
-	static class RecordingListener implements Guard.Listener {
-		final List<String> failures = new ArrayList<>();
-		final List<String> fatal = new ArrayList<>();
-		final List<String> freezes = new ArrayList<>();
-		final List<String> disabled = new ArrayList<>();
-
-		@Override
-		public void onFailure(String feature, Throwable error) {
-			failures.add(feature + ":" + error.getClass().getSimpleName());
-		}
-
-		@Override
-		public void onFatal(String feature, Throwable error) {
-			fatal.add(feature);
-		}
-
-		@Override
-		public void onFreeze(String feature, long elapsedMs, StackTraceElement[] stack) {
-			freezes.add(feature + ":" + elapsedMs);
-		}
-
-		@Override
-		public void onDisabled(String feature) {
-			disabled.add(feature);
-		}
-	}
+	private final List<String> disabled = new ArrayList<>();
 
 	@Before
 	public void setUp() {
-		guard = new Guard(nowMs::get, nanos::get);
-		listener = new RecordingListener();
-		guard.setListener(listener);
+		guard = new Guard(nowMs::get);
+		guard.setOnDisabled(disabled::add);
 	}
 
 	private void failOnce(String feature) {
@@ -64,10 +35,8 @@ public class GuardTest {
 	}
 
 	@Test
-	public void catchesAndReportsAFailure() {
+	public void catchesAFailure() {
 		failOnce("farm-run");
-		assertEquals(1, listener.failures.size());
-		assertEquals("farm-run:IllegalStateException", listener.failures.get(0));
 		assertFalse(guard.isDisabled("farm-run"));
 	}
 
@@ -78,14 +47,13 @@ public class GuardTest {
 			failOnce("slayer-helper");
 		}
 		assertTrue(guard.isDisabled("slayer-helper"));
-		assertEquals(1, listener.disabled.size());
+		assertEquals(1, disabled.size());
 		// Skipped from now on: the body does not run, nothing more is reported.
 		AtomicInteger runs = new AtomicInteger();
 		guard.runIn("slayer-helper", runs::incrementAndGet);
 		failOnce("slayer-helper");
 		assertEquals(0, runs.get());
-		assertEquals(Guard.FAILURE_LIMIT, listener.failures.size());
-		assertEquals(1, listener.disabled.size());
+		assertEquals(1, disabled.size());
 	}
 
 	@Test
@@ -105,8 +73,7 @@ public class GuardTest {
 			throw new OutOfMemoryError("test");
 		});
 		assertTrue(guard.isDisabled("goal-images"));
-		assertEquals(1, listener.fatal.size());
-		assertEquals(1, listener.disabled.size());
+		assertEquals(1, disabled.size());
 	}
 
 	@Test
@@ -131,18 +98,6 @@ public class GuardTest {
 	}
 
 	@Test
-	public void aListenerThatThrowsNeverEscapes() {
-		guard.setListener(new RecordingListener() {
-			@Override
-			public void onFailure(String feature, Throwable error) {
-				throw new RuntimeException("reporter broken");
-			}
-		});
-		failOnce("x");
-		// no exception: done
-	}
-
-	@Test
 	public void resetTurnsFeaturesBackOn() {
 		for (int i = 0; i < Guard.FAILURE_LIMIT; i++) {
 			failOnce("x");
@@ -150,38 +105,6 @@ public class GuardTest {
 		assertTrue(guard.isDisabled("x"));
 		guard.resetBreakers();
 		assertFalse(guard.isDisabled("x"));
-	}
-
-	@Test
-	public void publishesTheOutermostSectionOnTheWatchedThreadOnly() {
-		assertNull(guard.currentSection());
-		guard.runIn("outer", () -> assertNull("not watched yet", guard.currentSection()));
-		guard.watchThread(Thread.currentThread());
-		nanos.set(500);
-		guard.runIn("outer", () -> {
-			Guard.Section s = guard.currentSection();
-			assertEquals("outer", s.feature);
-			assertEquals(500, s.startNanos);
-			guard.runIn("inner", () -> assertEquals("outer", guard.currentSection().feature));
-			// Still running after the nested one ended.
-			assertEquals("outer", guard.currentSection().feature);
-		});
-		assertNull(guard.currentSection());
-	}
-
-	@Test
-	public void sectionEndsEvenWhenTheBodyThrows() {
-		guard.watchThread(Thread.currentThread());
-		failOnce("x");
-		assertNull(guard.currentSection());
-	}
-
-	@Test
-	public void frozenTurnsTheFeatureOffAndReportsIt() {
-		guard.frozen("farm-run-markers", 2500, new StackTraceElement[0]);
-		assertTrue(guard.isDisabled("farm-run-markers"));
-		assertEquals("farm-run-markers:2500", listener.freezes.get(0));
-		assertEquals(1, listener.disabled.size());
 	}
 
 	@Test
@@ -205,35 +128,24 @@ public class GuardTest {
 	// ------------------------------------------------------------------ never-disabled features
 
 	@Test
-	public void syncIsNeverTurnedOffButEveryFailureIsReported() {
+	public void syncIsNeverTurnedOff() {
 		for (int i = 0; i < Guard.FAILURE_LIMIT * 3; i++) {
 			failOnce(Guard.SYNC_FEATURE);
 		}
 		assertFalse(guard.isDisabled(Guard.SYNC_FEATURE));
-		assertEquals(Guard.FAILURE_LIMIT * 3, listener.failures.size());
-		assertTrue(listener.disabled.isEmpty());
+		assertTrue(disabled.isEmpty());
 		AtomicInteger runs = new AtomicInteger();
 		guard.runIn(Guard.SYNC_FEATURE, runs::incrementAndGet);
 		assertEquals("still runs", 1, runs.get());
 	}
 
 	@Test
-	public void aFatalErrorInSyncIsReportedButDoesNotTurnItOff() {
+	public void aFatalErrorInSyncDoesNotTurnItOff() {
 		guard.runIn(Guard.SYNC_FEATURE, () -> {
 			throw new OutOfMemoryError("test");
 		});
-		assertEquals(1, listener.fatal.size());
-		assertEquals(1, listener.failures.size());
 		assertFalse(guard.isDisabled(Guard.SYNC_FEATURE));
-		assertTrue(listener.disabled.isEmpty());
-	}
-
-	@Test
-	public void aFreezeInSyncIsReportedButDoesNotTurnItOff() {
-		guard.frozen(Guard.SYNC_FEATURE, 3000, new StackTraceElement[0]);
-		assertEquals(Guard.SYNC_FEATURE + ":3000", listener.freezes.get(0));
-		assertFalse(guard.isDisabled(Guard.SYNC_FEATURE));
-		assertTrue(listener.disabled.isEmpty());
+		assertTrue(disabled.isEmpty());
 	}
 
 	@Test
@@ -242,7 +154,6 @@ public class GuardTest {
 		for (int i = 0; i < Guard.FAILURE_LIMIT; i++) {
 			failOnce(WebVersionWatcher.GUARD_FEATURE);
 		}
-		guard.frozen(WebVersionWatcher.GUARD_FEATURE, 2500, new StackTraceElement[0]);
 		assertFalse(guard.isDisabled(WebVersionWatcher.GUARD_FEATURE));
 		assertFalse("ordinary features are not exempt", Guard.isExempt("farm-run"));
 	}
@@ -268,7 +179,7 @@ public class GuardTest {
 			assertFalse(Guard.wrapBool("poll", () -> false).getAsBoolean());
 			assertTrue(Guard.wrapBool("poll", () -> true).getAsBoolean());
 		} finally {
-			Guard.setShared(new Guard(System::currentTimeMillis, System::nanoTime));
+			Guard.setShared(new Guard(System::currentTimeMillis));
 		}
 	}
 
@@ -280,7 +191,6 @@ public class GuardTest {
 				throw new IllegalStateException("boom");
 			});
 			assertTrue("a broken poll stops instead of retrying forever", broken.getAsBoolean());
-			assertEquals(1, listener.failures.size());
 
 			for (int i = 0; i < Guard.FAILURE_LIMIT; i++) {
 				failOnce("poll");
@@ -293,7 +203,7 @@ public class GuardTest {
 			assertTrue(off.getAsBoolean());
 			assertEquals(0, runs.get());
 		} finally {
-			Guard.setShared(new Guard(System::currentTimeMillis, System::nanoTime));
+			Guard.setShared(new Guard(System::currentTimeMillis));
 		}
 	}
 
@@ -308,13 +218,12 @@ public class GuardTest {
 			AtomicInteger runs = new AtomicInteger();
 			Guard.wrapCleanup("bank-layout", runs::incrementAndGet).run();
 			assertEquals(1, runs.get());
-			// And a failing clean-up is still caught and reported.
+			// And a failing clean-up is still caught.
 			Guard.wrapCleanup("bank-layout", () -> {
 				throw new IllegalStateException("boom");
 			}).run();
-			assertEquals(Guard.FAILURE_LIMIT + 1, listener.failures.size());
 		} finally {
-			Guard.setShared(new Guard(System::currentTimeMillis, System::nanoTime));
+			Guard.setShared(new Guard(System::currentTimeMillis));
 		}
 	}
 
@@ -370,50 +279,9 @@ public class GuardTest {
 			assertFalse(ct.polls.get(0).getAsBoolean());
 			ct.runnables.get(0).run();
 			assertTrue(ct.polls.get(1).getAsBoolean());
-			assertEquals(2, listener.failures.size());
 		} finally {
-			Guard.setShared(new Guard(System::currentTimeMillis, System::nanoTime));
+			Guard.setShared(new Guard(System::currentTimeMillis));
 		}
-	}
-
-	// ------------------------------------------------------------------ nesting and the watchdog
-
-	@Test
-	public void nestedClientThreadTasksKeepTheOutermostSection() {
-		Guard.setShared(guard);
-		try {
-			guard.watchThread(Thread.currentThread());
-			nanos.set(100);
-			guard.runIn("outer", () -> {
-				nanos.set(900);
-				// invoke() runs at once when already on the client thread: a nested section.
-				assertTrue(Guard.wrapBool("inner", () -> {
-					assertEquals("outer", guard.currentSection().feature);
-					assertEquals(100, guard.currentSection().startNanos);
-					throw new IllegalStateException("inner failed");
-				}).getAsBoolean());
-				Guard.wrap("inner", () -> assertEquals("outer", guard.currentSection().feature)).run();
-				assertEquals("outer", guard.currentSection().feature);
-			});
-			assertNull(guard.currentSection());
-			// A task straight off the queue is its own outermost section.
-			Guard.wrapBool("poll", () -> {
-				assertEquals("poll", guard.currentSection().feature);
-				return true;
-			}).getAsBoolean();
-			assertNull(guard.currentSection());
-		} finally {
-			Guard.setShared(new Guard(System::currentTimeMillis, System::nanoTime));
-		}
-	}
-
-	@Test
-	public void clearingTheWatchedThreadMidSectionDoesNotStickTheDepth() {
-		guard.watchThread(Thread.currentThread());
-		guard.runIn("outer", () -> guard.watchThread(null));
-		guard.watchThread(Thread.currentThread());
-		guard.runIn("next", () -> assertEquals("next", guard.currentSection().feature));
-		assertNull(guard.currentSection());
 	}
 
 	// ------------------------------------------------------------------ test failures
@@ -430,7 +298,6 @@ public class GuardTest {
 			guard.runIn("x", () -> assertEquals(1, 2));
 			fail("the AssertionError must reach JUnit");
 		} catch (AssertionError expected) {
-			assertTrue(listener.failures.isEmpty());
 			assertFalse(guard.isDisabled("x"));
 		}
 	}
@@ -440,10 +307,9 @@ public class GuardTest {
 		boolean before = Guard.rethrowsTestFailures();
 		Guard.setRethrowTestFailures(false);
 		try {
-			guard.runIn("x", () -> {
+			assertNull(guard.callIn("x", () -> {
 				throw new AssertionError("an assert in the plugin");
-			});
-			assertEquals("x:AssertionError", listener.failures.get(0));
+			}, null));
 		} finally {
 			Guard.setRethrowTestFailures(before);
 		}

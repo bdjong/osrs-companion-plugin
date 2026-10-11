@@ -248,17 +248,10 @@ public class OSRSCompanionPlugin extends Plugin {
 	private NavigationButton navButton;
 	private java.util.concurrent.ScheduledFuture<?> roadmapWaitingPoll;
 	private java.util.concurrent.ScheduledFuture<?> farmRouteReadyPoll;
-	private volatile ErrorReporter errorReporter;
 	/** Every object registered on the event bus at start, unregistered at stop. */
 	private java.util.List<Object> subscribers;
-	private volatile FreezeWatchdog watchdog;
-	private volatile IncidentStore incidentStore;
-	/** A fatal error or freeze the last session persisted, reported once a player is logged in. */
-	private volatile PreviousIncident previousIncident;
 	/** A player was logged in since the last login screen: later LOGGED_IN events are region loads. */
 	private boolean sessionLoaded;
-	private ErrorLogAppender errorLogAppender;
-	private java.util.concurrent.ScheduledFuture<?> errorReportFlush;
 
 	@Override
 	protected void startUp() {
@@ -268,12 +261,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("settings", this::migrateSettings);
 		// Uploads queue in the outbox and go out batched (first, so the monitors' first syncs use it).
 		step("outbox", () -> apiClient.startOutbox(GuardedExecutor.wrap(Guard.SYNC_FEATURE, executorService)));
-		step("error reports", this::startErrorReports);
-		step("previous incident", () -> {
-			if (client.getGameState() == GameState.LOGGED_IN) {
-				reportPreviousIncident();
-			}
-		});
 		step("farming timers", this::startFarming);
 
 		subscribers = java.util.Arrays.asList(this, timerMonitor, playerSkillsMonitor, bankMemoryMonitor, vaultMonitor,
@@ -311,124 +298,19 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("overlays", this::addOverlays);
 	}
 
-	/** Breakers on, the freeze watchdog running, and a crash the last session could not report reported now. */
+	/** Every feature on again (a fresh session); one turned off after errors is told in the chat. */
 	private void startCrashSafety() {
 		Guard guard = Guard.shared();
 		guard.resetBreakers();
-		incidentStore = new IncidentStore(new IncidentStore.Storage() {
-			@Override
-			public String get() {
-				return configManager.getConfiguration(OSRSCompanionConfig.CONFIG_GROUP, IncidentStore.KEY);
-			}
-
-			@Override
-			public void set(String value) {
-				configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, IncidentStore.KEY, value);
-			}
-
-			@Override
-			public void unset() {
-				configManager.unsetConfiguration(OSRSCompanionConfig.CONFIG_GROUP, IncidentStore.KEY);
-			}
-
-			@Override
-			public void flush() {
-				configManager.sendConfig();
-			}
-		});
-		previousIncident = new PreviousIncident(incidentStore);
-		watchdog = new FreezeWatchdog(guard);
-		guard.setListener(new GuardListener());
-		// The watchdog times our sections on the client thread: tell the Guard which thread that is.
-		clientThread.invoke(() -> guard.watchThread(Thread.currentThread()));
-		watchdog.start();
-	}
-
-	/** What the Guard's failures become: reports, a persisted incident when the client may not survive, one chat line. */
-	private final class GuardListener implements Guard.Listener {
-		@Override
-		public void onFailure(String feature, Throwable error) {
-			ErrorReporter reporter = errorReporter;
-			if (reporter != null) {
-				reporter.reportCaught(feature, error);
-			}
-		}
-
-		@Override
-		public void onFatal(String feature, Throwable error) {
-			persist(new IncidentStore.Incident("fatal", feature, String.valueOf(error),
-					IncidentStore.shortStack(error, 20), System.currentTimeMillis()));
-		}
-
-		@Override
-		public void onFreeze(String feature, long elapsedMs, StackTraceElement[] stack) {
-			// First persisted: the player may kill the frozen client any moment now.
-			persist(new IncidentStore.Incident("freeze", feature, "The client froze for " + elapsedMs + " ms in " + feature,
-					IncidentStore.shortStack(stack, 20), System.currentTimeMillis()));
-			ErrorReporter reporter = errorReporter;
-			if (reporter != null) {
-				reporter.reportFreeze(feature, elapsedMs, stack);
-			}
-		}
-
-		@Override
-		public void onDisabled(String feature) {
-			String text = "OSRS Companion: " + Guard.displayName(feature) + " was turned off after an error; it has been reported.";
-			chatMessageManager.queue(QueuedMessage.builder()
-					.type(ChatMessageType.CONSOLE)
-					.runeLiteFormattedMessage(text)
-					.build());
-		}
-
-		private void persist(IncidentStore.Incident incident) {
-			IncidentStore store = incidentStore;
-			FreezeWatchdog dog = watchdog;
-			if (store == null) {
-				return;
-			}
-			// Off the client thread: the config write and flush are file IO.
-			if (dog != null) {
-				dog.execute(() -> store.save(incident));
-			} else {
-				store.save(incident);
-			}
-		}
+		guard.setOnDisabled(feature -> chatMessageManager.queue(QueuedMessage.builder()
+				.type(ChatMessageType.CONSOLE)
+				.runeLiteFormattedMessage("OSRS Companion: " + Guard.displayName(feature) + " was turned off after an error.")
+				.build()));
 	}
 
 	/**
-	 * The incident the last session persisted but could not report (it ended first): reported once the
-	 * player is known, and cleared once that report was sent.
-	 */
-	private void reportPreviousIncident() {
-		PreviousIncident previous = previousIncident;
-		if (previous != null) {
-			previous.report(errorReporter);
-		}
-	}
-
-	private void stopCrashSafety() {
-		Guard guard = Guard.shared();
-		guard.setListener(null);
-		guard.watchThread(null);
-		if (watchdog != null) {
-			watchdog.stop();
-			watchdog = null;
-		}
-		// A clean stop: whatever this session persisted was reported live. An earlier session's
-		// incident not sent yet stays for the next start.
-		IncidentStore store = incidentStore;
-		if (store != null) {
-			PreviousIncident previous = previousIncident;
-			if (previous == null || !previous.isStillStored()) {
-				store.clear();
-			}
-			incidentStore = null;
-		}
-	}
-
-	/**
-	 * Runs one start or stop step; a failure is logged and reported (like the Guard's, without
-	 * counting towards a breaker) and the next step still runs.
+	 * Runs one start or stop step; a failure is logged (without counting towards a breaker) and the
+	 * next step still runs.
 	 */
 	private static void step(String name, Runnable body) {
 		try {
@@ -436,7 +318,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		} catch (ThreadDeath death) {
 			throw death;
 		} catch (Throwable e) {
-			Guard.shared().reportOnly("plugin-" + name.replace(' ', '-'), e);
+			log.warn("OSRS Companion: {} failed", name, e);
 		}
 	}
 
@@ -564,8 +446,7 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	@Override
 	protected void shutDown() {
-		// Never throws, and every step runs even when one before it failed: the executor jobs and the
-		// watchdog always stop.
+		// Never throws, and every step runs even when one before it failed: the executor jobs always stop.
 		if (subscribers != null) {
 			for (Object subscriber : subscribers) {
 				if (subscriber != null) {
@@ -626,12 +507,11 @@ public class OSRSCompanionPlugin extends Plugin {
 		});
 		step("roadmap", roadmapManager::clear);
 		step("web updates", webVersionWatcher::stop);
-		step("error reports", this::stopErrorReports);
 		// The monitors' stop() above queued their last uploads: send them now; nothing is retried after.
 		step("outbox", apiClient::stopOutbox);
 		// Whatever periodic job a feature left behind (the shared executor is RuneLite's: only ours stop).
 		step("executor jobs", GuardedExecutor::cancelAllPeriodic);
-		step("crash safety", this::stopCrashSafety);
+		step("crash safety", () -> Guard.shared().setOnDisabled(null));
 		log.debug("OSRS Companion stopped");
 	}
 
@@ -692,72 +572,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	/**
-	 * Starts collecting this plugin's errors for the website (only sent while "Send error reports" is
-	 * on, an App Key is set and the world is not a special game mode).
-	 */
-	private void startErrorReports() {
-		ErrorReporter reporter = new ErrorReporter(
-				apiClient::sendErrorReports,
-				System::currentTimeMillis,
-				() -> config.sendErrorReports() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
-				() -> SyncGuard.getPlayerUsername(client),
-				OSRSCompanionApiClient.PLUGIN_VERSION,
-				runeLiteVersion());
-		errorReporter = reporter;
-		apiClient.setErrorListener(new OSRSCompanionApiClient.ErrorListener() {
-			@Override
-			public void onUploadDropped(String label, String path, int httpStatus) {
-				reporter.reportUploadDropped(label, path, httpStatus);
-			}
-
-			@Override
-			public void onResponseParseFailed(String label, String path, String error) {
-				reporter.reportParseFailure(label, path, error);
-			}
-		});
-		errorLogAppender = new ErrorLogAppender(reporter);
-		if (!errorLogAppender.attach()) {
-			errorLogAppender = null;
-		}
-		long every = ErrorReporter.FLUSH_INTERVAL_MS;
-		// Not through the Guard: the reporter's own failures are never reported. Never throws either,
-		// so the periodic job cannot be cancelled by an exception.
-		errorReportFlush = executorService.scheduleWithFixedDelay(() -> {
-			try {
-				reporter.flush();
-			} catch (RuntimeException e) {
-				log.debug("Error report flush failed", e);
-			}
-		}, every, every,
-				java.util.concurrent.TimeUnit.MILLISECONDS);
-	}
-
-	private void stopErrorReports() {
-		if (errorLogAppender != null) {
-			errorLogAppender.detach();
-			errorLogAppender = null;
-		}
-		apiClient.setErrorListener(null);
-		if (errorReportFlush != null) {
-			errorReportFlush.cancel(false);
-			errorReportFlush = null;
-		}
-		if (errorReporter != null) {
-			// Queued in the outbox, which sends it with the last uploads.
-			errorReporter.flush(true);
-			errorReporter = null;
-		}
-	}
-
-	private static String runeLiteVersion() {
-		try {
-			return net.runelite.client.RuneLiteProperties.getVersion();
-		} catch (Throwable e) {
-			return null;
-		}
-	}
-
-	/**
 	 * Re-pushes every login sync the monitors normally send (timers, skills, bank,
 	 * loadout, loot). Used when an App Key is entered mid-session. Each monitor
 	 * schedules its own work on the executor / client thread, so this never
@@ -793,7 +607,6 @@ public class OSRSCompanionPlugin extends Plugin {
 			sessionLoaded = false;
 		}
 		if (event.getGameState() == GameState.LOGGED_IN) {
-			reportPreviousIncident();
 			// LOGGED_IN also follows every region load (LOADING): the roadmap loads only on a real login.
 			boolean login = !sessionLoaded;
 			sessionLoaded = true;
