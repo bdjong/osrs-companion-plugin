@@ -5,9 +5,6 @@ import com.google.gson.annotations.SerializedName;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 /**
  * A single goal within a roadmap, as returned by the roadmap detail/recompute
@@ -54,19 +51,10 @@ public class RoadmapGoal {
 	@SerializedName("completed_at")
 	private String completedAt;
 
-	@SerializedName("created_at")
-	private String createdAt;
 
-	@SerializedName("dependency_ids")
-	private List<Integer> dependencyIds;
 
 	@SerializedName("meta")
 	private Meta meta;
-
-	/** Ids of this goal's prerequisite goals (within the same roadmap). */
-	public List<Integer> getDependencyIds() {
-		return dependencyIds == null ? Collections.emptyList() : dependencyIds;
-	}
 
 	/** OSRS item id for an icon, when this goal targets an item (else null).
 	 *
@@ -96,29 +84,9 @@ public class RoadmapGoal {
 		return meta == null ? null : meta.npcName;
 	}
 
-	/** OSRS Companion quest id for a quest goal; null otherwise. */
-	public Integer getQuestId() {
-		return meta == null ? null : meta.questId;
-	}
-
 	/** Diary task id (OSRS Companion pk) or combat achievement in-game task id; null otherwise. */
 	public Integer getTaskId() {
 		return meta == null ? null : meta.taskId;
-	}
-
-	/** Diary region name for a diary task goal (e.g. "Ardougne"); null otherwise. */
-	public String getDiary() {
-		return meta == null ? null : meta.diary;
-	}
-
-	/** Diary tier ("easy", "medium", "hard", "elite") for a diary task goal; null otherwise. */
-	public String getDifficulty() {
-		return meta == null ? null : meta.difficulty;
-	}
-
-	/** Position of a diary task within its region/tier (older servers omit it). */
-	public Integer getSequence() {
-		return meta == null ? null : meta.sequence;
 	}
 
 	/** Catalog metadata block; only the fields the plugin needs are mapped. */
@@ -138,38 +106,8 @@ public class RoadmapGoal {
 		@SerializedName("npc_name")
 		private String npcName;
 
-		@SerializedName("quest_id")
-		private Integer questId;
-
 		@SerializedName("task_id")
 		private Integer taskId;
-
-		@SerializedName("diary")
-		private String diary;
-
-		@SerializedName("difficulty")
-		private String difficulty;
-
-		@SerializedName("sequence")
-		private Integer sequence;
-
-		@SerializedName("entity")
-		private String entity;
-
-		@SerializedName("timer_type")
-		private String timerType;
-
-		@SerializedName("start_qty")
-		private Integer startQty;
-
-		@SerializedName("held_bank")
-		private Integer heldBank;
-
-		@SerializedName("held_vaults")
-		private Integer heldVaults;
-
-		@SerializedName("held_by_source")
-		private Map<String, Integer> heldBySource;
 	}
 
 	/** The parsed goal type; {@link GoalType#UNKNOWN} for unrecognised values. */
@@ -186,11 +124,6 @@ public class RoadmapGoal {
 		return parseInstant(completedAt);
 	}
 
-	/** When the goal was created (older servers omit it); null when unknown. */
-	public Instant getCreatedAt() {
-		return parseInstant(createdAt);
-	}
-
 	private static Instant parseInstant(String iso) {
 		if (iso == null || iso.isEmpty()) {
 			return null;
@@ -200,45 +133,6 @@ public class RoadmapGoal {
 		} catch (DateTimeParseException e) {
 			return null;
 		}
-	}
-
-	/** Farming goals: the crop / produce name the goal was created with; null otherwise. */
-	public String getEntity() {
-		return meta == null ? null : meta.entity;
-	}
-
-	/** Farming goals: the timer type ("herb", "tree", ...) when the goal names one. */
-	public String getTimerType() {
-		return meta == null ? null : meta.timerType;
-	}
-
-	/** Owned-item goals: how many the player held when the goal was created. */
-	public Integer getStartQty() {
-		return meta == null ? null : meta.startQty;
-	}
-
-	/** Owned-item goals: quantity in the bank proper at the server's last upload. */
-	public Integer getHeldBank() {
-		return meta == null ? null : meta.heldBank;
-	}
-
-	/** Owned-item goals: quantity in vaults (seed vault, looting bag, potion storage). */
-	public Integer getHeldVaults() {
-		return meta == null ? null : meta.heldVaults;
-	}
-
-	/**
-	 * Owned-item goals: quantity per bank-sync source (bank, vaults, cargo
-	 * holds, storage items) as the server last saw them; null from older
-	 * servers that only send {@code held_bank} / {@code held_vaults}.
-	 */
-	public Map<String, Integer> getHeldBySource() {
-		return meta == null ? null : meta.heldBySource;
-	}
-
-	/** Farming goals: the produce item id the goal matches timers by; null otherwise. */
-	public Integer getOsrsItemId() {
-		return meta == null ? null : meta.osrsItemId;
 	}
 
 	/**

@@ -203,11 +203,6 @@ public class BossGearManager {
 		});
 	}
 
-	/** The next gear mode (Best in slot, Best owned, Owned alternatives, ...). */
-	public void cycleMode() {
-		setMode(BossGear.nextMode(mode));
-	}
-
 	private OSRSCompanionApiClient.RoadmapCallback<BossGear.Response> callback(String switchedTo) {
 		return new OSRSCompanionApiClient.RoadmapCallback<BossGear.Response>() {
 			@Override

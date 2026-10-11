@@ -21,10 +21,6 @@ public class LoadoutSyncPayload {
 		return player_username;
 	}
 
-	public List<LoadoutSet> getLoadoutSets() {
-		return loadout_sets;
-	}
-
 	public String toJson(Gson gson) {
 		return gson.toJson(this);
 	}

@@ -96,10 +96,6 @@ final class SourceSyncer {
 		this.send = send;
 	}
 
-	void setOnSent(Runnable onSent) {
-		this.onSent = onSent;
-	}
-
 	void setPriorityFlush(Runnable priorityFlush) {
 		this.priorityFlush = priorityFlush;
 	}

@@ -57,10 +57,6 @@ public class CollectionLogSyncPayload {
 		return collection_log_item_count;
 	}
 
-	public Map<Integer, Integer> getCollectionLogQuantities() {
-		return collection_log_quantities;
-	}
-
 	public String toJson(Gson gson) {
 		return gson.toJson(this);
 	}

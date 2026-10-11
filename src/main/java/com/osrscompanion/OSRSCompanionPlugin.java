@@ -160,15 +160,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	private SpriteManager spriteManager;
 
 	@Inject
-	private GearProgressionManager gearProgressionManager;
-
-	@Inject
-	private GearProgressionOverlay gearProgressionOverlay;
-
-	@Inject
-	private GearNextOverlay gearNextOverlay;
-
-	@Inject
 	private SessionMonitor sessionMonitor;
 
 	@Inject
@@ -212,9 +203,6 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	@Inject
 	private SlayerGearWindow slayerGearWindow;
-
-	@Inject
-	private RoadmapWindow roadmapWindow;
 
 	@Inject
 	private BossTripTracker bossTripTracker;
@@ -344,8 +332,8 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	private void addSidePanel() {
 		// Side-panel roadmap tab.
-		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
-				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager,
+		roadmapPanel = new RoadmapPanel(this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
+				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager,
 				slayerHelperManager, clientThread);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
@@ -358,18 +346,10 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	private void addOverlays() {
-		// Next-goal game overlay (rendered only while showNextGoal is enabled), and the
-		// gear roadmap's next step below it (showGearProgress).
+		// Next-goal game overlay (rendered only while showNextGoal is enabled).
 		overlayManager.add(nextGoalOverlay);
-		overlayManager.add(gearNextOverlay);
 		// Roadmap progress drawn under the goal completion popup while it shows.
 		overlayManager.add(goalCompletionOverlay);
-
-		// Gear progression window: the side-panel button opens it, Escape closes it.
-		overlayManager.add(gearProgressionOverlay);
-		mouseManager.registerMouseListener(gearProgressionOverlay);
-		mouseManager.registerMouseWheelListener(gearProgressionOverlay);
-		keyManager.registerKeyListener(gearProgressionOverlay);
 
 		// Farm run: the window (side-panel button), the step box, scene pointers and item highlights.
 		overlayManager.add(farmRunWindow);
@@ -387,11 +367,6 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		// Boss gear: the window (side-panel button); the bank lays the set out while it is open.
 		overlayManager.add(bossGearWindow);
-		// Roadmap: the goal tree in its own window (side-panel tile).
-		overlayManager.add(roadmapWindow);
-		mouseManager.registerMouseListener(roadmapWindow);
-		mouseManager.registerMouseWheelListener(roadmapWindow);
-		keyManager.registerKeyListener(roadmapWindow);
 		mouseManager.registerMouseListener(bossGearWindow);
 		mouseManager.registerMouseWheelListener(bossGearWindow);
 		keyManager.registerKeyListener(bossGearWindow);
@@ -405,12 +380,11 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	}
 
-	/** The roadmap, farm run, boss gear and slayer gear windows share the middle of the screen (and the bank): one at a time. */
+	/** The farm run, boss gear and slayer gear windows share the middle of the screen (and the bank): one at a time. */
 	private void toggleFarmRun() {
 		if (!farmRunManager.isOpen()) {
 			bossGearManager.close();
 			slayerHelperManager.closeGearWindow();
-			roadmapWindow.close();
 		}
 		farmRunManager.toggle();
 	}
@@ -419,7 +393,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		if (!bossGearManager.isOpen()) {
 			farmRunManager.close();
 			slayerHelperManager.closeGearWindow();
-			roadmapWindow.close();
 		}
 		bossGearManager.toggle();
 	}
@@ -428,18 +401,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		if (!slayerHelperManager.isGearOpen()) {
 			farmRunManager.close();
 			bossGearManager.close();
-			roadmapWindow.close();
 		}
 		slayerHelperManager.toggleGearWindow();
-	}
-
-	private void toggleRoadmap() {
-		if (!roadmapWindow.isOpen()) {
-			farmRunManager.close();
-			bossGearManager.close();
-			slayerHelperManager.closeGearWindow();
-		}
-		roadmapWindow.toggle();
 	}
 
 	@Override
@@ -526,13 +489,7 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	private void removeOverlays() {
 		overlayManager.remove(nextGoalOverlay);
-		overlayManager.remove(gearNextOverlay);
 		overlayManager.remove(goalCompletionOverlay);
-		overlayManager.remove(gearProgressionOverlay);
-		mouseManager.unregisterMouseListener(gearProgressionOverlay);
-		mouseManager.unregisterMouseWheelListener(gearProgressionOverlay);
-		keyManager.unregisterKeyListener(gearProgressionOverlay);
-		gearProgressionManager.clear();
 		overlayManager.remove(farmRunWindow);
 		mouseManager.unregisterMouseListener(farmRunWindow);
 		mouseManager.unregisterMouseWheelListener(farmRunWindow);
@@ -552,11 +509,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		})));
 		farmRunManager.clear();
 		overlayManager.remove(bossGearWindow);
-		roadmapWindow.close();
-		overlayManager.remove(roadmapWindow);
-		mouseManager.unregisterMouseListener(roadmapWindow);
-		mouseManager.unregisterMouseWheelListener(roadmapWindow);
-		keyManager.unregisterKeyListener(roadmapWindow);
 		mouseManager.unregisterMouseListener(bossGearWindow);
 		mouseManager.unregisterMouseWheelListener(bossGearWindow);
 		keyManager.unregisterKeyListener(bossGearWindow);

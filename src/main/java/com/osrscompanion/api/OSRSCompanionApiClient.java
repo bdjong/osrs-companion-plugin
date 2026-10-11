@@ -15,7 +15,6 @@ import com.osrscompanion.model.DeathSyncPayload;
 import com.osrscompanion.model.BossAreasResponse;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
-import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.KillCountsSyncPayload;
 import com.osrscompanion.model.LoadoutSyncPayload;
 import com.osrscompanion.model.LootDropPayload;
@@ -85,7 +84,6 @@ public class OSRSCompanionApiClient
 	private static final String LOOT_ENDPOINT = "/api/runelite/loot/";
 	private static final String LOOT_DROP_ENDPOINT = "/api/runelite/loot/drop/";
 	private static final String ROADMAPS_ENDPOINT = "/api/runelite/roadmaps/";
-	private static final String GEAR_ENDPOINT = "/api/runelite/gear/";
 	private static final String FARM_ROUTE_ENDPOINT = "/api/runelite/farm-route/";
 	private static final String BOSS_GEAR_ENDPOINT = "/api/runelite/boss-gear/";
 	private static final String SESSION_ENDPOINT = "/api/runelite/session/";
@@ -445,72 +443,6 @@ public class OSRSCompanionApiClient
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("player", playerUsername);
 		postForResult(url, gson.toJson(body), "roadmap-recompute", Roadmap.class, callback);
-	}
-
-	/**
-	 * Manually marks a single goal complete and returns the re-rendered roadmap.
-	 */
-	public void completeRoadmapGoal(int collectionId, int goalId, String playerUsername,
-		RoadmapCallback<Roadmap> callback)
-	{
-		String url = ROADMAPS_ENDPOINT + collectionId + "/goals/" + goalId + "/complete/";
-		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("player", playerUsername);
-		postForResult(url, gson.toJson(body), "roadmap-goal-complete", Roadmap.class, callback);
-	}
-
-	/**
-	 * Deletes a single goal from a roadmap and returns the re-rendered roadmap.
-	 */
-	public void deleteRoadmapGoal(int collectionId, int goalId, String playerUsername,
-		RoadmapCallback<Roadmap> callback)
-	{
-		String url = ROADMAPS_ENDPOINT + collectionId + "/goals/" + goalId + "/delete/";
-		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("player", playerUsername);
-		postForResult(url, gson.toJson(body), "roadmap-goal-delete", Roadmap.class, callback);
-	}
-
-	/** Fetches the player's gear progression ({ plan: null } until loaded on the website). */
-	public void getGearPlan(String playerUsername, RoadmapCallback<GearPlan.Response> callback)
-	{
-		getAsync(GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "gear", GearPlan.Response.class, callback);
-	}
-
-	/** Toggles the player's own "done" tick on a gear item and returns the re-rendered plan. */
-	public void toggleGearDone(int itemId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
-	{
-		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("player", playerUsername);
-		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/done/", gson.toJson(body), "gear-done",
-			GearPlan.Response.class, callback);
-	}
-
-	/** Hides (or unhides) a gear item and returns the re-rendered roadmap. */
-	public void toggleGearHidden(int itemId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
-	{
-		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("player", playerUsername);
-		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/hide/", gson.toJson(body), "gear-hide",
-			GearPlan.Response.class, callback);
-	}
-
-	/** Makes another of the player's gear roadmaps the active one and returns the new state. */
-	public void activateGearPlan(int planId, String playerUsername, RoadmapCallback<GearPlan.Response> callback)
-	{
-		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("player", playerUsername);
-		postForResult(GEAR_ENDPOINT + "plans/" + planId + "/activate/", gson.toJson(body), "gear-activate",
-			GearPlan.Response.class, callback);
-	}
-
-	/** Puts a gear item at the top of the player's roadmap. */
-	public void setGearGoal(int itemId, String playerUsername, RoadmapCallback<GearPlan.GoalResult> callback)
-	{
-		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("player", playerUsername);
-		postForResult(GEAR_ENDPOINT + "items/" + itemId + "/goal/", gson.toJson(body), "gear-goal",
-			GearPlan.GoalResult.class, callback);
 	}
 
 	/** Reports a login ("start"), a "still playing" ping or a logout ("end"). */

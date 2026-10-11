@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.GoalType;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapGoal;
@@ -13,7 +12,7 @@ import net.runelite.api.Skill;
 import net.runelite.client.game.SkillIconManager;
 import org.junit.Test;
 
-/** Golden renders of the roadmap goal box and the gear progression box (see {@link UiKit}). */
+/** Golden renders of the roadmap goal box (see {@link UiKit}). */
 public class GoalsUiGoldenTest {
 	private final UiKit kit = new UiKit();
 	private final TestOSRSCompanionConfig config = new TestOSRSCompanionConfig();
@@ -21,7 +20,6 @@ public class GoalsUiGoldenTest {
 	private final GoalProgressTracker tracker = mock(GoalProgressTracker.class);
 	private final GoalImageCache images = mock(GoalImageCache.class);
 	private final SkillIconManager skills = mock(SkillIconManager.class);
-	private final GearProgressionManager gear = mock(GearProgressionManager.class);
 
 	static RoadmapGoal goal(String json) {
 		return UiSamples.GSON.fromJson(json, RoadmapGoal.class);
@@ -91,45 +89,5 @@ public class GoalsUiGoldenTest {
 		off.setShowGoalProgress(false);
 		NextGoalOverlay box = new NextGoalOverlay(off, roadmaps, tracker, kit.itemManager(), skills, images);
 		UiKit.golden("goal-overlay-no-bar", kit.render(box, 400, 200));
-	}
-
-	// ---- gear progression box ----------------------------------------------------------------------
-
-	static final String PLAN_JSON = "{\"title\":\"Ironman gear\",\"done\":17,\"total\":64,\"next_tier\":2,\"tiers\":["
-		+ "{\"tier\":1,\"name\":\"Early\",\"done\":12,\"total\":12,\"steps\":[{\"step\":1,\"items\":[{\"id\":1,\"name\":\"Rune scimitar\",\"item_id\":1333,\"done\":true}]}]},"
-		+ "{\"tier\":2,\"name\":\"Mid\",\"done\":5,\"total\":20,\"steps\":["
-		+ " {\"step\":1,\"items\":[{\"id\":2,\"name\":\"Dragon defender\",\"item_id\":12954,\"done\":true}]},"
-		+ " {\"step\":2,\"items\":["
-		+ "  {\"id\":3,\"name\":\"Barrows gloves\",\"item_id\":7462,\"next\":true},"
-		+ "  {\"id\":4,\"name\":\"Fighter torso (from Barbarian Assault, all four roles to level 5)\",\"item_id\":10551,\"next\":true},"
-		+ "  {\"id\":5,\"name\":\"Fire cape\",\"image_url\":\"https://oldschool.runescape.wiki/images/Fire_cape.png\",\"next\":true},"
-		+ "  {\"id\":6,\"name\":\"Hidden thing\",\"item_id\":1,\"next\":true,\"hidden\":true},"
-		+ "  {\"id\":7,\"name\":\"Dragon boots\",\"item_id\":11840,\"next\":true},"
-		+ "  {\"id\":8,\"name\":\"Amulet of glory\",\"item_id\":1704,\"next\":true}"
-		+ " ]}]}]}";
-
-	private GearNextOverlay gearBox(TestOSRSCompanionConfig cfg) {
-		when(images.get("https://oldschool.runescape.wiki/images/Fire_cape.png")).thenReturn(kit.image("wiki:fire-cape", 30, 32, Color.RED));
-		return new GearNextOverlay(cfg, gear, kit.itemManager(), images);
-	}
-
-	@Test
-	public void gearNextStepWithMoreItems() {
-		when(gear.getPlan()).thenReturn(UiSamples.GSON.fromJson(PLAN_JSON, GearPlan.class));
-		UiKit.golden("gear-overlay-next", kit.render(gearBox(config), 400, 300));
-	}
-
-	@Test
-	public void gearAllDoneLongTitleNoBar() {
-		GearPlan plan = UiSamples.GSON.fromJson("{\"title\":\"Main account end-game gear progression for raids\",\"done\":64,\"total\":64,\"tiers\":[]}", GearPlan.class);
-		when(gear.getPlan()).thenReturn(plan);
-		TestOSRSCompanionConfig off = new TestOSRSCompanionConfig();
-		off.setShowGoalProgress(false);
-		UiKit.golden("gear-overlay-done", kit.render(gearBox(off), 400, 200));
-	}
-
-	@Test
-	public void gearNothingWithoutAPlan() {
-		UiKit.golden("gear-overlay-none", kit.render(gearBox(config), 100, 100));
 	}
 }
