@@ -4,7 +4,6 @@ import lombok.Getter;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.osrscompanion.api.OSRSCompanionApiClient;
-import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.SlayerGear;
 import com.osrscompanion.model.SlayerGuide;
 import java.util.ArrayList;

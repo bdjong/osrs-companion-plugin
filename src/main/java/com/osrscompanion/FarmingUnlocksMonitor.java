@@ -64,7 +64,6 @@ public class FarmingUnlocksMonitor {
 	private final OSRSCompanionApiClient apiClient;
 	private final Gson gson;
 
-	private GameState previousGameState = GameState.UNKNOWN;
 	private String lastSyncJson;
 	/** Null until the plugin has been inside your house this session. */
 	private Boolean pohFairyRing;
@@ -89,7 +88,6 @@ public class FarmingUnlocksMonitor {
 	}
 
 	public void stop() {
-		previousGameState = GameState.UNKNOWN;
 		lastSyncJson = null;
 		pohFairyRing = null;
 		pohPortals = null;
@@ -116,7 +114,6 @@ public class FarmingUnlocksMonitor {
 				// A scene finished loading: if it is a house, look around once its objects are in.
 				houseCheckTick = client.getTickCount() + HOUSE_CHECK_DELAY_TICKS;
 			}
-			previousGameState = newState;
 		});
 	}
 

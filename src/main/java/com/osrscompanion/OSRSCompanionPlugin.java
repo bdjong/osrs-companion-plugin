@@ -11,7 +11,6 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
-import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
@@ -27,7 +26,6 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.banktags.BankTagsPlugin;
-import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -35,7 +33,6 @@ import net.runelite.client.util.ImageUtil;
 import com.osrscompanion.runelite.farming.CompostTracker;
 import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
-import com.osrscompanion.runelite.farming.PaymentTracker;
 
 @Slf4j
 // Bank Tags: its public API (BankTagsService, LayoutManager, TagManager) lays out the bank for the boss gear and farm run.
@@ -119,8 +116,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private EventBus eventBus;
 
-	@Inject
-	private Notifier notifier;
 
 	@Inject
 	private ConfigManager configManager;
@@ -443,19 +438,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	private void startFarming() {
-		TimeTrackingConfig timeTrackingConfig = configManager.getConfig(TimeTrackingConfig.class);
 		FarmingWorld farmingWorld = new FarmingWorld();
-		CompostTracker compostTracker = new CompostTracker(client, farmingWorld, configManager);
-		PaymentTracker paymentTracker = new PaymentTracker(client, configManager, farmingWorld);
-		FarmingTracker farmingTracker = new FarmingTracker(
-				client,
-				itemManager,
-				configManager,
-				timeTrackingConfig,
-				farmingWorld,
-				notifier,
-				compostTracker,
-				paymentTracker);
+		CompostTracker compostTracker = new CompostTracker(configManager);
+		FarmingTracker farmingTracker = new FarmingTracker(client, configManager);
 
 		timerMonitor = new TimerMonitor(
 				client, config, apiClient, configManager, GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService),

@@ -12,7 +12,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -170,9 +169,6 @@ public class TimerMonitor {
 			log.warn("OSRS Companion sync skipped: could not get player username");
 			return;
 		}
-
-		farmingTracker.loadCompletionTimes();
-		farmingTracker.updateCompletionTime();
 
 		boolean syncEnabled = config.syncTimeTracking();
 		List<TimerSyncItem> timers = new ArrayList<>();
