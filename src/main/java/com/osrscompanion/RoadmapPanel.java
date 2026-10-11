@@ -87,8 +87,6 @@ public class RoadmapPanel extends PluginPanel {
 	private JComponent slayerStats;
 	private Component slayerStatsGap;
 	/** The slayer debug switch and its gap: shown only for the developer's characters. */
-	private JComponent slayerDebug;
-	private Component slayerDebugGap;
 	/** The Slayer skill icon, loaded in the background (the task card's picture). */
 	private volatile java.awt.image.BufferedImage slayerIcon;
 	/** Keeps the live cards (current roadmap, route, setup) and switches up to date while the panel is open. */
@@ -168,14 +166,6 @@ public class RoadmapPanel extends PluginPanel {
 		if (slayerGear != null && slayerGear.getHeight() != slayerGear.getPreferredSize().height) {
 			// The setups loaded or another one is on show: its height changes.
 			slayerGear.revalidate();
-		}
-		if (slayerDebug != null) {
-			boolean showDebug = SlayerHelperManager.debugAllowed(roadmapManager.getPlayerUsername());
-			if (slayerDebug.isVisible() != showDebug) {
-				slayerDebug.setVisible(showDebug);
-				slayerDebugGap.setVisible(showDebug);
-				deck.revalidate();
-			}
 		}
 		if (slayerStats != null) {
 			boolean showStats = slayer.getStats() != null;
@@ -420,11 +410,6 @@ public class RoadmapPanel extends PluginPanel {
 		}), null);
 		add(p, toggle("Bank layout", "Bank shows this setup", "Bank left alone", SLAYER, "slayerGearBankLayout", config::slayerGearBankLayout),
 			"Only one bank layout is active at a time: turning this on turns the other bank layouts off.");
-		slayerDebug = toggle("Debug mode", "Coordinates on attack", "Off", SLAYER, "slayerDebug", config::slayerDebug);
-		add(p, slayerDebug, "Shows a box with everything the plugin knows about your location and the task area the website sent; attacking a task monster also puts your coordinates in the chat.");
-		slayerDebugGap = p.getComponent(p.getComponentCount() - 1);
-		slayerDebug.setVisible(false);
-		slayerDebugGap.setVisible(false);
 		add(p, overview("GEAR", "OVERVIEW", "Pick a DPS setup", SLAYER, new Color(0x1F0A0A), new Color(0x991B1B), SpriteID.TAB_EQUIPMENT, openGearWindow),
 			"Open or close the slayer gear window: the website's DPS setups against the task's monster; pick the one to use (Escape closes it).");
 		// The setup picked in the window (the best until one is picked), against the task's monster.

@@ -206,9 +206,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	private SlayerHelperOverlay slayerHelperOverlay;
 
 	@Inject
-	private SlayerDebugOverlay slayerDebugOverlay;
-
-	@Inject
 	private SlayerGuideMarkers slayerGuideMarkers;
 
 	@Inject
@@ -565,8 +562,6 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		// Slayer helper: the guide's box (stats at the location); the arrow and map icon come from the markers.
 		overlayManager.add(slayerHelperOverlay);
-		// Slayer debug mode's box (developer's characters only; empty otherwise).
-		overlayManager.add(slayerDebugOverlay);
 		// In your house on the way: the jewellery box (portal, nexus...) the way there uses, outlined.
 		overlayManager.add(slayerGuideHouseOverlay);
 
@@ -772,7 +767,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		clientThread.invoke(Guard.wrapCleanup(FarmRunSceneOverlay.GUARD_FEATURE,
 				() -> step("farm run markers", farmRunSceneOverlay::clearPointers)));
 		overlayManager.remove(slayerHelperOverlay);
-		overlayManager.remove(slayerDebugOverlay);
 		overlayManager.remove(slayerGuideHouseOverlay);
 		// The open slayer session is stored and sent before it is forgotten.
 		clientThread.invoke(Guard.wrapCleanup(SlayerHelperManager.GUARD_FEATURE, () -> step("slayer helper", () -> {
