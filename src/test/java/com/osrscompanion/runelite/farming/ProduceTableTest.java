@@ -15,7 +15,7 @@ import org.junit.Test;
  * is written by this test (after {@code node update.js} copied a new RuneLite version, delete it and run the tests).
  */
 public class ProduceTableTest {
-	static final Path TABLE = Paths.get("src", "main", "resources", "com", "osrscompanion", "runelite", "farming", Produce.TABLE);
+	static final Path TABLE = Paths.get("src", "test", "resources", "com", "osrscompanion", "runelite", "farming", Produce.TABLE);
 
 	static String generate() {
 		StringBuilder sb = new StringBuilder("# Generated from RuneLite's Produce by ProduceTableTest: NAME, name, contract name, patch type,"

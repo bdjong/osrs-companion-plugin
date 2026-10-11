@@ -20,7 +20,7 @@ import org.junit.Test;
  * region id, name, varbit, type) in the same order. A missing table is written by this test.
  */
 public class FarmingWorldTableTest {
-	static final Path TABLE = Paths.get("src", "main", "resources", "com", "osrscompanion", "runelite", "farming", FarmingWorld.TABLE);
+	static final Path TABLE = Paths.get("src", "test", "resources", "com", "osrscompanion", "runelite", "farming", FarmingWorld.TABLE);
 
 	static String generate() {
 		StringBuilder sb = new StringBuilder("# Generated from RuneLite's FarmingWorld by FarmingWorldTableTest: REGION|REGION_ID|PATCH|VARBIT|TYPE\n");
