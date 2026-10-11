@@ -15,7 +15,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Quest;
@@ -56,7 +55,6 @@ import net.runelite.client.eventbus.Subscribe;
  * carried as completed for the rest of the login session. The scroll text is parsed
  * the way RuneLite's own screenshot plugin parses it.
  */
-@Slf4j
 @Singleton
 public class QuestMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -222,7 +220,6 @@ public class QuestMonitor {
 		if (name == null) {
 			return;
 		}
-		log.debug("Quest complete scroll names '{}'", name);
 		if (completedFromScroll.add(name)) {
 			questCheckPending = false;
 			lastReadTick = client.getTickCount();
@@ -298,11 +295,9 @@ public class QuestMonitor {
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {
-			log.debug("Quests unchanged, skipping sync");
 			return;
 		}
 		lastSyncJson = json;
-		log.debug("Syncing {} quests for player: {}", questStates.size(), playerUsername);
 		apiClient.sendQuestsSync(payload);
 	}
 
@@ -312,7 +307,6 @@ public class QuestMonitor {
 			Object[] field = client.getDBTableField(row, DBTableID.Quest.COL_DISPLAYNAME, 0);
 			return field != null && field.length > 0 && field[0] instanceof String ? (String) field[0] : null;
 		} catch (RuntimeException e) {
-			log.debug("Quest row {} has no readable name", row, e);
 			return null;
 		}
 	}

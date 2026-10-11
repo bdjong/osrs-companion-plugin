@@ -123,11 +123,9 @@ public class LoadoutMonitor {
 			GameState newState = event.getGameState();
 
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-				log.debug("Player logged in, scheduling loadout sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
 				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncLoadouts),
 						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-				log.debug("Player logged out, syncing loadouts immediately");
 				syncLoadouts();
 			}
 
@@ -150,7 +148,6 @@ public class LoadoutMonitor {
 			if (debounceFuture != null) {
 				debounceFuture.cancel(false);
 			}
-			log.debug("Equipment/inventory changed, scheduling loadout sync in {}s", EQUIPMENT_CHANGE_DEBOUNCE_SECONDS);
 			debounceFuture = executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncLoadouts),
 					EQUIPMENT_CHANGE_DEBOUNCE_SECONDS, TimeUnit.SECONDS);
 		});
@@ -162,14 +159,12 @@ public class LoadoutMonitor {
 	 */
 	private void syncLoadouts() {
 		if (!SyncGuard.hasAppKey(config)) {
-			log.debug("Loadout sync skipped: no App Key configured");
 			return;
 		}
 		if (!config.syncLoadouts()) {
 			return;
 		}
 		if (GameModeUtil.isSpecialGameMode(client)) {
-			log.debug("Loadout sync skipped: special game mode detected");
 			return;
 		}
 
@@ -192,12 +187,10 @@ public class LoadoutMonitor {
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {
-			log.debug("Loadout contents unchanged, skipping sync");
 			return;
 		}
 
 		lastSyncJson = json;
-		log.debug("Syncing {} loadout sets for player: {}", loadoutSets.size(), playerUsername);
 		apiClient.sendLoadoutSync(payload);
 	}
 
@@ -280,7 +273,6 @@ public class LoadoutMonitor {
 				return false;
 			}
 
-			log.debug("Found {} Inventory Setups (V3 format)", v3Keys.size());
 			Map<String, String> sectionMap = loadSectionMap();
 
 			for (String fullKey : v3Keys) {
@@ -296,12 +288,10 @@ public class LoadoutMonitor {
 						setups.add(loadoutSet);
 					}
 				} catch (Exception e) {
-					log.debug("Failed to parse V3 setup key {}: {}", configKey, e.getMessage());
 				}
 			}
 			return true;
 		} catch (Exception e) {
-			log.debug("V3 Inventory Setups read failed: {}", e.getMessage());
 			return false;
 		}
 	}
@@ -320,7 +310,6 @@ public class LoadoutMonitor {
 
 		try {
 			JsonArray setupsArray = gson.fromJson(setupsJson, JsonArray.class);
-			log.debug("Found {} Inventory Setups (legacy format)", setupsArray.size());
 			for (JsonElement element : setupsArray) {
 				JsonObject setup = element.getAsJsonObject();
 				LoadoutSyncPayload.LoadoutSet loadoutSet = parseLegacySetup(setup);
@@ -355,7 +344,6 @@ public class LoadoutMonitor {
 				}
 			}
 		} catch (Exception e) {
-			log.debug("Failed to load Inventory Setups sections: {}", e.getMessage());
 		}
 		return sectionMap;
 	}

@@ -7,7 +7,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.events.GameStateChanged;
@@ -19,7 +18,6 @@ import net.runelite.client.eventbus.Subscribe;
  * every few minutes in between so a client closed without logging out still ends the
  * session at the last ping. World hops and reconnects stay in the same session.
  */
-@Slf4j
 @Singleton
 public class SessionMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -117,7 +115,6 @@ public class SessionMonitor {
 	}
 
 	private void send(String name, String event) {
-		log.debug("Play session {} for {}", event, name);
 		apiClient.sendSessionEvent(name, event, Instant.now().toString());
 	}
 }

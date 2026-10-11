@@ -12,7 +12,6 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -47,7 +46,6 @@ import net.runelite.client.game.ItemManager;
  * moving while the item swallows the player's gathering, and uploaded as
  * its own bank-memory source through a debounced {@link SourceSyncer}.
  */
-@Slf4j
 @Singleton
 public class StorageItemMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -231,7 +229,6 @@ public class StorageItemMonitor {
 		for (Tracked t : tracked) {
 			Map<Integer, Integer> contents = bySource.get(t.ledger.spec.source);
 			if (contents != null) {
-				log.debug("{}: adopting Charges Improved state {}", t.ledger.spec.source, contents);
 				t.ledger.resync(contents);
 			}
 		}
