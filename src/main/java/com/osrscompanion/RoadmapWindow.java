@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import static com.osrscompanion.GameUi.*;
 
 import com.osrscompanion.api.OSRSCompanionApiClient;
@@ -72,6 +73,7 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 	private final GoalProgressTracker tracker;
 	private final GoalImageCache images;
 
+	@Getter
 	private volatile boolean open;
 	private volatile List<RoadmapSummary> roadmaps = Collections.emptyList();
 	private volatile String status;
@@ -112,10 +114,6 @@ public class RoadmapWindow extends Overlay implements MouseListener, MouseWheelL
 	}
 
 	// ------------------------------------------------------------------ open / load
-
-	public boolean isOpen() {
-		return open;
-	}
 
 	public void toggle() {
 		if (open) {

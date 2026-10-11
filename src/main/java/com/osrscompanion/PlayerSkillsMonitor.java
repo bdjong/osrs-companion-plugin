@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.PlayerSkillsSyncPayload;
 import java.util.Collections;
@@ -49,6 +50,7 @@ public class PlayerSkillsMonitor {
 	private volatile boolean xpDirty;
 	private ScheduledFuture<?> trainingTask;
 	/** The XP snapshot of the last upload the server acknowledged, keyed by skill name. */
+	@Getter
 	private volatile Map<String, Integer> lastUploadedXp = Collections.emptyMap();
 	private volatile Consumer<Map<String, Integer>> uploadListener;
 
@@ -88,10 +90,6 @@ public class PlayerSkillsMonitor {
 	/** Receives each acknowledged upload's XP snapshot (set by the plugin). */
 	public void setUploadListener(Consumer<Map<String, Integer>> listener) {
 		this.uploadListener = listener;
-	}
-
-	public Map<String, Integer> getLastUploadedXp() {
-		return lastUploadedXp;
 	}
 
 	/** Re-runs the skills sync now (App Key entered while logged in, or the roadmap's "Sync &amp; refresh"). */

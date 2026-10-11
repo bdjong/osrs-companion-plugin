@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.Map;
 
@@ -13,6 +14,7 @@ import java.util.Map;
  */
 public class QuestsSyncPayload {
 	private final String player_username;
+	@Getter
 	private final Map<String, Integer> quests;
 
 	public QuestsSyncPayload(String playerUsername, Map<String, Integer> quests) {
@@ -22,10 +24,6 @@ public class QuestsSyncPayload {
 
 	public String getPlayerUsername() {
 		return player_username;
-	}
-
-	public Map<String, Integer> getQuests() {
-		return quests;
 	}
 
 	public String toJson(Gson gson) {

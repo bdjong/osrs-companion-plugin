@@ -1,5 +1,6 @@
 package com.osrscompanion.api;
 
+import lombok.Getter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,14 +48,21 @@ public final class SyncOutbox {
 
 	/** One queued upload. */
 	public static final class Item {
+		@Getter
 		final String baseUrl;
+		@Getter
 		final String appKey;
+		@Getter
 		final String path;
+		@Getter
 		final String method;
+		@Getter
 		final String body;
+		@Getter
 		final String label;
 		/** Non-null for a full-state upload: a newer one with the same key replaces it while queued. */
 		final String coalesceKey;
+		@Getter
 		final boolean large;
 		boolean priority;
 		final List<Runnable> onSuccess = new ArrayList<>();
@@ -78,33 +86,6 @@ public final class SyncOutbox {
 			}
 		}
 
-		public String getBaseUrl() {
-			return baseUrl;
-		}
-
-		public String getAppKey() {
-			return appKey;
-		}
-
-		public String getPath() {
-			return path;
-		}
-
-		public String getMethod() {
-			return method;
-		}
-
-		public String getBody() {
-			return body;
-		}
-
-		public String getLabel() {
-			return label;
-		}
-
-		public boolean isLarge() {
-			return large;
-		}
 	}
 
 	/** How a batch went: the HTTP status of the batch, and per request (in order) its status. */
@@ -144,6 +125,8 @@ public final class SyncOutbox {
 	private long backoffUntilMs;
 	private long batchUnsupportedUntilMs;
 	private boolean stopped;
+	/** When a batch response last arrived (clock ms), or {@link Long#MIN_VALUE} if never. */
+	@Getter
 	private volatile long lastBatchResponseMs = Long.MIN_VALUE;
 	private volatile IntConsumer webVersionListener;
 	private volatile DropListener dropListener;
@@ -180,11 +163,6 @@ public final class SyncOutbox {
 
 	public void setBatchExtra(BatchExtra extra) {
 		this.batchExtra = extra;
-	}
-
-	/** When a batch response last arrived (clock ms), or {@link Long#MIN_VALUE} if never. */
-	public long getLastBatchResponseMs() {
-		return lastBatchResponseMs;
 	}
 
 	public synchronized int size() {

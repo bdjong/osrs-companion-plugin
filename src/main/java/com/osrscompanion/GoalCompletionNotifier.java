@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.osrscompanion.model.RoadmapGoal;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -46,8 +47,11 @@ public class GoalCompletionNotifier {
 	public static final class Popup {
 		private final String title;
 		private final String body;
+		@Getter
 		private final String roadmapTitle;
+		@Getter
 		private final int goalsDone;
+		@Getter
 		private final int goalsTotal;
 
 		Popup(String title, String body, String roadmapTitle, int goalsDone, int goalsTotal) {
@@ -58,22 +62,12 @@ public class GoalCompletionNotifier {
 			this.goalsTotal = goalsTotal;
 		}
 
-		public String getRoadmapTitle() {
-			return roadmapTitle;
-		}
-
-		public int getGoalsDone() {
-			return goalsDone;
-		}
-
-		public int getGoalsTotal() {
-			return goalsTotal;
-		}
 	}
 
 	private final Deque<Popup> queue = new ArrayDeque<>();
 	private WidgetNode openNode;
 	/** The popup currently on screen (read by the overlay on the render thread). */
+	@Getter
 	private volatile Popup active;
 
 	@Inject
@@ -122,11 +116,6 @@ public class GoalCompletionNotifier {
 				showNext();
 			}
 		});
-	}
-
-	/** The popup on screen right now, or null. */
-	public Popup getActive() {
-		return active;
 	}
 
 	/** Drops queued popups and closes an open one (plugin shutdown). */

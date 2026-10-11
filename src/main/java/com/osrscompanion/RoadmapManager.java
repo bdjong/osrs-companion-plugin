@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapList;
@@ -60,6 +61,8 @@ public class RoadmapManager {
 	private final ReconcileScheduler scheduler;
 	private final RoadmapListCache listCache = new RoadmapListCache();
 
+	/** The last fetched roadmap (may be null), used by the overlay. */
+	@Getter
 	private volatile Roadmap currentRoadmap;
 	/** Hears every fetched roadmap, selected or not; set by the plugin. */
 	private volatile Consumer<Roadmap> roadmapListener;
@@ -119,11 +122,6 @@ public class RoadmapManager {
 
 	public boolean hasAppKey() {
 		return SyncGuard.hasAppKey(config);
-	}
-
-	/** The last fetched roadmap (may be null), used by the overlay. */
-	public Roadmap getCurrentRoadmap() {
-		return currentRoadmap;
 	}
 
 	void setCurrentRoadmap(Roadmap roadmap) {

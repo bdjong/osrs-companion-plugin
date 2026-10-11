@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.util.Collections;
 import java.util.List;
@@ -9,22 +10,16 @@ import java.util.List;
  * style (and the burst / barrage one on a burst task) against the current task's monster, best first.
  */
 public class SlayerGear {
+	@Getter
 	@SerializedName("task")
 	private String task;
 
+	@Getter
 	@SerializedName("monster")
 	private String monster;
 
 	@SerializedName("sets")
 	private List<Set> sets;
-
-	public String getTask() {
-		return task;
-	}
-
-	public String getMonster() {
-		return monster;
-	}
 
 	public List<Set> getSets() {
 		return sets == null ? Collections.emptyList() : sets;
@@ -32,21 +27,26 @@ public class SlayerGear {
 
 	/** One setup: its style, numbers, worn items and what else it counts on (potion, prayer, spell, darts). */
 	public static class Set {
+		@Getter
 		@SerializedName("key")
 		private String key;
 
 		@SerializedName("label")
 		private String label;
 
+		@Getter
 		@SerializedName("max_hit")
 		private int maxHit;
 
+		@Getter
 		@SerializedName("dps")
 		private double dps;
 
+		@Getter
 		@SerializedName("kills_per_hour")
 		private double killsPerHour;
 
+		@Getter
 		@SerializedName("spell")
 		private String spell;
 
@@ -57,6 +57,7 @@ public class SlayerGear {
 		private List<Extra> extras;
 
 		/** The ammo / spell options, best first: the setup counts on the first, the bank shows a few. */
+		@Getter
 		@SerializedName("supplies")
 		private Supplies supplies;
 
@@ -64,28 +65,8 @@ public class SlayerGear {
 		@SerializedName("bring")
 		private List<Bring> bring;
 
-		public String getKey() {
-			return key;
-		}
-
 		public String getLabel() {
 			return label == null ? "Setup" : label;
-		}
-
-		public int getMaxHit() {
-			return maxHit;
-		}
-
-		public double getDps() {
-			return dps;
-		}
-
-		public double getKillsPerHour() {
-			return killsPerHour;
-		}
-
-		public String getSpell() {
-			return spell;
 		}
 
 		public List<Piece> getEquipment() {
@@ -94,10 +75,6 @@ public class SlayerGear {
 
 		public List<Extra> getExtras() {
 			return extras == null ? Collections.emptyList() : extras;
-		}
-
-		public Supplies getSupplies() {
-			return supplies;
 		}
 
 		public List<Bring> getBring() {
@@ -139,22 +116,16 @@ public class SlayerGear {
 	}
 
 	public static class Piece {
+		@Getter
 		@SerializedName("slot")
 		private String slot;
 
+		@Getter
 		@SerializedName("item")
 		private int item;
 
 		@SerializedName("name")
 		private String name;
-
-		public String getSlot() {
-			return slot;
-		}
-
-		public int getItem() {
-			return item;
-		}
 
 		public String getName() {
 			return name == null ? "Item" : name;

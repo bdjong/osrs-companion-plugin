@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import java.util.Locale;
 
 /**
@@ -24,14 +25,11 @@ public enum GoalType {
 	CUSTOM("custom"),
 	UNKNOWN("");
 
+	@Getter
 	private final String wire;
 
 	GoalType(String wire) {
 		this.wire = wire;
-	}
-
-	public String getWire() {
-		return wire;
 	}
 
 	public static GoalType fromWire(String wire) {

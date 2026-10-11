@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,9 @@ public class SlayerSyncPayload {
 	}
 
 	private final String player_username;
+	@Getter
 	private final State state;
+	@Getter
 	private final List<SlayerTaskEvent> events;
 
 	public SlayerSyncPayload(String playerUsername, State state, List<SlayerTaskEvent> events) {
@@ -93,14 +96,6 @@ public class SlayerSyncPayload {
 
 	public String getPlayerUsername() {
 		return player_username;
-	}
-
-	public State getState() {
-		return state;
-	}
-
-	public List<SlayerTaskEvent> getEvents() {
-		return events;
 	}
 
 	public String toJson(Gson gson) {

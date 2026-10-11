@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.List;
 
@@ -11,6 +12,7 @@ import java.util.List;
  */
 public class DeathSyncPayload {
 	private final String player_username;
+	@Getter
 	private final List<DeathEvent> events;
 
 	public DeathSyncPayload(String playerUsername, List<DeathEvent> events) {
@@ -20,10 +22,6 @@ public class DeathSyncPayload {
 
 	public String getPlayerUsername() {
 		return player_username;
-	}
-
-	public List<DeathEvent> getEvents() {
-		return events;
 	}
 
 	public String toJson(Gson gson) {
