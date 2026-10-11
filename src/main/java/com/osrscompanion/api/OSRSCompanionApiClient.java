@@ -12,7 +12,6 @@ import com.osrscompanion.SyncGuard;
 import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
 import com.osrscompanion.model.DeathSyncPayload;
-import com.osrscompanion.model.BossAreasResponse;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.KillCountsSyncPayload;
@@ -77,7 +76,6 @@ public class OSRSCompanionApiClient
 	private static final String FARMING_UNLOCKS_ENDPOINT = "/api/runelite/farming-unlocks/";
 	private static final String FARM_HARVESTS_ENDPOINT = "/api/runelite/farm-harvests/";
 	private static final String FARM_RUN_ENDPOINT = "/api/runelite/farm-run/";
-	private static final String BOSS_TRIPS_ENDPOINT = "/api/runelite/boss-trips/";
 	private static final String DEATHS_ENDPOINT = "/api/runelite/deaths/";
 	private static final String KILL_COUNTS_ENDPOINT = "/api/runelite/kill-counts/";
 	private static final String LOADOUT_ENDPOINT = "/api/runelite/loadouts/";
@@ -94,9 +92,8 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_GUIDE_ENDPOINT = "/api/runelite/slayer/guide/";
 	private static final String SLAYER_GEAR_ENDPOINT = "/api/runelite/slayer/gear/";
 	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
-	private static final String BOSS_SESSIONS_ENDPOINT = "/api/runelite/boss-sessions/";
-	private static final String BOSS_AREAS_ENDPOINT = "/api/runelite/boss-areas/";
 	private static final String VARS_ENDPOINT = "/api/runelite/vars/";
+	private static final String EVENTS_ENDPOINT = "/api/runelite/events/";
 	static final String BATCH_ENDPOINT = "/api/runelite/batch";
 	static final String VERSION_ENDPOINT = "/api/runelite/version";
 	/** Live activity status (online, activity, world, area): its own upload, and riding along with every batch. */
@@ -230,13 +227,6 @@ public class OSRSCompanionApiClient
 	}
 
 
-	/** One finished boss trip (Boss Gear page, Trips); an event, so never deduped. */
-	public void sendBossTrip(String json)
-	{
-		postAsync(BOSS_TRIPS_ENDPOINT, json, "boss-trip", false, false, null, false,
-			null);
-	}
-
 
 
 
@@ -337,24 +327,6 @@ public class OSRSCompanionApiClient
 	{
 		postAsync(SLAYER_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "slayer-session", false, false,
 			key("slayer-session", String.valueOf(body.get("session_uuid"))), urgent,
-			() -> {
-				if (onSuccess != null)
-				{
-					onSuccess.run();
-				}
-			});
-	}
-
-	/**
-	 * Sends one boss history session (upserted by its session_uuid, so re-sending it as it grows is fine; a
-	 * queued older copy is replaced). The callback runs on the OkHttp thread.
-	 *
-	 * @param urgent send at once (a kill, a drop, logging out), not with the next timed flush
-	 */
-	public void sendBossSession(Map<String, Object> body, Runnable onSuccess, boolean urgent)
-	{
-		postAsync(BOSS_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "boss-session", false, false,
-			key("boss-session", String.valueOf(body.get("session_uuid"))), urgent,
 			() -> {
 				if (onSuccess != null)
 				{
@@ -525,15 +497,6 @@ public class OSRSCompanionApiClient
 			FarmRoute.Response.class, callback);
 	}
 
-	/**
-	 * Fetches the website's boss lairs (boss key -> map regions). With the version the plugin has, the answer
-	 * is only { version, unchanged: true } while it is still current.
-	 */
-	public void getBossAreas(String version, RoadmapCallback<BossAreasResponse> callback)
-	{
-		getAsync(BOSS_AREAS_ENDPOINT + (version == null ? "" : "?version=" + urlEncode(version)), "boss-areas", BossAreasResponse.class, callback);
-	}
-
 	/** Fetches the player's active boss gear set ({ set: null } until one is picked on the website). */
 	public void getBossGear(String playerUsername, RoadmapCallback<BossGear.Response> callback)
 	{
@@ -590,6 +553,12 @@ public class OSRSCompanionApiClient
 	public <T> void getVarWatchList(String playerUsername, Class<T> type, RoadmapCallback<T> callback)
 	{
 		getAsync(VARS_ENDPOINT + "?player=" + urlEncode(playerUsername), "vars", type, callback);
+	}
+
+	/** The game events the website works the boss trips and history out from ({@link com.osrscompanion.GameEvents}); in order, never merged. */
+	public void sendEvents(String json, boolean priority)
+	{
+		postAsync(EVENTS_ENDPOINT, json, "events", false, false, null, priority, null);
 	}
 
 	/** The data pump's raw values (merged per player: only the newest set matters). */

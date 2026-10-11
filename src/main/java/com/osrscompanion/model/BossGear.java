@@ -4,6 +4,7 @@ import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The active boss gear set as returned by GET /api/runelite/boss-gear/: per worn slot the item to
@@ -97,6 +98,14 @@ public class BossGear {
 	@Getter
 	@SerializedName("spellbook")
 	private String spellbook;
+
+	/** What your last (up to ten) trips at this boss used, by supply key, oldest first. */
+	@SerializedName("trip_supplies")
+	private List<Map<String, Long>> tripSupplies;
+
+	public List<Map<String, Long>> getTripSupplies() {
+		return tripSupplies == null ? java.util.Collections.emptyList() : tripSupplies;
+	}
 
 	/** The ammo / spell options for the weapon, best first (the bank layout shows the setting's number of them). */
 	@Getter
