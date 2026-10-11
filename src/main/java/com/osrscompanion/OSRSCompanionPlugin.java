@@ -91,23 +91,15 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private QuestMonitor questMonitor;
 
-	@Inject
-	private AchievementDiaryMonitor achievementDiaryMonitor;
 
 	@Inject
 	private VarPump varPump;
 
-	@Inject
-	private HouseLocationMonitor houseLocationMonitor;
 
 	@Inject
 	private FarmingUnlocksMonitor farmingUnlocksMonitor;
 
-	@Inject
-	private KingdomMonitor kingdomMonitor;
 
-	@Inject
-	private CombatAchievementMonitor combatAchievementMonitor;
 
 	@Inject
 	private KillCountMonitor killCountMonitor;
@@ -244,8 +236,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private KeyManager keyManager;
 
-	@Inject
-	private DailiesManager dailiesManager;
 
 	@Inject
 	private WebVersionWatcher webVersionWatcher;
@@ -290,11 +280,11 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		subscribers = java.util.Arrays.asList(this, timerMonitor, playerSkillsMonitor, bankMemoryMonitor, vaultMonitor,
 				potionStorageMonitor, runePouchMonitor, plankSackMonitor, storageItemMonitor, loadoutMonitor, lootMonitor,
-				collectionLogMonitor, questMonitor, achievementDiaryMonitor, varPump, houseLocationMonitor, farmingUnlocksMonitor,
-				kingdomMonitor, combatAchievementMonitor, killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
+				collectionLogMonitor, questMonitor, varPump, farmingUnlocksMonitor,
+				killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
 				slayerRewardsMonitor, farmRunManager, farmHarvestTracker, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
-				bossTripTracker, suppliesCheck, dailiesManager, liveActivityMonitor);
+				bossTripTracker, suppliesCheck, liveActivityMonitor);
 		for (Object subscriber : subscribers) {
 			if (subscriber != null) {
 				step("register " + subscriber.getClass().getSimpleName(), () -> eventBus.register(subscriber));
@@ -605,7 +595,6 @@ public class OSRSCompanionPlugin extends Plugin {
 			suppliesCheck.clear();
 			overlayManager.remove(suppliesOverlay);
 		});
-		step("dailies", dailiesManager::clear);
 		step("goal progress", this::disconnectGoalProgress);
 
 		step("stop timerMonitor", () -> timerMonitor.stop());
@@ -620,12 +609,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("stop lootMonitor", () -> lootMonitor.stop());
 		step("stop collectionLogMonitor", () -> collectionLogMonitor.stop());
 		step("stop questMonitor", () -> questMonitor.stop());
-		step("stop achievementDiaryMonitor", () -> achievementDiaryMonitor.stop());
 		step("stop varPump", () -> varPump.stop());
-		step("stop houseLocationMonitor", () -> houseLocationMonitor.stop());
 		step("stop farmingUnlocksMonitor", () -> farmingUnlocksMonitor.stop());
-		step("stop kingdomMonitor", () -> kingdomMonitor.stop());
-		step("stop combatAchievementMonitor", () -> combatAchievementMonitor.stop());
 		step("stop killCountMonitor", () -> killCountMonitor.stop());
 		step("stop deathMonitor", () -> deathMonitor.stop());
 		step("stop slayerMonitor", () -> slayerMonitor.stop());
@@ -803,17 +788,12 @@ public class OSRSCompanionPlugin extends Plugin {
 		lootMonitor.forceSync();
 		collectionLogMonitor.forceSync();
 		questMonitor.forceSync();
-		achievementDiaryMonitor.forceSync();
 		varPump.forceSync();
-		houseLocationMonitor.forceSync();
 		farmingUnlocksMonitor.forceSync();
-		kingdomMonitor.forceSync();
-		combatAchievementMonitor.forceSync();
 		killCountMonitor.forceSync();
 		deathMonitor.forceSync();
 		slayerMonitor.forceSync();
 		slayerCatalogMonitor.forceSync();
-		dailiesManager.forceSync();
 	}
 
 	@Subscribe
