@@ -100,6 +100,21 @@ public class TimerMonitor {
 		executorService.execute(this::sync);
 	}
 
+	/** What RuneLite's Time Tracking stored for the account logged in (its RS profile's timetracking keys). */
+	static Map<String, String> timeTracking(ConfigManager configManager) {
+		Map<String, String> profile = new TreeMap<>();
+		String profileKey = configManager.getRSProfileKey();
+		if (profileKey != null) {
+			for (String key : configManager.getRSProfileConfigurationKeys(TimeTrackingConfig.CONFIG_GROUP, profileKey, "")) {
+				String value = configManager.getConfiguration(TimeTrackingConfig.CONFIG_GROUP, profileKey, key);
+				if (value != null) {
+					profile.put(key, value);
+				}
+			}
+		}
+		return profile;
+	}
+
 	private void sync() {
 		String player = SyncGuard.getPlayerUsername(client);
 		String profileKey = configManager.getRSProfileKey();
@@ -107,13 +122,7 @@ public class TimerMonitor {
 				|| GameModeUtil.isSpecialGameMode(client) || player == null || profileKey == null) {
 			return;
 		}
-		Map<String, String> profile = new TreeMap<>();
-		for (String key : configManager.getRSProfileConfigurationKeys(TimeTrackingConfig.CONFIG_GROUP, profileKey, "")) {
-			String value = configManager.getConfiguration(TimeTrackingConfig.CONFIG_GROUP, profileKey, key);
-			if (value != null) {
-				profile.put(key, value);
-			}
-		}
+		Map<String, String> profile = timeTracking(configManager);
 		Instant tog = tearsOfGuthixNextReset;
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("player_username", player);
