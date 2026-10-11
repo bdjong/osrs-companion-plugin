@@ -95,6 +95,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	private AchievementDiaryMonitor achievementDiaryMonitor;
 
 	@Inject
+	private VarPump varPump;
+
+	@Inject
 	private HouseLocationMonitor houseLocationMonitor;
 
 	@Inject
@@ -287,7 +290,7 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		subscribers = java.util.Arrays.asList(this, timerMonitor, playerSkillsMonitor, bankMemoryMonitor, vaultMonitor,
 				potionStorageMonitor, runePouchMonitor, plankSackMonitor, storageItemMonitor, loadoutMonitor, lootMonitor,
-				collectionLogMonitor, questMonitor, achievementDiaryMonitor, houseLocationMonitor, farmingUnlocksMonitor,
+				collectionLogMonitor, questMonitor, achievementDiaryMonitor, varPump, houseLocationMonitor, farmingUnlocksMonitor,
 				kingdomMonitor, combatAchievementMonitor, killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
 				slayerRewardsMonitor, goalProgressTracker, farmRunManager, farmHarvestTracker, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
@@ -651,6 +654,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("stop collectionLogMonitor", () -> collectionLogMonitor.stop());
 		step("stop questMonitor", () -> questMonitor.stop());
 		step("stop achievementDiaryMonitor", () -> achievementDiaryMonitor.stop());
+		step("stop varPump", () -> varPump.stop());
 		step("stop houseLocationMonitor", () -> houseLocationMonitor.stop());
 		step("stop farmingUnlocksMonitor", () -> farmingUnlocksMonitor.stop());
 		step("stop kingdomMonitor", () -> kingdomMonitor.stop());
@@ -861,6 +865,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		collectionLogMonitor.forceSync();
 		questMonitor.forceSync();
 		achievementDiaryMonitor.forceSync();
+		varPump.forceSync();
 		houseLocationMonitor.forceSync();
 		farmingUnlocksMonitor.forceSync();
 		kingdomMonitor.forceSync();
