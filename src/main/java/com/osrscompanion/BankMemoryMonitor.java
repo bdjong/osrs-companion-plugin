@@ -70,8 +70,6 @@ public class BankMemoryMonitor {
 	private final SourceSyncer syncer;
 	/** Deposits made where the bank container is never sent (deposit box, bank boat). */
 	private final BankDepositLedger deposits;
-	/** Source to what the server last held for the goal items in it; set by the plugin. */
-	private volatile Function<String, Map<Integer, Integer>> seedSupplier;
 
 	private GameState previousGameState = GameState.UNKNOWN;
 	/** The group storage interface is open (its container is only read then). */
@@ -100,14 +98,7 @@ public class BankMemoryMonitor {
 				apiClient::sendBankSync);
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 		this.syncer.linkSources(SOURCE_INVENTORY, SOURCE_WORN);
-		this.deposits = new BankDepositLedger(() -> {
-			Function<String, Map<Integer, Integer>> s = seedSupplier;
-			return s == null ? Map.of() : s.apply(BankDepositLedger.SOURCE);
-		});
-	}
-
-	public void setSeedSupplier(Function<String, Map<Integer, Integer>> supplier) {
-		this.seedSupplier = supplier;
+		this.deposits = new BankDepositLedger(() -> Map.of());
 	}
 
 	/** Items reached the bank without a bank container being sent (a storage item emptied into a
@@ -158,12 +149,6 @@ public class BankMemoryMonitor {
 		Guard.run(Guard.SYNC_FEATURE, syncer::flushPending);
 	}
 
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
-	}
-
 	/**
 	 * Re-reads the bank/inventory/equipment on the client thread and re-pushes
 	 * it immediately, even if unchanged. Used by the roadmap panel's
@@ -175,28 +160,6 @@ public class BankMemoryMonitor {
 			syncer.invalidate();
 			push(false, true);
 		});
-	}
-
-	/** Invoked after each upload so roadmap progress (net worth) can be re-read; set by the plugin. */
-	public void setSyncedListener(Runnable listener) {
-		syncer.setOnSent(listener);
-	}
-
-	/** Receives every payload the monitor builds (bank + inventory + equipment); set by the plugin. */
-	private volatile Consumer<BankSyncPayload> payloadListener;
-
-	public void setPayloadListener(Consumer<BankSyncPayload> listener) {
-		this.payloadListener = listener;
-	}
-
-	/**
-	 * Uploads the inventory and equipment right away (and the bank too when it
-	 * has been opened this session). The backend replaces sources one at a
-	 * time, so an inventory-only upload leaves the stored bank untouched. Used
-	 * when an owned-item goal completes locally.
-	 */
-	public void syncInventoryNow() {
-		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> push(true, true));
 	}
 
 	@Subscribe
@@ -256,7 +219,6 @@ public class BankMemoryMonitor {
 			return;
 		}
 		trackDeposits(bySource);
-		notifyPayload(bySource);
 		syncer.submitSources(bySource, immediate);
 	}
 
@@ -349,25 +311,4 @@ public class BankMemoryMonitor {
 		return bySource.isEmpty() ? null : bySource;
 	}
 
-	private void notifyPayload(Map<String, Map<Integer, Integer>> bySource) {
-		Consumer<BankSyncPayload> listener = payloadListener;
-		if (listener == null) {
-			return;
-		}
-		String playerUsername = SyncGuard.getPlayerUsername(client);
-		if (playerUsername == null) {
-			return;
-		}
-		Map<String, List<BankSyncPayload.BankItem>> itemsBySource = new LinkedHashMap<>();
-		bySource.forEach((source, quantities) -> {
-			// The group storage is the group's, not this character's: local goals do not count it.
-			if (!SOURCE_GROUP_STORAGE.equals(source)) {
-				itemsBySource.put(source, ItemCollector.toBankItemList(quantities));
-			}
-		});
-		if (itemsBySource.isEmpty()) {
-			return;
-		}
-		listener.accept(new BankSyncPayload(playerUsername, itemsBySource));
-	}
 }

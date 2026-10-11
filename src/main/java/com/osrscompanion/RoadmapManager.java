@@ -369,12 +369,6 @@ public class RoadmapManager {
 		refreshAllQuietly();
 	}
 
-	/** Re-reads every roadmap after a short lag (debounced). */
-	public void requestReconcile(int delaySeconds) {
-		scheduler.request(delaySeconds);
-		notifyPanel(); // so server-driven goals can show their syncing state
-	}
-
 	/** True while a server re-read is running or about to (drives "Syncing" hints). */
 	public boolean isSyncing() {
 		return scheduler.isSyncingSoon();

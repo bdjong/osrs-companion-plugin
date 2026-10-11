@@ -19,7 +19,7 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 
 ## The plan (checked off as it lands on `development`)
 
-1. [ ] Goal progress from the website: drop the plugin's local goal progress layer (GoalProgressState/Tracker hooks in the monitors); the goal box shows the website's progress.
+1. [x] Goal progress from the website: drop the plugin's local goal progress layer (GoalProgressState/Tracker hooks in the monitors); the goal box shows the website's progress.
 2. [ ] Data pump, varbit sources (proof: oracle fixtures): achievement diaries, combat achievements, Kingdom, house location, farming unlocks, slayer state and rewards, dailies.
 3. [ ] Data pump, item containers and game events: bank and storage, loadouts, loot, deaths, kill counts, skills, play sessions, live activity signals.
 4. [ ] Boss trips and boss history, slayer task sessions: built on the website from the pumped events.
@@ -44,3 +44,5 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 | The five windows on one `GameWindow` base (frame, clickable areas, tooltips, mouse and keys) | -5,322 |
 | In-game dailies guide dropped (the sync stays) | -10,046 |
 | One switcher list for three windows | -398 |
+| Data pump added (generic; diaries compared side by side) | +1,492 |
+| Goal progress from the website (local goal layer and its hooks in the monitors removed) | -11,899 |

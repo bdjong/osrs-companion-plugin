@@ -114,27 +114,6 @@ public class QuestMonitor {
 		this.gson = gson;
 	}
 
-	/** Receives every quest read (RuneLite quest name to status 0/1/2); set by the plugin. */
-	private volatile Consumer<Map<String, Integer>> statesListener;
-
-	public void setStatesListener(Consumer<Map<String, Integer>> listener) {
-		this.statesListener = listener;
-	}
-
-	/** Invoked after each upload so roadmap progress can be re-read; set by the plugin. */
-	private volatile Runnable syncedListener;
-
-	public void setSyncedListener(Runnable listener) {
-		this.syncedListener = listener;
-	}
-
-	private void notifySynced() {
-		Runnable listener = syncedListener;
-		if (listener != null) {
-			listener.run();
-		}
-	}
-
 	public void stop() {
 		previousGameState = GameState.UNKNOWN;
 		questCheckPending = false;
@@ -316,11 +295,6 @@ public class QuestMonitor {
 			questStates.putIfAbsent(name, 2);
 		}
 
-		Consumer<Map<String, Integer>> states = statesListener;
-		if (states != null) {
-			states.accept(questStates);
-		}
-
 		QuestsSyncPayload payload = new QuestsSyncPayload(playerUsername, questStates);
 		String json = payload.toJson(gson);
 
@@ -331,7 +305,6 @@ public class QuestMonitor {
 		lastSyncJson = json;
 		log.debug("Syncing {} quests for player: {}", questStates.size(), playerUsername);
 		apiClient.sendQuestsSync(payload);
-		notifySynced();
 	}
 
 	/** A quest row's display name, or null when the row can't be read. */

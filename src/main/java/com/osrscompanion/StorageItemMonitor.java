@@ -69,10 +69,7 @@ public class StorageItemMonitor {
 		final Map<Action, Integer> actionTicks = new HashMap<>();
 
 		Tracked(StorageItemSpec spec) {
-			this.ledger = new StorageItemLedger(spec, StorageItemMonitor.this::itemName, () -> {
-				java.util.function.Function<String, Map<Integer, Integer>> s = seedSupplier;
-				return s == null ? Map.of() : s.apply(spec.source);
-			});
+			this.ledger = new StorageItemLedger(spec, StorageItemMonitor.this::itemName, () -> Map.of());
 			this.syncer = new SourceSyncer(spec.source, gson, executor,
 					() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
 					() -> SyncGuard.getPlayerUsername(client),
@@ -129,14 +126,6 @@ public class StorageItemMonitor {
 		this.emptiedToDepositBoxListener = listener;
 	}
 
-	private volatile BiConsumer<String, Map<Integer, Integer>> snapshotListener;
-	/** Source to what the server last held for the goal items in it; set by the plugin from the goal tracker. */
-	private volatile java.util.function.Function<String, Map<Integer, Integer>> seedSupplier;
-
-	public void setSeedSupplier(java.util.function.Function<String, Map<Integer, Integer>> supplier) {
-		this.seedSupplier = supplier;
-	}
-
 	@Inject
 	public StorageItemMonitor(
 			Client client,
@@ -161,18 +150,6 @@ public class StorageItemMonitor {
 		}
 	}
 
-	/** Receives every ledger change (source, item id to quantity), before any sync gate. */
-	public void setSnapshotListener(BiConsumer<String, Map<Integer, Integer>> listener) {
-		this.snapshotListener = listener;
-	}
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		for (Tracked t : tracked) {
-			t.syncer.setGoalItems(goalItems);
-		}
-	}
-
 	public void stop() {
 		for (Tracked t : tracked) {
 			t.syncer.stop();
@@ -180,14 +157,6 @@ public class StorageItemMonitor {
 		inventoryIds.clear();
 		equipmentIds.clear();
 		inventoryQuantities = new HashMap<>();
-	}
-
-	/** Upload every ledger right away (an owned-item goal just completed locally). */
-	public void syncNow() {
-		for (Tracked t : tracked) {
-			t.syncer.invalidate();
-		}
-		pushAll = true;
 	}
 
 	private String itemName(int itemId) {
@@ -476,10 +445,6 @@ public class StorageItemMonitor {
 					continue;
 				}
 				Map<Integer, Integer> contents = t.ledger.contents();
-				BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-				if (listener != null) {
-					listener.accept(t.ledger.spec.source, contents);
-				}
 				// An emptied container is worth telling the server about at once:
 				// its items are about to show up in the bank snapshot.
 				t.syncer.submit(contents, push || contents.isEmpty());
