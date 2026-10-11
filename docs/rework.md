@@ -11,6 +11,22 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 - **No website UI changes:** the website only gets new API endpoints and the calculations behind them.
 - **The in-game dailies guide is dropped** (the owner's choice; the only feature that goes): the side panel's dailies page and tile, the step box, the NPC arrow and map marker, and ticking dailies by hand in the plugin. The dailies sync stays, so the website's Dailies page keeps showing what is done; its instructions and timers are on the website.
 
+## How it works now (2026-10-11, owner: "keep going, report when done or a decision is needed")
+
+- **Data pump**: the plugin sends raw game values (varbits, varplayers; later item containers and game events) and the website works out what they mean (`web/src/lib/varPump.ts`, `POST /api/runelite/vars`). The website's watch list (`GET /api/runelite/vars`) is grouped per data source, and the plugin only sends a source whose Data Syncing switch is on.
+- **Proof without playing**: before plugin logic is removed, a Java "oracle" test runs it on many inputs and writes the results to a fixture in the website repo (`web/src/lib/__tests__/fixtures/`); the website's tests must reproduce them exactly. The owner's test with the DEV client at the end covers the live side.
+- **Website releases** to production happen as part of the plan (new endpoints only; no UI change, no change for the live plugin on `main`, which keeps using the old endpoints).
+
+## The plan (checked off as it lands on `development`)
+
+1. [ ] Goal progress from the website: drop the plugin's local goal progress layer (GoalProgressState/Tracker hooks in the monitors); the goal box shows the website's progress.
+2. [ ] Data pump, varbit sources (proof: oracle fixtures): achievement diaries, combat achievements, Kingdom, house location, farming unlocks, slayer state and rewards, dailies.
+3. [ ] Data pump, item containers and game events: bank and storage, loadouts, loot, deaths, kill counts, skills, play sessions, live activity signals.
+4. [ ] Boss trips and boss history, slayer task sessions: built on the website from the pumped events.
+5. [ ] Guides driven by the website: farm run (patch states from the pump), Slayer guide, boss gear (bank layout stays local), trip planner, gear progression, roadmap window actions; the last guide state stored locally.
+6. [ ] Remaining fixed tables as data files; UI sharing (same look, goldens).
+7. [ ] Turn `PluginSizeTest` enforcement on (195k), final count, then the open decision below.
+
 ## Open: decide when the rework is done
 
 - **Advancing guide steps offline (the owner's preference).** The website would send each step with simple conditions ("this patch is planted", "this item is in the inventory", "you are in this area") and the plugin checks them itself: guides keep moving without the website, and simple steps react instantly again. Estimated 4,000-6,000 tokens. Decide with the exact token count at the end of the rework: do it if it fits under 195,000.
