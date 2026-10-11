@@ -22,6 +22,8 @@ const IGNORED_FILES = [
   'BirdHouseTracker.java',
   'BirdHouseData.java',
   'BirdHouseState.java',
+  // The plugin's PatchImplementation reads patch-states.txt; RuneLite's goes to the tests (see the end).
+  'PatchImplementation.java',
 ]
 
 function patchCopiedFiles(search, replace) {
@@ -116,5 +118,49 @@ for (const file of files) {
   content = content.replace(GENERATED_COMMENT + GENERATED_COMMENT, GENERATED_COMMENT)
   fs.writeFileSync(file, content, 'utf-8')
 }
+
+console.log('RuneLite PatchImplementation -> tests (RuneLitePatchImplementation, the patch table reference)')
+const REFERENCE_PATH = path.join(__dirname, '../src/test/java/com/osrscompanion/runelite/farming/RuneLitePatchImplementation.java')
+let ref = fs.readFileSync(path.join(RUNELITE_PLUGIN_PATH, 'farming', 'PatchImplementation.java'), 'utf-8').replace(/\r\n/g, '\n')
+ref = ref
+  .replace('package net.runelite.client.plugins.timetracking.farming;', 'package com.osrscompanion.runelite.farming;')
+  .replace('import net.runelite.client.plugins.timetracking.Tab;', 'import com.osrscompanion.runelite.Tab;')
+  .replace('import lombok.Getter;\n', '')
+  .replace('import lombok.RequiredArgsConstructor;\n', '')
+  .replace('@RequiredArgsConstructor\n@Getter\npublic enum PatchImplementation', 'public enum RuneLitePatchImplementation')
+  .replace(/\tprivate final boolean healthCheckRequired;\n}\s*$/, [
+    '\tprivate final boolean healthCheckRequired;',
+    '',
+    '\tRuneLitePatchImplementation(Tab tab, String name, boolean healthCheckRequired)',
+    '\t{',
+    '\t\tthis.tab = tab;',
+    '\t\tthis.name = name;',
+    '\t\tthis.healthCheckRequired = healthCheckRequired;',
+    '\t}',
+    '',
+    '\tpublic Tab getTab()',
+    '\t{',
+    '\t\treturn tab;',
+    '\t}',
+    '',
+    '\tpublic String getName()',
+    '\t{',
+    '\t\treturn name;',
+    '\t}',
+    '',
+    '\tpublic boolean isHealthCheckRequired()',
+    '\t{',
+    '\t\treturn healthCheckRequired;',
+    '\t}',
+    '}',
+    '',
+  ].join('\n'))
+ref = "// RuneLite's PatchImplementation, unchanged but renamed and without Lombok: the reference the plugin's\n"
+  + '// patch table (patch-states.txt) is generated from and checked against. Run: node update.js\n\n' + ref
+fs.mkdirpSync(path.dirname(REFERENCE_PATH))
+fs.writeFileSync(REFERENCE_PATH, ref, 'utf-8')
+console.log('  Next: delete src/main/resources/com/osrscompanion/runelite/farming/patch-states.txt and run ./gradlew test.')
+console.log("  PatchTableTest writes it again from RuneLite's code and checks every value; a new patch type in RuneLite")
+console.log('  also needs its constant in src/main/java/com/osrscompanion/runelite/farming/PatchImplementation.java.')
 
 console.log('Done. Run ./gradlew build to verify.')
