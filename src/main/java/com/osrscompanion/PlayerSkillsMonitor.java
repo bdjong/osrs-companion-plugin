@@ -94,7 +94,7 @@ public class PlayerSkillsMonitor {
 		return lastUploadedXp;
 	}
 
-	/** Re-runs the skills sync now (App Key entered while logged in). */
+	/** Re-runs the skills sync now (App Key entered while logged in, or the roadmap's "Sync &amp; refresh"). */
 	public void forceSync() {
 		syncOnClientThread();
 	}
