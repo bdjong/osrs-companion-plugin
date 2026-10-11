@@ -145,39 +145,8 @@ public class GearProgressionOverlay extends GameWindow {
 
 	/** The roadmap list under the Switch button, drawn last so it sits on top. Its hits go first. */
 	private void renderSwitcher(Graphics2D g, List<GearPlan.Summary> plans, Rectangle anchor, List<Hit> newHits) {
-		g.setFont(FontManager.getRunescapeFont());
-		FontMetrics fm = g.getFontMetrics();
-		int rowH = 18;
-		int width = 220;
-		Rectangle list = new Rectangle(anchor.x, anchor.y + anchor.height + 2, width, plans.size() * rowH + 6);
-		box(g, list, BG, FRAME_DARK, BUTTON_INNER);
-		List<Hit> optionHits = new ArrayList<>();
-		int rowY = list.y + 3;
-		for (GearPlan.Summary p : plans) {
-			Rectangle row = new Rectangle(list.x + 3, rowY, list.width - 6, rowH);
-			Point m = mouse;
-			if (m != null && row.contains(m)) {
-				g.setColor(TAB_ON);
-				g.fillRect(row.x, row.y, row.width, row.height);
-			}
-			String label = truncate(p.getName(), fm, row.width - 50);
-			text(g, label, row.x + 6, row.y + 13, p.isActive() ? ORANGE : Color.WHITE);
-			if (p.isActive()) {
-				g.setFont(FontManager.getRunescapeSmallFont());
-				text(g, "active", row.x + row.width - 38, row.y + 13, GREEN);
-				g.setFont(FontManager.getRunescapeFont());
-			} else {
-				final GearPlan.Summary target = p;
-				optionHits.add(new Hit(row, () -> {
-					switcherOpen = false;
-					manager.activatePlan(target);
-				}, null));
-			}
-			rowY += rowH;
-		}
-		// Clicks inside the list never fall through to what is drawn underneath.
-		optionHits.add(new Hit(list, () -> { }, null));
-		newHits.addAll(0, optionHits);
+		switcher(g, new Rectangle(anchor.x, anchor.y + anchor.height + 2, 220, plans.size() * 18 + 6), plans, GearPlan.Summary::isActive,
+			GearPlan.Summary::getName, p -> p.isActive() ? "active" : null, 38, 50, true, null, manager::activatePlan, newHits);
 	}
 
 	private void finish(Graphics2D g, Rectangle win, List<Hit> newHits, Rectangle steps) {

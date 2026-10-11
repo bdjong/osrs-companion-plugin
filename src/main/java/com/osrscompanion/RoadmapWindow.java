@@ -443,39 +443,13 @@ public class RoadmapWindow extends GameWindow {
 	private void renderSwitcher(Graphics2D g, Rectangle anchor, Rectangle win, List<Hit> newHits) {
 		List<RoadmapSummary> list = roadmaps;
 		Roadmap current = roadmapManager.getCurrentRoadmap();
-		g.setFont(FontManager.getRunescapeFont());
-		int rowH = 18;
 		int top = anchor.y + anchor.height + 2;
-		int shown = Math.min(list.size(), Math.max(3, (win.y + win.height - 12 - top - 6) / rowH));
-		Rectangle box = new Rectangle(anchor.x, top, 260, shown * rowH + 6);
+		int shown = Math.min(list.size(), Math.max(3, (win.y + win.height - 12 - top - 6) / 18));
+		Rectangle box = new Rectangle(anchor.x, top, 260, shown * 18 + 6);
 		switcherArea = box;
-		box(g, box, BG, FRAME_DARK, BUTTON_INNER);
-		List<Hit> optionHits = new ArrayList<>();
-		int rowY = box.y + 3;
-		for (int i = 0; i < shown; i++) {
-			RoadmapSummary s = list.get(i);
-			boolean active = current != null && current.getCollectionId() == s.getCollectionId();
-			Rectangle row = new Rectangle(box.x + 3, rowY, box.width - 6, rowH);
-			Point m = mouse;
-			if (!active && m != null && row.contains(m)) {
-				g.setColor(TAB_ON);
-				g.fillRect(row.x, row.y, row.width, row.height);
-			}
-			text(g, truncate(s.getTitle(), g.getFontMetrics(), row.width - 60), row.x + 6, row.y + 13, active ? ORANGE : Color.WHITE);
-			g.setFont(FontManager.getRunescapeSmallFont());
-			String note = active ? "open" : s.getGoalCount() + " goals";
-			text(g, note, row.x + row.width - 6 - g.getFontMetrics().stringWidth(note), row.y + 13, active ? GREEN : GREY);
-			g.setFont(FontManager.getRunescapeFont());
-			if (!active) {
-				optionHits.add(new Hit(row, () -> {
-					switcherOpen = false;
-					select(s);
-				}, null));
-			}
-			rowY += rowH;
-		}
-		optionHits.add(new Hit(box, () -> { }, "Switch list"));
-		newHits.addAll(0, optionHits);
+		java.util.function.Predicate<RoadmapSummary> open = s -> current != null && current.getCollectionId() == s.getCollectionId();
+		switcher(g, box, list, open, RoadmapSummary::getTitle, s -> open.test(s) ? "open" : s.getGoalCount() + " goals", 0, 60, false,
+			"Switch list", this::select, newHits);
 	}
 
 	// ------------------------------------------------------------------ tree (as the app draws it)
