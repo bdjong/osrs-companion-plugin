@@ -64,3 +64,4 @@ projection, two plugins (sync + guides) is the fallback, the data pump being nee
 | Timers from the website: the plugin sends RuneLite's stored Time Tracking data, the website works out every timer (proven with 150 oracle cases) | -3,844 |
 | Error reporting dropped (owner's choice: no reports to Admin > Errors, no incidents or freeze watchdog; features still turn off safely) | -10,444 |
 | Debug logging dropped (owner's choice; warnings and errors still logged) | -5,122 |
+| Farm run guide worked out by the website (checkpoint: its code 12.5k to 9.2k, -27% where the projection assumed about half) | -3,368 |
