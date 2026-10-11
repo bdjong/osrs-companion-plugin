@@ -73,3 +73,4 @@ in-game roadmap window (both stay on the website): about 185k projected, give or
 | Boss trips and boss history worked out by the website from game events (six classes replaced by one recorder; proven with 450 oracle sequences) | -16,322 |
 | Harvest stats worked out by the website from game events; RuneLite's farming copies left the plugin (their table tests stay) | -7,319 |
 | Live activity: the website writes the text and picture from the plugin's choice and its parts (proven with 20,000 oracle cases) | -1,408 |
+| Lombok `@RequiredArgsConstructor` for the 15 injected classes whose constructor only copied its parameters (same constructors) | -829 |
