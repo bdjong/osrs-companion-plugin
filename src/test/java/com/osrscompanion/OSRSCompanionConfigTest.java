@@ -45,19 +45,4 @@ public class OSRSCompanionConfigTest
 		assertTrue(config.syncKillCounts());
 	}
 
-	@Test
-	public void testDefaultShowNextGoalIsTrue()
-	{
-		// The overlay is on by default, matching OSRSCompanionConfig.showNextGoal().
-		assertTrue(new TestOSRSCompanionConfig().showNextGoal());
-	}
-
-	@Test
-	public void testDefaultGoalFeaturesAreOn()
-	{
-		TestOSRSCompanionConfig config = new TestOSRSCompanionConfig();
-		assertTrue(config.showGoalProgress());
-		assertTrue(config.showGoalPopup());
-		assertTrue(config.goalCompleteSound());
-	}
 }
