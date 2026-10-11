@@ -74,3 +74,4 @@ in-game roadmap window (both stay on the website): about 185k projected, give or
 | Harvest stats worked out by the website from game events; RuneLite's farming copies left the plugin (their table tests stay) | -7,319 |
 | Live activity: the website writes the text and picture from the plugin's choice and its parts (proven with 20,000 oracle cases) | -1,408 |
 | Lombok `@RequiredArgsConstructor` for the 15 injected classes whose constructor only copied its parameters (same constructors) | -829 |
+| Slayer task outcomes and task times worked out by the website from game events (the plugin records its slayer reads, kills and completion chat; proven with 150 oracle play sessions, 1,753 task events) | -2,833 |

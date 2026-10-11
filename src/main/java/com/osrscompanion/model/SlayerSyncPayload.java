@@ -27,9 +27,6 @@ public class SlayerSyncPayload {
 		private final Map<String, Object> extra;
 		private final Integer slayer_level;
 		private final Long slayer_xp;
-		private final String first_kill_at;
-		private final String last_kill_at;
-		private final Long active_seconds;
 		private final String captured_at;
 
 		public State(
@@ -48,9 +45,6 @@ public class SlayerSyncPayload {
 				Map<String, Object> extra,
 				Integer slayerLevel,
 				Long slayerXp,
-				String firstKillAt,
-				String lastKillAt,
-				Long activeSeconds,
 				String capturedAt) {
 			this.task_id = taskId;
 			this.task_name = taskName;
@@ -67,9 +61,6 @@ public class SlayerSyncPayload {
 			this.extra = extra;
 			this.slayer_level = slayerLevel;
 			this.slayer_xp = slayerXp;
-			this.first_kill_at = firstKillAt;
-			this.last_kill_at = lastKillAt;
-			this.active_seconds = activeSeconds;
 			this.captured_at = capturedAt;
 		}
 
@@ -85,13 +76,10 @@ public class SlayerSyncPayload {
 	private final String player_username;
 	@Getter
 	private final State state;
-	@Getter
-	private final List<SlayerTaskEvent> events;
 
-	public SlayerSyncPayload(String playerUsername, State state, List<SlayerTaskEvent> events) {
+	public SlayerSyncPayload(String playerUsername, State state) {
 		this.player_username = playerUsername;
 		this.state = state;
-		this.events = events;
 	}
 
 	public String getPlayerUsername() {

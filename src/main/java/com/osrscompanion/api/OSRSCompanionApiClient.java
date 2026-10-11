@@ -245,30 +245,11 @@ public class OSRSCompanionApiClient
 			null);
 	}
 
-	/**
-	 * Syncs slayer state + task transition events. Dedupe is disabled: the
-	 * payload carries pending events whose delivery must not be skipped just
-	 * because the state half is unchanged; the backend is idempotent on
-	 * event_uuid instead.
-	 */
-	public void sendSlayerSync(SlayerSyncPayload payload, Runnable onSuccess)
-	{
-		sendSlayerSync(payload, onSuccess, false);
-	}
-
 	/** @param urgent send at once (a kill: the task count went down), not with the next timed flush */
-	public void sendSlayerSync(SlayerSyncPayload payload, Runnable onSuccess, boolean urgent)
+	public void sendSlayerSync(SlayerSyncPayload payload, boolean urgent)
 	{
-		// The state is whole and the events are every one not yet acknowledged, so a newer payload holds
-		// the older one's; a task transition (events) or a kill goes out at once.
-		postAsync(SLAYER_ENDPOINT, payload.toJson(gson), "slayer", false, false, key("slayer", payload.getPlayerUsername()),
-			urgent || !payload.getEvents().isEmpty(),
-			() -> {
-				if (onSuccess != null)
-				{
-					onSuccess.run();
-				}
-			});
+		// The state is whole, so a newer payload holds the older one's; a kill goes out at once.
+		postAsync(SLAYER_ENDPOINT, payload.toJson(gson), "slayer", false, false, key("slayer", payload.getPlayerUsername()), urgent, null);
 	}
 
 	/** Asks whether the server already has the slayer catalog with this hash. */
