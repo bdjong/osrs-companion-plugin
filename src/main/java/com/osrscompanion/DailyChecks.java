@@ -2,7 +2,6 @@ package com.osrscompanion;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.runelite.api.Quest;
@@ -66,14 +65,6 @@ final class DailyChecks {
 
 		boolean questDone(Quest quest);
 	}
-
-	/** Every daily in the website's order, with the side panel's short name (used until the guide has loaded). */
-	static final String[][] DAILIES = {
-		{"zaff", "Zaff's battlestaves"}, {"cromperty", "Cromperty's essence"}, {"bert", "Bert's sand"},
-		{"flax", "Flax to bow strings"}, {"rantz", "Rantz's arrows"}, {"robin", "Robin's bonemeal"},
-		{"thirus", "Thirus's dynamite"}, {"lundail", "Lundail's runes"}, {"herb_boxes", "NMZ herb boxes"},
-		{"kingdom", "Miscellania"}, {"tog", "Tears of Guthix"}, {"birdhouses", "Bird houses"},
-	};
 
 	/** After 00:00 UTC the claimed varbits keep yesterday's value until you log in again or hop. */
 	static final String RELOG_NOTE = "New day: hop worlds or relog to collect today's";
@@ -213,38 +204,4 @@ final class DailyChecks {
 		return v.questDone(quest) ? new Result(id, State.UNKNOWN, 0, null) : new Result(id, State.LOCKED, 0, lockedNote);
 	}
 
-	/**
-	 * A daily's state in the side panel and the guide: your tick by hand first, then what the game
-	 * says (when it knows), then the website's state (timers, visits, ticks made on the website),
-	 * and open when nothing knows (so it can be ticked by hand).
-	 */
-	static State merged(boolean ticked, Result local, String serverState, String serverSource) {
-		if (ticked) {
-			return State.DONE;
-		}
-		State server = State.fromWire(serverState);
-		// A tick made on the website counts like one made here.
-		if (server == State.DONE && "manual".equals(serverSource)) {
-			return State.DONE;
-		}
-		if (local != null && local.state != State.UNKNOWN) {
-			return local.state;
-		}
-		return server == State.UNKNOWN ? State.OPEN : server;
-	}
-
-	/**
-	 * The daily the guided run goes to next: the first open one after {@code current} (in the list's
-	 * order, wrapping round), not skipped this run; null when none is left.
-	 */
-	static String nextOpen(List<String> order, Map<String, State> states, String current, Set<String> skipped) {
-		int start = current == null ? -1 : order.indexOf(current);
-		for (int i = 1; i <= order.size(); i++) {
-			String id = order.get(Math.floorMod(start + i, order.size()));
-			if (states.get(id) == State.OPEN && !skipped.contains(id)) {
-				return id;
-			}
-		}
-		return null;
-	}
 }

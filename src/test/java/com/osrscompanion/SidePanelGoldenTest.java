@@ -6,16 +6,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.gson.reflect.TypeToken;
-import com.osrscompanion.DailyChecks.State;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.Roadmap;
-import com.osrscompanion.model.RoadmapGoal;
 import com.osrscompanion.model.SlayerGear;
 import com.osrscompanion.FarmPatchProgress.Status;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
@@ -41,7 +38,6 @@ public class SidePanelGoldenTest {
 	private final BossGearManager bossGear = mock(BossGearManager.class);
 	private final GearProgressionManager gear = mock(GearProgressionManager.class);
 	private final SlayerHelperManager slayer = mock(SlayerHelperManager.class);
-	private final DailiesManager dailies = mock(DailiesManager.class);
 	private final GoalImageCache images = mock(GoalImageCache.class);
 	private RoadmapPanel panel;
 
@@ -81,17 +77,9 @@ public class SidePanelGoldenTest {
 		when(slayer.getStats()).thenReturn(SlayerUiGoldenTest.stats());
 		when(slayer.carried(anyInt())).thenReturn(1);
 
-		DailiesManager.Entry staves = new DailiesManager.Entry("battlestaves", "Battlestaves from Zaff", State.OPEN, "120 left", false,
-			DailiesUiGoldenTest.BATTLESTAVES, true, 120);
-		DailiesManager.Entry sand = new DailiesManager.Entry("sand", "Buckets of sand", State.DONE, null, false, DailiesUiGoldenTest.SAND, true, 0);
-		DailiesManager.Entry flax = new DailiesManager.Entry("flax", "Flax from Geoff", State.LOCKED, "Needs Seers' Village diary (elite)", false, null, false, 0);
-		DailiesManager.Entry ticked = new DailiesManager.Entry("herb-boxes", "Herb boxes", State.OPEN, null, true, null, false, 0);
-		when(dailies.entries()).thenReturn(Arrays.asList(staves, sand, flax, ticked));
-		when(dailies.openCountAndValue()).thenReturn(new long[]{2, 840_000});
-
 		Runnable none = () -> { };
 		panel = new RoadmapPanel(none, none, none, none, none, kit.itemManager(), mock(SpriteManager.class), images, config,
-			mock(ConfigManager.class), roadmaps, farmRun, bossGear, gear, slayer, new ClientThread(), dailies);
+			mock(ConfigManager.class), roadmaps, farmRun, bossGear, gear, slayer, new ClientThread());
 	}
 
 	private void call(String method, Class<?> type, Object arg) {
@@ -112,8 +100,7 @@ public class SidePanelGoldenTest {
 	private UiKit.Rendered page(String name) {
 		call("show", String.class, name);
 		call("tick", null, null);
-		// The dailies card counts down to the daily reset: the minutes are not part of the golden.
-		return UiKit.withoutClock(kit.render(panel, W, 0));
+		return kit.render(panel, W, 0);
 	}
 
 	@Test
@@ -152,11 +139,6 @@ public class SidePanelGoldenTest {
 	public void bossPageWithGearDisplay() {
 		bossDisplay = true;
 		UiKit.golden("panel-boss-display", page("boss"));
-	}
-
-	@Test
-	public void dailiesPage() {
-		UiKit.golden("panel-dailies", page("dailies"));
 	}
 
 	@Test
