@@ -39,10 +39,6 @@ public class PlayerSkillsSyncPayload {
 		return varbitValue >= 1 && varbitValue <= 6 ? varbitValue : null;
 	}
 
-	public Integer getAccountType() {
-		return account_type;
-	}
-
 	public int getTotalLevel() {
 		return total_level;
 	}

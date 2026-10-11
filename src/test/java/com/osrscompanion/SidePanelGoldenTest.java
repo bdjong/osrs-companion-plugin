@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 import com.google.gson.reflect.TypeToken;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
-import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.SlayerGear;
 import com.osrscompanion.FarmPatchProgress.Status;
@@ -36,7 +35,6 @@ public class SidePanelGoldenTest {
 	private final RoadmapManager roadmaps = mock(RoadmapManager.class);
 	private final FarmRunManager farmRun = mock(FarmRunManager.class);
 	private final BossGearManager bossGear = mock(BossGearManager.class);
-	private final GearProgressionManager gear = mock(GearProgressionManager.class);
 	private final SlayerHelperManager slayer = mock(SlayerHelperManager.class);
 	private final GoalImageCache images = mock(GoalImageCache.class);
 	private RoadmapPanel panel;
@@ -46,7 +44,7 @@ public class SidePanelGoldenTest {
 		UiKit.runeLiteLookAndFeel();
 		when(roadmaps.hasAppKey()).thenReturn(true);
 		when(roadmaps.getPlayerUsername()).thenReturn("Iron Bob");
-		Roadmap roadmap = UiSamples.GSON.fromJson(RoadmapWindowGoldenTest.ROADMAP_JSON, Roadmap.class);
+		Roadmap roadmap = UiSamples.GSON.fromJson(UiSamples.ROADMAP_JSON, Roadmap.class);
 		when(roadmaps.getCurrentRoadmap()).thenReturn(roadmap);
 
 		FarmRoute route = UiSamples.route();
@@ -66,9 +64,8 @@ public class SidePanelGoldenTest {
 		when(bossGear.getMode()).thenReturn(BossGear.MODE_OWNED);
 		when(bossGear.carried(any(BossGear.Item.class))).thenReturn(1);
 
-		when(gear.getPlan()).thenReturn(UiSamples.GSON.fromJson(GoalsUiGoldenTest.PLAN_JSON, GearPlan.class));
 
-		SlayerGear slayerGear = UiSamples.GSON.fromJson(GearWindowsGoldenTest.SLAYER_GEAR_JSON, SlayerGear.class);
+		SlayerGear slayerGear = UiSamples.GSON.fromJson(UiSamples.SLAYER_GEAR_JSON, SlayerGear.class);
 		when(slayer.getTask()).thenReturn(new SlayerHelperManager.Task(42, 0, 0, 7, "Abyssal demons", 143, 180));
 		when(slayer.getGuide()).thenReturn(SlayerUiGoldenTest.GUIDE);
 		when(slayer.getLocation()).thenReturn(SlayerUiGoldenTest.GUIDE.getLocations().get(0));
@@ -78,8 +75,8 @@ public class SidePanelGoldenTest {
 		when(slayer.carried(anyInt())).thenReturn(1);
 
 		Runnable none = () -> { };
-		panel = new RoadmapPanel(none, none, none, none, none, kit.itemManager(), mock(SpriteManager.class), images, config,
-			mock(ConfigManager.class), roadmaps, farmRun, bossGear, gear, slayer, new ClientThread());
+		panel = new RoadmapPanel(none, none, none, kit.itemManager(), mock(SpriteManager.class), images, config,
+			mock(ConfigManager.class), roadmaps, farmRun, bossGear, slayer, new ClientThread());
 	}
 
 	private void call(String method, Class<?> type, Object arg) {
@@ -113,10 +110,6 @@ public class SidePanelGoldenTest {
 		UiKit.golden("panel-roadmap", page("roadmap"));
 	}
 
-	@Test
-	public void gearPage() {
-		UiKit.golden("panel-gear", page("gear"));
-	}
 
 	@Test
 	public void farmPage() {

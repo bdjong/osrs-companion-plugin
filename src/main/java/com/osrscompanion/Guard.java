@@ -135,10 +135,6 @@ public final class Guard {
 		clientThread.invokeLater(wrapBool(feature, body));
 	}
 
-	public static boolean isEnabled(String feature) {
-		return !shared.isDisabled(feature);
-	}
-
 	// ------------------------------------------------------------------ instance
 
 	void setOnDisabled(Consumer<String> listener) {

@@ -181,11 +181,6 @@ public class RoadmapManager {
 		}
 	}
 
-	/** Whether the side panel is open; background refreshes run while it is. */
-	public void setPanelActive(boolean active) {
-		this.panelActive = active;
-	}
-
 	public Integer getSelectedRoadmapId() {
 		return configManager.getConfiguration(
 				CONFIG_GROUP, SELECTED_ROADMAP_KEY, Integer.class);
@@ -200,36 +195,6 @@ public class RoadmapManager {
 		Boolean expanded = configManager.getConfiguration(
 				CONFIG_GROUP, COMPLETED_EXPANDED_KEY, Boolean.class);
 		return expanded != null && expanded;
-	}
-
-	public void setCompletedGoalsExpanded(boolean expanded) {
-		configManager.setConfiguration(CONFIG_GROUP, COMPLETED_EXPANDED_KEY, expanded);
-	}
-
-	/**
-	 * Fetches the player's roadmap list. The callback runs on the OkHttp thread;
-	 * Swing callers must marshal back to the EDT themselves.
-	 */
-	public void fetchRoadmaps(OSRSCompanionApiClient.RoadmapCallback<RoadmapList> callback) {
-		String player = getPlayerUsername();
-		if (player == null) {
-			callback.onError("Log in to load your roadmaps");
-			return;
-		}
-		apiClient.getRoadmaps(player, new OSRSCompanionApiClient.RoadmapCallback<RoadmapList>() {
-			@Override
-			public void onSuccess(RoadmapList result) {
-				// Keep the tracker aware of every roadmap, not just the one the
-				// panel is about to open.
-				onRoadmapListFetched(result, player, null);
-				callback.onSuccess(result);
-			}
-
-			@Override
-			public void onError(String message) {
-				callback.onError(message);
-			}
-		});
 	}
 
 	/**
@@ -293,48 +258,6 @@ public class RoadmapManager {
 				}
 			});
 		}
-	}
-
-	/**
-	 * Fetches one roadmap fully rendered and caches it as the current roadmap on
-	 * success (so the overlay picks it up). The callback also fires.
-	 */
-	public void fetchRoadmap(int collectionId, OSRSCompanionApiClient.RoadmapCallback<Roadmap> callback) {
-		String player = getPlayerUsername();
-		if (player == null) {
-			callback.onError("Log in to load your roadmap");
-			return;
-		}
-		apiClient.getRoadmap(collectionId, player, cacheThen(collectionId, callback));
-	}
-
-	/**
-	 * Manually marks a goal complete on the backend and caches the re-rendered
-	 * roadmap (so the overlay's next goal updates too). The callback runs on the
-	 * OkHttp thread; Swing callers marshal back to the EDT themselves.
-	 */
-	public void completeGoal(int collectionId, int goalId,
-			OSRSCompanionApiClient.RoadmapCallback<Roadmap> callback) {
-		String player = getPlayerUsername();
-		if (player == null) {
-			callback.onError("Log in to update your roadmap");
-			return;
-		}
-		apiClient.completeRoadmapGoal(collectionId, goalId, player, cacheThen(collectionId, callback));
-	}
-
-	/**
-	 * Deletes a goal from the backend and caches the re-rendered roadmap (so the
-	 * overlay's next goal updates too). Callback runs on the OkHttp thread.
-	 */
-	public void deleteGoal(int collectionId, int goalId,
-			OSRSCompanionApiClient.RoadmapCallback<Roadmap> callback) {
-		String player = getPlayerUsername();
-		if (player == null) {
-			callback.onError("Log in to update your roadmap");
-			return;
-		}
-		apiClient.deleteRoadmapGoal(collectionId, goalId, player, cacheThen(collectionId, callback));
 	}
 
 	// ------------------------------------------------------- reconciliation
@@ -418,25 +341,4 @@ public class RoadmapManager {
 		});
 	}
 
-	private OSRSCompanionApiClient.RoadmapCallback<Roadmap> cacheThen(
-			int collectionId, OSRSCompanionApiClient.RoadmapCallback<Roadmap> callback) {
-		return new OSRSCompanionApiClient.RoadmapCallback<Roadmap>() {
-			@Override
-			public void onSuccess(Roadmap result) {
-				// Feeds the tracker; caches for the overlay only if selected.
-				onRoadmapFetched(result);
-				callback.onSuccess(result);
-			}
-
-			@Override
-			public void onError(String message) {
-				callback.onError(message);
-			}
-		};
-	}
-
-	/** Convenience for callers that only need the cached roadmap, no fetch. */
-	public void withCurrentRoadmap(Consumer<Roadmap> consumer) {
-		consumer.accept(currentRoadmap);
-	}
 }

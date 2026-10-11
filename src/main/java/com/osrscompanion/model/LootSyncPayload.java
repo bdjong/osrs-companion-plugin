@@ -31,11 +31,6 @@ public class LootSyncPayload
 		return source_client;
 	}
 
-	public List<LootRecord> getLootRecords()
-	{
-		return loot_records;
-	}
-
 	public String toJson(Gson gson)
 	{
 		return gson.toJson(this);

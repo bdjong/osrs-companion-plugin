@@ -3,7 +3,6 @@ package com.osrscompanion;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
-import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapGoal;
 import com.osrscompanion.model.SlayerGuide;
@@ -44,7 +43,6 @@ public class RoadmapPanel extends PluginPanel {
 	/** The side panel's feature for {@link Guard}: its tiles' mouse listeners and its refresh timer. */
 	static final String GUARD_FEATURE = "side-panel";
 	private static final Color ROADMAP = new Color(0x60A5FA);
-	private static final Color GEAR = new Color(0xFB923C);
 	private static final Color FARM = new Color(0x4ADE80);
 	private static final Color BOSS = new Color(0xA78BFA);
 	private static final Color SLAYER = new Color(0xF87171);
@@ -58,7 +56,6 @@ public class RoadmapPanel extends PluginPanel {
 	private final RoadmapManager roadmapManager;
 	private final FarmRunManager farmRun;
 	private final BossGearManager bossGear;
-	private final GearProgressionManager gearProgression;
 	private final SlayerHelperManager slayer;
 	private final ClientThread clientThread;
 
@@ -89,9 +86,9 @@ public class RoadmapPanel extends PluginPanel {
 	/** Keeps the live cards (current roadmap, route, setup) and switches up to date while the panel is open. */
 	private final Timer refresh = new Timer(1000, e -> Guard.run(GUARD_FEATURE, this::tick));
 
-	public RoadmapPanel(Runnable openRoadmap, Runnable openGearProgression, Runnable openFarmRun, Runnable openBossGear, Runnable openSlayerGear,
+	public RoadmapPanel(Runnable openFarmRun, Runnable openBossGear, Runnable openSlayerGear,
 			ItemManager itemManager, SpriteManager spriteManager, GoalImageCache images, OSRSCompanionConfig config, ConfigManager configManager,
-			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear, GearProgressionManager gearProgression,
+			RoadmapManager roadmapManager, FarmRunManager farmRun, BossGearManager bossGear,
 			SlayerHelperManager slayer, ClientThread clientThread) {
 		super(false);
 		this.itemManager = itemManager;
@@ -102,15 +99,13 @@ public class RoadmapPanel extends PluginPanel {
 		this.roadmapManager = roadmapManager;
 		this.farmRun = farmRun;
 		this.bossGear = bossGear;
-		this.gearProgression = gearProgression;
 		this.slayer = slayer;
 		this.clientThread = clientThread;
 		setLayout(new BorderLayout());
 		setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
 		deck.add(mainMenu(), "main");
-		deck.add(roadmapPage(openRoadmap), "roadmap");
-		deck.add(gearPage(openGearProgression), "gear");
+		deck.add(roadmapPage(), "roadmap");
 		deck.add(farmPage(openFarmRun), "farm");
 		deck.add(bossPage(openBossGear), "boss");
 		deck.add(slayerPage(openSlayerGear), "slayer");
@@ -193,8 +188,7 @@ public class RoadmapPanel extends PluginPanel {
 		title.setAlignmentX(Component.LEFT_ALIGNMENT);
 		p.add(title);
 		p.add(Box.createVerticalStrut(10));
-		add(p, roadmapTile(() -> show("roadmap")), "Roadmap: your goals, settings and the roadmap window.");
-		add(p, gearTile(() -> show("gear")), "Gear progression: settings and the gear progression window.");
+		add(p, roadmapTile(() -> show("roadmap")), "Roadmap: your goals and settings.");
 		add(p, farmTile(() -> show("farm")), "Farm run: your route, bank layout and the farm run window.");
 		add(p, bossTile(() -> show("boss")), "Boss gear: your build, bank layout, gear display and the boss gear window.");
 		add(p, slayerTile(() -> show("slayer")), "Slayer helper: your task, the best place to do it, a guide there and your kill stats.");
@@ -211,7 +205,7 @@ public class RoadmapPanel extends PluginPanel {
 			() -> LinkBrowser.browse(base + "/home"));
 	}
 
-	private JPanel roadmapPage(Runnable openWindow) {
+	private JPanel roadmapPage() {
 		JPanel p = page();
 		add(p, back(), "Back to all tools");
 		add(p, new PanelTiles.Info("SELECTED ROADMAP", () -> {
@@ -228,20 +222,6 @@ public class RoadmapPanel extends PluginPanel {
 		}), null);
 		add(p, toggle("Roadmap box", "Next goal in the game", "Hidden", ROADMAP, "showNextGoal", config::showNextGoal), null);
 		add(p, toggle("Goal popup", "Popup on completion", "No popup", ROADMAP, "showGoalPopup", config::showGoalPopup), null);
-		add(p, FeatureTile.banner("GOAL", "OVERVIEW", "Goals and progress", ROADMAP, new Color(0x0D1530), new Color(0x1E40AF),
-				itemManager.getImage(ItemID.SKILLCAPE_QP), openWindow),
-			"Open or close the roadmap window: goals, progress, complete or delete, switch roadmap (Escape closes it).");
-		return p;
-	}
-
-	private JPanel gearPage(Runnable openWindow) {
-		JPanel p = page();
-		add(p, back(), "Back to all tools");
-		add(p, new PanelTiles.Progress("CURRENT TIER", GEAR, this::gearProgress),
-			"The ring is your whole gear progression (the current tier's number inside); the bar is the current tier.");
-		add(p, toggle("Progression box", "Next gear step in game", "Hidden", GEAR, "showGearProgress", config::showGearProgress), null);
-		add(p, overview("TIER", "OVERVIEW", "Gear order by tier", GEAR, new Color(0x1C0D06), new Color(0x9A3412), SpriteID.TAB_STATS, openWindow),
-			"Open or close your gear progression: the gear order in tiers, ticking itself off (Escape closes it).");
 		return p;
 	}
 
@@ -448,29 +428,6 @@ public class RoadmapPanel extends PluginPanel {
 		return s.getStyle() + " (wiki preset)";
 	}
 
-	/** The gear page's progress card: the tier with the next open step, its share done and the whole plan's. */
-	private PanelTiles.ProgressState gearProgress() {
-		GearPlan plan = gearProgression.getPlan();
-		if (plan == null) {
-			String why = gearProgression.isLoading() ? "Loading..." : gearProgression.getError() != null ? "Could not load it" : "No gear progression loaded";
-			return new PanelTiles.ProgressState(new String[]{why, "Load one on the website: Tools > Gear progression"}, null, -1, -1);
-		}
-		float overall = plan.getTotal() == 0 ? 0 : plan.getDone() / (float) plan.getTotal();
-		String percent = Math.round(overall * 100) + "% of all gear";
-		GearPlan.Tier tier = null;
-		for (GearPlan.Tier t : plan.getTiers()) {
-			if (plan.getNextTier() != null && t.getTier() == plan.getNextTier()) {
-				tier = t;
-			}
-		}
-		if (tier == null) {
-			return new PanelTiles.ProgressState(new String[]{"Every tier done!", plan.getDone() + " / " + plan.getTotal() + " - " + percent}, "\u2713", 1f, 1f);
-		}
-		String name = tier.getName().isEmpty() ? "Tier " + tier.getTier() : "Tier " + tier.getTier() + ": " + tier.getName();
-		return new PanelTiles.ProgressState(new String[]{name, tier.getDone() + " / " + tier.getTotal() + " in this tier - " + percent},
-			String.valueOf(tier.getTier()), overall, tier.getTotal() == 0 ? 0 : tier.getDone() / (float) tier.getTotal());
-	}
-
 	// ---- Pieces -----------------------------------------------------------------------------
 
 	private void show(String page) {
@@ -479,8 +436,6 @@ public class RoadmapPanel extends PluginPanel {
 			bossGear.refresh();
 		} else if ("farm".equals(page)) {
 			farmRun.refreshIfStale();
-		} else if ("gear".equals(page) && gearProgression.getPlan() == null && !gearProgression.isLoading()) {
-			gearProgression.refresh();
 		} else if ("slayer".equals(page)) {
 			slayer.refreshIfStale();
 		}
@@ -503,11 +458,6 @@ public class RoadmapPanel extends PluginPanel {
 	private FeatureTile roadmapTile(Runnable action) {
 		return FeatureTile.banner("ROAD", "MAP", "Your goals, tracked as you play",
 			ROADMAP, new Color(0x0D1530), new Color(0x1E40AF), itemManager.getImage(ItemID.SKILLCAPE_QP), action);
-	}
-
-	private FeatureTile gearTile(Runnable action) {
-		return FeatureTile.banner("GEAR", "PROGRESSION", "Gear order, auto-ticked",
-			GEAR, new Color(0x1C0D06), new Color(0x9A3412), itemManager.getImage(ItemID.HUNDRED_GAUNTLETS_LEVEL_10), action);
 	}
 
 	private FeatureTile farmTile(Runnable action) {
