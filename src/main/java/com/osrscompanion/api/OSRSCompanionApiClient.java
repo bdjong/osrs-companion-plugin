@@ -28,8 +28,6 @@ import com.osrscompanion.model.PlayerSkillsSyncPayload;
 import com.osrscompanion.model.QuestsSyncPayload;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapList;
-import com.osrscompanion.model.TimerSyncItem;
-import com.osrscompanion.model.TimersSyncPayload;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -72,7 +70,7 @@ public class OSRSCompanionApiClient
 	static final String VERSION_HEADER = "X-OSRSCompanion-Plugin-Version";
 	private static final Interceptor VERSION_INTERCEPTOR = chain -> chain.proceed(
 		chain.request().newBuilder().header(VERSION_HEADER, PLUGIN_VERSION).build());
-	private static final String TIMERS_ENDPOINT = "/api/runelite/timers/";
+	private static final String TIME_TRACKING_ENDPOINT = "/api/runelite/time-tracking/";
 	private static final String SKILLS_ENDPOINT = "/api/runelite/skills/";
 	private static final String BANK_ENDPOINT = "/api/runelite/bank/";
 	private static final String COLLECTION_LOG_ENDPOINT = "/api/runelite/collection-log/";
@@ -170,17 +168,11 @@ public class OSRSCompanionApiClient
 		return builder;
 	}
 
-	public void sendTimersSync(List<TimerSyncItem> timers)
+	/** What RuneLite's Time Tracking stored ({@link com.osrscompanion.TimerMonitor}); merged per player. */
+	public void sendTimeTracking(String json, String playerUsername)
 	{
-		sendTimersSync(timers, null);
-	}
-
-	/** Timers sync naming the player at the top level, so an empty list still reaches the character. */
-	public void sendTimersSync(List<TimerSyncItem> timers, String playerUsername)
-	{
-		String json = TimersSyncPayload.toJson(timers, playerUsername);
-		postAsync(TIMERS_ENDPOINT, json, "timers", false, true, key("timers", playerUsername), false,
-			() -> log.debug("OSRS Companion timers sync successful: {} timers", timers.size()));
+		postAsync(TIME_TRACKING_ENDPOINT, json, "time-tracking", false, true, key("time-tracking", playerUsername), false,
+			() -> log.debug("OSRS Companion Time Tracking data sent"));
 	}
 
 	public void sendPlayerSkillsSync(PlayerSkillsSyncPayload payload)
