@@ -94,11 +94,9 @@ A release merges `development` into `main`. `main` deleted `friend/` and `run-de
 
 Before merging `development` into `main`, build it (`./gradlew build` must pass) and check in game with a fresh RuneLite profile (or the plugin's settings reset) and an App Key:
 
-1. The defaults: Share live activity, Send error reports and Auto set teleport left click are off; Farming cape for herbs is Remind.
-2. Syncing: log in and check the website shows skills, bank, quests, diaries, collection log (open the log once), slayer, timers and a play session. Switch a Data Syncing source off (for example Skills & XP or Play sessions) and check it stops updating.
-3. The side panel tools: roadmap, gear progression, farm run (start a run, the guide and arrow), boss gear, slayer helper and trip planner open and work.
-4. Bank layouts: open the bank with a boss setup or farm run active. With the Bank Tag Layouts plugin installed and its "Enable layout by default" on, the needed items show in its order and the chat says once to turn that plugin off for ours; turn it off, reopen the bank and our layout shows. (Your own profile still has the old "off" markers for our views, so test this on a fresh profile.)
-5. The plugin version in the side panel reads `OSRS Companion v1.0.0` (or the version you set).
+1. The defaults: Share live activity and Send error reports are off; only the Data Syncing switches, the Dailies sync and the App Key show in the settings (the in-game guides are parked, see docs/feature-sizes.md).
+2. Syncing: log in and check the website shows skills, bank, quests, diaries, collection log (open the log once), slayer, timers, dailies and a play session. Switch a Data Syncing source off (for example Skills & XP or Play sessions) and check it stops updating.
+3. The plugin version: the website's Admin, Players / Activity shows `v1.0.0` (or the version you set) for your character.
 
 ## Releasing to the Plugin Hub
 

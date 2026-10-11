@@ -48,6 +48,12 @@ import net.runelite.client.util.Text;
 @Slf4j
 @Singleton
 public class FarmingUnlocksMonitor {
+	/**
+	 * The last minigame (Grouping) teleport, in minutes since the epoch: RuneLite's deprecated
+	 * {@code VarPlayer.LAST_MINIGAME_TELEPORT} (the gameval {@code VarPlayerID} lists it under a cache name).
+	 */
+	static final int LAST_MINIGAME_TELEPORT_VARP = 888;
+
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
 	static final String GUARD_FEATURE = "farming-unlocks-sync";
 
@@ -170,7 +176,7 @@ public class FarmingUnlocksMonitor {
 			if (varbit == VarbitID.FARMING_BLOCKWEEDS || varbit == VarbitID.BRUT_FARMING_PLANTING
 					|| varbit == VarbitID.PRAYER_RIGOUR_UNLOCKED || varbit == VarbitID.PRAYER_AUGURY_UNLOCKED
 					|| varbit == VarbitID.PRAYER_PRESERVE_UNLOCKED
-					|| event.getVarpId() == FarmRunManager.LAST_MINIGAME_TELEPORT_VARP) {
+					|| event.getVarpId() == LAST_MINIGAME_TELEPORT_VARP) {
 				trigger.varbitChanged();
 				return;
 			}
@@ -365,7 +371,7 @@ public class FarmingUnlocksMonitor {
 		payload.put("barbarian_planting", client.getVarbitValue(VarbitID.BRUT_FARMING_PLANTING));
 		payload.put("tithe_farm", titheFarmUnlocked());
 		// Minutes since the epoch (0: never); the website leaves the minigame teleport out of routes for 20 minutes after it.
-		payload.put("minigame_teleport_at", client.getVarpValue(FarmRunManager.LAST_MINIGAME_TELEPORT_VARP));
+		payload.put("minigame_teleport_at", client.getVarpValue(LAST_MINIGAME_TELEPORT_VARP));
 		// Prayers unlocked from their scrolls (the website's gear progression and DPS calculator use them).
 		List<String> prayers = new ArrayList<>();
 		if (client.getVarbitValue(VarbitID.PRAYER_RIGOUR_UNLOCKED) == 1) {
