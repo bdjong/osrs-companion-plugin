@@ -30,8 +30,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import net.runelite.api.annotations.Varbit;
-import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
 
 @Getter
 @ToString(onlyExplicitlyIncluded = true)
@@ -42,39 +40,19 @@ public class FarmingPatch
 	private FarmingRegion region;
 	@ToString.Include
 	private final String name;
-	@Getter(onMethod_ = {@Varbit})
 	private final int varbit;
 	@ToString.Include
 	private final PatchImplementation implementation;
-	private final int farmer;
-	private final int patchNumber;
 
-	FarmingPatch(String name, @Varbit int varbit, PatchImplementation implementation)
-	{
-		this(name, varbit, implementation, -1);
-	}
-
-	FarmingPatch(String name, @Varbit int varbit, PatchImplementation implementation, int farmer)
-	{
-		this(name, varbit, implementation, farmer, -1);
-	}
-
-	FarmingPatch(String name, @Varbit int varbit, PatchImplementation implementation, int farmer, int patchNumber)
+	FarmingPatch(String name, int varbit, PatchImplementation implementation)
 	{
 		this.name = name;
 		this.varbit = varbit;
 		this.implementation = implementation;
-		this.farmer = farmer;
-		this.patchNumber = patchNumber;
 	}
 
 	String configKey()
 	{
 		return region.getRegionID() + "." + varbit;
-	}
-
-	String notifyConfigKey()
-	{
-		return TimeTrackingConfig.NOTIFY + "." + region.getRegionID() + "." + varbit;
 	}
 }
