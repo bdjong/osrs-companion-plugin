@@ -94,27 +94,6 @@ public class TimerMonitor {
 				TimeUnit.SECONDS);
 	}
 
-	/** Receives every recomputed timer set (farming, bird houses, ...); set by the plugin. */
-	private volatile Consumer<List<TimerSyncItem>> timersListener;
-
-	public void setTimersListener(Consumer<List<TimerSyncItem>> listener) {
-		this.timersListener = listener;
-	}
-
-	/** Invoked after each upload so roadmap progress can be re-read; set by the plugin. */
-	private volatile Runnable syncedListener;
-
-	public void setSyncedListener(Runnable listener) {
-		this.syncedListener = listener;
-	}
-
-	private void notifySynced() {
-		Runnable listener = syncedListener;
-		if (listener != null) {
-			listener.run();
-		}
-	}
-
 	public void stop() {
 		if (scheduledFuture != null) {
 			scheduledFuture.cancel(false);
@@ -211,17 +190,11 @@ public class TimerMonitor {
 			return;
 		}
 
-		Consumer<List<TimerSyncItem>> listener = timersListener;
-		if (listener != null) {
-			listener.accept(timers);
-		}
-
 		String snapshot = TimersSyncPayload.toJson(timers, playerUsername);
 		if (!snapshot.equals(lastSentSnapshot)) {
 			lastSentSnapshot = snapshot;
 			log.debug("OSRS Companion syncing {} timer(s) for {}", timers.size(), playerUsername);
 			apiClient.sendTimersSync(timers, playerUsername);
-			notifySynced();
 		}
 	}
 

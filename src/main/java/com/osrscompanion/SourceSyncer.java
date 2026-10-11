@@ -25,10 +25,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <ul>
  *   <li>A source's first contents of the session go up at once.</li>
- *   <li>Later changes are held and collapsed for {@link #DEFAULT_DEBOUNCE_SECONDS},
- *       or {@link #GOAL_DEBOUNCE_SECONDS} when the change touches an item an
- *       active owned-item goal is counting, so a goal the player is working on
- *       confirms quickly while routine skilling costs one request per burst.</li>
+ *   <li>Later changes are held and collapsed for {@link #DEFAULT_DEBOUNCE_SECONDS}, so routine
+ *       skilling costs one request per burst.</li>
  *   <li>Unchanged contents are never re-sent.</li>
  *   <li>{@link #flushPending()} (logout, plugin stop) and an {@code immediate}
  *       submit (a goal completed locally, a container was emptied, the panel's
@@ -46,7 +44,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 final class SourceSyncer {
-	static final long GOAL_DEBOUNCE_SECONDS = 5;
 	static final long DEFAULT_DEBOUNCE_SECONDS = 15;
 
 	private final String label;
@@ -57,8 +54,6 @@ final class SourceSyncer {
 	private final Supplier<String> username;
 	private final Consumer<BankSyncPayload> send;
 
-	/** Item ids active owned-item goals are counting; set by the plugin from the goal tracker. */
-	private volatile Supplier<Set<Integer>> goalItems = Set::of;
 	/** Runs after every upload; set by the monitor (the bank monitor triggers a roadmap reconcile). */
 	private volatile Runnable onSent;
 	/** Runs after an urgent upload (immediate submit, logout): asks the API outbox to send at once. */
@@ -103,10 +98,6 @@ final class SourceSyncer {
 		this.send = send;
 	}
 
-	void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		this.goalItems = goalItems == null ? Set::of : goalItems;
-	}
-
 	void setOnSent(Runnable onSent) {
 		this.onSent = onSent;
 	}
@@ -144,9 +135,7 @@ final class SourceSyncer {
 			return;
 		}
 		boolean neverSent = false;
-		boolean goalRelevant = false;
 		boolean anyChange = false;
-		Set<Integer> goals = goalItems.get();
 		for (Map.Entry<String, Map<Integer, Integer>> e : bySource.entrySet()) {
 			String source = e.getKey();
 			Map<Integer, Integer> contents = new LinkedHashMap<>(e.getValue());
@@ -163,9 +152,6 @@ final class SourceSyncer {
 			anyChange = true;
 			if (sent == null) {
 				neverSent = true;
-			}
-			if (touchesGoalItem(baseline == null ? Map.of() : baseline, contents, goals)) {
-				goalRelevant = true;
 			}
 			pendingBySource.put(source, contents);
 		}
@@ -192,7 +178,7 @@ final class SourceSyncer {
 		if (!anyChange && pendingSync != null) {
 			return;
 		}
-		long delayMs = TimeUnit.SECONDS.toMillis(goalRelevant ? GOAL_DEBOUNCE_SECONDS : DEFAULT_DEBOUNCE_SECONDS);
+		long delayMs = TimeUnit.SECONDS.toMillis(DEFAULT_DEBOUNCE_SECONDS);
 		long now = clockMs.getAsLong();
 		if (pendingSync != null) {
 			// A shorter wait already running (goal change) is never extended.
@@ -244,19 +230,6 @@ final class SourceSyncer {
 		sentBySource.clear();
 	}
 
-	private static boolean touchesGoalItem(Map<Integer, Integer> before, Map<Integer, Integer> after, Set<Integer> goals) {
-		if (goals == null || goals.isEmpty()) {
-			return false;
-		}
-		Set<Integer> ids = new HashSet<>(before.keySet());
-		ids.addAll(after.keySet());
-		for (int id : ids) {
-			if (goals.contains(id) && !before.getOrDefault(id, 0).equals(after.getOrDefault(id, 0))) {
-				return true;
-			}
-		}
-		return false;
-	}
 
 	private void cancelPending() {
 		if (pendingSync != null) {
