@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,12 +14,16 @@ public class GearPlan {
 	@SerializedName("title")
 	private String title;
 
+	@Getter
 	@SerializedName("done")
 	private int done;
 
+	@Getter
 	@SerializedName("total")
 	private int total;
 
+	/** Tier holding the next open step; null when everything is done. */
+	@Getter
 	@SerializedName("next_tier")
 	private Integer nextTier;
 
@@ -27,19 +32,6 @@ public class GearPlan {
 
 	public String getTitle() {
 		return title == null ? "Gear progression" : title;
-	}
-
-	public int getDone() {
-		return done;
-	}
-
-	public int getTotal() {
-		return total;
-	}
-
-	/** Tier holding the next open step; null when everything is done. */
-	public Integer getNextTier() {
-		return nextTier;
 	}
 
 	public List<Tier> getTiers() {
@@ -61,35 +53,26 @@ public class GearPlan {
 	}
 
 	public static class Tier {
+		@Getter
 		@SerializedName("tier")
 		private int tier;
 
 		@SerializedName("name")
 		private String name;
 
+		@Getter
 		@SerializedName("done")
 		private int done;
 
+		@Getter
 		@SerializedName("total")
 		private int total;
 
 		@SerializedName("steps")
 		private List<Step> steps;
 
-		public int getTier() {
-			return tier;
-		}
-
 		public String getName() {
 			return name == null ? "" : name;
-		}
-
-		public int getDone() {
-			return done;
-		}
-
-		public int getTotal() {
-			return total;
 		}
 
 		public List<Step> getSteps() {
@@ -109,15 +92,12 @@ public class GearPlan {
 	}
 
 	public static class Step {
+		@Getter
 		@SerializedName("step")
 		private int step;
 
 		@SerializedName("items")
 		private List<Item> items;
-
-		public int getStep() {
-			return step;
-		}
 
 		public List<Item> getItems() {
 			return items == null ? Collections.emptyList() : items;
@@ -156,6 +136,7 @@ public class GearPlan {
 	}
 
 	public static class Item {
+		@Getter
 		@SerializedName("id")
 		private int id;
 
@@ -165,33 +146,41 @@ public class GearPlan {
 		@SerializedName("kind")
 		private String kind;
 
+		/** OSRS item id for item steps (drawn with the game's own sprite); null otherwise. */
+		@Getter
 		@SerializedName("item_id")
 		private Integer itemId;
 
+		/** OSRS Wiki image, used for steps that are not items. */
+		@Getter
 		@SerializedName("image_url")
 		private String imageUrl;
 
+		@Getter
 		@SerializedName("done")
 		private boolean done;
 
+		/** Done because synced data shows it (bank, gear, levels...). */
+		@Getter
 		@SerializedName("auto")
 		private boolean auto;
 
+		/** Done because the player ticked it. */
+		@Getter
 		@SerializedName("manual")
 		private boolean manual;
 
+		@Getter
 		@SerializedName("next")
 		private boolean next;
 
+		/** Hidden by the player: not shown in game and not counted. */
+		@Getter
 		@SerializedName("hidden")
 		private boolean hidden;
 
 		@SerializedName("how")
 		private String how;
-
-		public int getId() {
-			return id;
-		}
 
 		public String getName() {
 			return name == null ? "" : name;
@@ -200,39 +189,6 @@ public class GearPlan {
 		/** "item", "prayer", "spell", "skill", "slayer" or "poh". */
 		public String getKind() {
 			return kind == null ? "" : kind;
-		}
-
-		/** OSRS item id for item steps (drawn with the game's own sprite); null otherwise. */
-		public Integer getItemId() {
-			return itemId;
-		}
-
-		/** OSRS Wiki image, used for steps that are not items. */
-		public String getImageUrl() {
-			return imageUrl;
-		}
-
-		public boolean isDone() {
-			return done;
-		}
-
-		/** Done because synced data shows it (bank, gear, levels...). */
-		public boolean isAuto() {
-			return auto;
-		}
-
-		/** Done because the player ticked it. */
-		public boolean isManual() {
-			return manual;
-		}
-
-		public boolean isNext() {
-			return next;
-		}
-
-		/** Hidden by the player: not shown in game and not counted. */
-		public boolean isHidden() {
-			return hidden;
 		}
 
 		public String getHow() {
@@ -245,15 +201,12 @@ public class GearPlan {
 	 * is created on the website); plans lists every roadmap of the character to switch between.
 	 */
 	public static class Response {
+		@Getter
 		@SerializedName("plan")
 		private GearPlan plan;
 
 		@SerializedName("plans")
 		private List<Summary> plans;
-
-		public GearPlan getPlan() {
-			return plan;
-		}
 
 		public List<Summary> getPlans() {
 			return plans == null ? Collections.emptyList() : plans;
@@ -262,39 +215,31 @@ public class GearPlan {
 
 	/** One of the character's roadmaps, for the switcher. */
 	public static class Summary {
+		@Getter
 		@SerializedName("id")
 		private int id;
 
 		@SerializedName("name")
 		private String name;
 
+		@Getter
 		@SerializedName("active")
 		private boolean active;
-
-		public int getId() {
-			return id;
-		}
 
 		public String getName() {
 			return name == null ? "" : name;
 		}
 
-		public boolean isActive() {
-			return active;
-		}
 	}
 
 	/** Response of the set-as-goal call. */
 	public static class GoalResult {
+		@Getter
 		@SerializedName("ok")
 		private boolean ok;
 
 		@SerializedName("message")
 		private String message;
-
-		public boolean isOk() {
-			return ok;
-		}
 
 		public String getMessage() {
 			return message == null ? "" : message;

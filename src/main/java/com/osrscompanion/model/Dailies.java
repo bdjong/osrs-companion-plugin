@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.util.Collections;
 import java.util.List;
@@ -10,15 +11,12 @@ import java.util.List;
  * NPC and option, what to bring and the steps.
  */
 public class Dailies {
+	@Getter
 	@SerializedName("reset_at")
 	private String resetAt;
 
 	@SerializedName("dailies")
 	private List<Daily> dailies;
-
-	public String getResetAt() {
-		return resetAt;
-	}
 
 	public List<Daily> getDailies() {
 		return dailies == null ? Collections.emptyList() : dailies;
@@ -51,30 +49,37 @@ public class Dailies {
 		@SerializedName("tracking")
 		private String tracking;
 
+		@Getter
 		@SerializedName("icon")
 		private int icon;
 
 		@SerializedName("reward")
 		private String reward;
 
+		@Getter
 		@SerializedName("amount")
 		private Integer amount;
 
 		/** GE value of the reward; null when it has none (XP, time saved). */
+		@Getter
 		@SerializedName("value")
 		private Long value;
 
 		/** The website's state: done, open or locked. */
+		@Getter
 		@SerializedName("state")
 		private String state;
 
+		@Getter
 		@SerializedName("note")
 		private String note;
 
 		/** Where the website's state comes from: plugin, manual, timer, visit or requirements. */
+		@Getter
 		@SerializedName("source")
 		private String source;
 
+		@Getter
 		@SerializedName("npc")
 		private String npc;
 
@@ -84,15 +89,19 @@ public class Dailies {
 		@SerializedName("area")
 		private String area;
 
+		@Getter
 		@SerializedName("x")
 		private int x;
 
+		@Getter
 		@SerializedName("y")
 		private int y;
 
+		@Getter
 		@SerializedName("plane")
 		private int plane;
 
+		@Getter
 		@SerializedName("travel")
 		private FarmRoute.Travel travel;
 
@@ -122,36 +131,8 @@ public class Dailies {
 			return tracking == null ? "manual" : tracking;
 		}
 
-		public int getIcon() {
-			return icon;
-		}
-
 		public String getReward() {
 			return reward == null ? "" : reward;
-		}
-
-		public Integer getAmount() {
-			return amount;
-		}
-
-		public Long getValue() {
-			return value;
-		}
-
-		public String getState() {
-			return state;
-		}
-
-		public String getNote() {
-			return note;
-		}
-
-		public String getSource() {
-			return source;
-		}
-
-		public String getNpc() {
-			return npc;
 		}
 
 		public String getOption() {
@@ -160,22 +141,6 @@ public class Dailies {
 
 		public String getArea() {
 			return area == null ? "" : area;
-		}
-
-		public int getX() {
-			return x;
-		}
-
-		public int getY() {
-			return y;
-		}
-
-		public int getPlane() {
-			return plane;
-		}
-
-		public FarmRoute.Travel getTravel() {
-			return travel;
 		}
 
 		public List<Bring> getBring() {
@@ -188,9 +153,11 @@ public class Dailies {
 	}
 
 	public static class Bring {
+		@Getter
 		@SerializedName("item")
 		private int item;
 
+		@Getter
 		@SerializedName("qty")
 		private int qty;
 
@@ -199,14 +166,6 @@ public class Dailies {
 
 		@SerializedName("text")
 		private String text;
-
-		public int getItem() {
-			return item;
-		}
-
-		public int getQty() {
-			return qty;
-		}
 
 		public String getName() {
 			return name == null ? "Item" : name;

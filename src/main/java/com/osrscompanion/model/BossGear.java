@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.util.Collections;
 import java.util.List;
@@ -44,9 +45,11 @@ public class BossGear {
 		return MODE_OWNED;
 	}
 
+	@Getter
 	@SerializedName("id")
 	private int id;
 
+	@Getter
 	@SerializedName("boss")
 	private String boss;
 
@@ -54,24 +57,29 @@ public class BossGear {
 	private String bossName;
 
 	/** The boss picture on the OSRS Wiki (for the side panel). */
+	@Getter
 	@SerializedName("image")
 	private String image;
 
 	@SerializedName("style")
 	private String style;
 
+	@Getter
 	@SerializedName("inventory_label")
 	private String inventoryLabel;
 
 	/** Whether the bank was ever synced: without it "owned" says nothing. */
+	@Getter
 	@SerializedName("synced")
 	private boolean synced;
 
 	/** The boss's strategy page on the OSRS Wiki (Go to wiki). */
+	@Getter
 	@SerializedName("url")
 	private String url;
 
 	/** The weapon brought is two-handed: the shield slot stays empty. */
+	@Getter
 	@SerializedName("two_handed")
 	private boolean twoHanded;
 
@@ -86,14 +94,12 @@ public class BossGear {
 	private List<Item> pouch;
 
 	/** The spellbook the rune pouch's runes are for (Standard, Ancient, Lunar, Arceuus), or null. */
+	@Getter
 	@SerializedName("spellbook")
 	private String spellbook;
 
-	public String getSpellbook() {
-		return spellbook;
-	}
-
 	/** The ammo / spell options for the weapon, best first (the bank layout shows the setting's number of them). */
+	@Getter
 	@SerializedName("supplies")
 	private SlayerGear.Supplies supplies;
 
@@ -104,10 +110,6 @@ public class BossGear {
 	/** What recharges the set's charged items (runes, scales, ether...). */
 	@SerializedName("bring")
 	private List<SlayerGear.Bring> bring;
-
-	public SlayerGear.Supplies getSupplies() {
-		return supplies;
-	}
 
 	public List<SlayerGear.Bring> getBring() {
 		return bring == null ? java.util.Collections.emptyList() : bring;
@@ -135,40 +137,12 @@ public class BossGear {
 		return new java.util.ArrayList<>(out);
 	}
 
-	public int getId() {
-		return id;
-	}
-
-	public String getBoss() {
-		return boss;
-	}
-
 	public String getBossName() {
 		return bossName == null ? "Boss" : bossName;
 	}
 
-	public String getImage() {
-		return image;
-	}
-
 	public String getStyle() {
 		return style == null ? "" : style;
-	}
-
-	public String getInventoryLabel() {
-		return inventoryLabel;
-	}
-
-	public boolean isSynced() {
-		return synced;
-	}
-
-	public String getUrl() {
-		return url;
-	}
-
-	public boolean isTwoHanded() {
-		return twoHanded;
 	}
 
 	public List<Slot> getEquipment() {
@@ -209,6 +183,7 @@ public class BossGear {
 
 	public static class Item {
 		/** The id to show: the version the player owns, else the item itself. */
+		@Getter
 		@SerializedName("item")
 		private int item;
 
@@ -220,12 +195,14 @@ public class BossGear {
 		private List<Integer> ids;
 
 		/** In the bank or other synced storage, worn or carried at the last sync. */
+		@Getter
 		@SerializedName("owned")
 		private boolean owned;
 
 		@SerializedName("qty")
 		private int qty;
 
+		@Getter
 		@SerializedName("noted")
 		private boolean noted;
 
@@ -241,10 +218,6 @@ public class BossGear {
 		@SerializedName("need")
 		private String need;
 
-		public int getItem() {
-			return item;
-		}
-
 		public String getName() {
 			return name == null ? "Item" : name;
 		}
@@ -253,17 +226,9 @@ public class BossGear {
 			return ids == null || ids.isEmpty() ? Collections.singletonList(item) : ids;
 		}
 
-		public boolean isOwned() {
-			return owned;
-		}
-
 		/** The stack size, 1 when the wiki gives none. */
 		public int getQty() {
 			return Math.max(1, qty);
-		}
-
-		public boolean isNoted() {
-			return noted;
 		}
 
 		public String getStatus() {
@@ -298,19 +263,13 @@ public class BossGear {
 	}
 
 	public static class Slot extends Item {
+		@Getter
 		@SerializedName("slot")
 		private String slot;
 
+		@Getter
 		@SerializedName("rank")
 		private Integer rank;
-
-		public String getSlot() {
-			return slot;
-		}
-
-		public Integer getRank() {
-			return rank;
-		}
 
 		@Override
 		public String getAltFor() {
@@ -319,6 +278,7 @@ public class BossGear {
 	}
 
 	public static class SetSummary {
+		@Getter
 		@SerializedName("id")
 		private int id;
 
@@ -328,19 +288,17 @@ public class BossGear {
 		@SerializedName("style")
 		private String style;
 
+		@Getter
 		@SerializedName("active")
 		private boolean active;
 
 		/** Your own edited copy of a preset: shown by its name. */
+		@Getter
 		@SerializedName("custom")
 		private boolean custom;
 
 		@SerializedName("name")
 		private String name;
-
-		public int getId() {
-			return id;
-		}
 
 		public String getName() {
 			String label = getLabel();
@@ -352,14 +310,6 @@ public class BossGear {
 			return custom && name != null ? name : style;
 		}
 
-		public boolean isCustom() {
-			return custom;
-		}
-
-		public boolean isActive() {
-			return active;
-		}
-
 		@Override
 		public String toString() {
 			return getName();
@@ -368,6 +318,7 @@ public class BossGear {
 
 	/** A boss and its wiki setups (styles), to switch to any of them from the game. */
 	public static class CatalogBoss {
+		@Getter
 		@SerializedName("key")
 		private String key;
 
@@ -376,10 +327,6 @@ public class BossGear {
 
 		@SerializedName("setups")
 		private List<String> setups;
-
-		public String getKey() {
-			return key;
-		}
 
 		public String getName() {
 			return name == null ? key : name;
@@ -392,6 +339,7 @@ public class BossGear {
 
 	/** GET /api/runelite/boss-gear/ and the activate calls: the active set (or null), every saved set and every boss. */
 	public static class Response {
+		@Getter
 		@SerializedName("set")
 		private BossGear set;
 
@@ -408,10 +356,6 @@ public class BossGear {
 		/** From before the gear modes: true meant the alternatives mode. */
 		@SerializedName("alternatives")
 		private boolean alternatives;
-
-		public BossGear getSet() {
-			return set;
-		}
 
 		public List<SetSummary> getSets() {
 			return sets == null ? Collections.emptyList() : sets;

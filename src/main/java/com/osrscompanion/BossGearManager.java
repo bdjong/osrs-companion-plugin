@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.BossGear;
 import java.util.Collections;
@@ -31,14 +32,22 @@ public class BossGearManager {
 	private final OSRSCompanionConfig config;
 	private final ConfigManager configManager;
 
+	@Getter
 	private volatile BossGear set;
+	@Getter
 	private volatile List<BossGear.SetSummary> sets = Collections.emptyList();
+	@Getter
 	private volatile List<BossGear.CatalogBoss> catalog = Collections.emptyList();
 	/** The gear mode of wiki presets (BossGear.MODE_*), as stored on the website. */
+	@Getter
 	private volatile String mode = BossGear.MODE_OWNED;
+	@Getter
 	private volatile String error;
+	@Getter
 	private volatile boolean loading;
+	@Getter
 	private volatile boolean loaded;
+	@Getter
 	private volatile boolean open;
 
 	@Inject
@@ -197,10 +206,6 @@ public class BossGearManager {
 		});
 	}
 
-	public String getMode() {
-		return mode;
-	}
-
 	/** The next gear mode (Best in slot, Best owned, Owned alternatives, ...). */
 	public void cycleMode() {
 		setMode(BossGear.nextMode(mode));
@@ -237,10 +242,6 @@ public class BossGearManager {
 
 	// ---- The window --------------------------------------------------------------------
 
-	public boolean isOpen() {
-		return open;
-	}
-
 	public void toggle() {
 		if (open) {
 			close();
@@ -262,30 +263,6 @@ public class BossGearManager {
 	}
 
 	// ---- Read by the window and the bank layout ----------------------------------------------
-
-	public BossGear getSet() {
-		return set;
-	}
-
-	public List<BossGear.SetSummary> getSets() {
-		return sets;
-	}
-
-	public List<BossGear.CatalogBoss> getCatalog() {
-		return catalog;
-	}
-
-	public String getError() {
-		return error;
-	}
-
-	public boolean isLoading() {
-		return loading;
-	}
-
-	public boolean isLoaded() {
-		return loaded;
-	}
 
 	/**
 	 * Whether the selected setup is in use: Active lays out the bank and shows the gear, Inactive keeps it

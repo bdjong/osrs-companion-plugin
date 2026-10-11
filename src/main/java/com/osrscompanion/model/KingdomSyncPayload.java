@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -21,6 +22,7 @@ public class KingdomSyncPayload {
 	private final boolean throne_completed;
 	private final boolean royal_trouble_completed;
 	private final int approval_points;
+	@Getter
 	private final int coffer;
 	private final int workers_wood;
 	private final int workers_herb;
@@ -86,10 +88,6 @@ public class KingdomSyncPayload {
 
 	public int getApprovalPoints() {
 		return approval_points;
-	}
-
-	public int getCoffer() {
-		return coffer;
 	}
 
 	public int getWorkersWood() {
