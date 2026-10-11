@@ -1,0 +1,44 @@
+fill rect(0,0,220,316) #463d329c
+draw rect(0,0,219,315) #383028da w=1
+draw rect(1,1,217,313) #54493cda w=1
+text 'Farm run - stop 2/3' 5,21 RuneScape/0/16 #000000ff
+text 'Farm run - stop 2/3' 4,20 RuneScape/0/16 #f28c28ff
+text '3/6 done' 165,21 RuneScape/0/16 #000000ff
+text '3/6 done' 164,20 RuneScape/0/16 #a5a5a5ff
+text 'Tree Gnome Stronghold' 5,37 RuneScape/0/16 #000000ff
+text 'Tree Gnome Stronghold' 4,36 RuneScape/0/16 #ffffffff
+image item:19564 4,36 #ffffffff
+text 'Use Royal seed pod' 47,53 RuneScape/0/16 #000000ff
+text 'Use Royal seed pod' 46,52 RuneScape/0/16 #00ffffff
+text 'Commune to the Grand Tree.' 5,85 RuneScape/0/16 #000000ff
+text 'Commune to the Grand Tree.' 4,84 RuneScape/0/16 #a5a5a5ff
+text 'Minigame teleports are on cooldown' 5,101 RuneScape/0/16 #000000ff
+text 'Minigame teleports are on cooldown' 4,100 RuneScape/0/16 #ffff00ff
+text 'for 1 more min: go this way instead' 5,117 RuneScape/0/16 #000000ff
+text 'for 1 more min: go this way instead' 4,116 RuneScape/0/16 #ffff00ff
+text 'of the Spirit tree.' 5,133 RuneScape/0/16 #000000ff
+text 'of the Spirit tree.' 4,132 RuneScape/0/16 #ffff00ff
+image img:1x4:ecbb4b55 4,132 #ffff00ff
+text 'Put on your Farming cape before' 5,153 RuneScape/0/16 #000000ff
+text 'Put on your Farming cape before' 4,152 RuneScape/0/16 #ffff00ff
+text 'picking the herbs.' 5,169 RuneScape/0/16 #000000ff
+text 'picking the herbs.' 4,168 RuneScape/0/16 #ffff00ff
+text '2 patches at the last stop still have' 5,185 RuneScape/0/16 #000000ff
+text '2 patches at the last stop still have' 4,184 RuneScape/0/16 #f97316ff
+text 'no compost: use your Ultracompost' 5,201 RuneScape/0/16 #000000ff
+text 'no compost: use your Ultracompost' 4,200 RuneScape/0/16 #f97316ff
+text 'on them.' 5,217 RuneScape/0/16 #000000ff
+text 'on them.' 4,216 RuneScape/0/16 #f97316ff
+text 'Tree: Magic tree' 5,233 RuneScape/0/16 #000000ff
+text 'Tree: Magic tree' 4,232 RuneScape/0/16 #ffe04aff
+text '  Check health; pay the gardener' 5,249 RuneScape/0/16 #000000ff
+text '  Check health; pay the gardener' 4,248 RuneScape/0/16 #a5a5a5ff
+text '  200 coins to clear it.' 5,265 RuneScape/0/16 #000000ff
+text '  200 coins to clear it.' 4,264 RuneScape/0/16 #a5a5a5ff
+text '  Plant Magic sapling.' 5,281 RuneScape/0/16 #000000ff
+text '  Plant Magic sapling.' 4,280 RuneScape/0/16 #a5a5a5ff
+text '  Pay 25 x Coconut to protect it.' 5,297 RuneScape/0/16 #000000ff
+text '  Pay 25 x Coconut to protect it.' 4,296 RuneScape/0/16 #a5a5a5ff
+text 'Pay Bolongo for the fruit tree too.' 5,313 RuneScape/0/16 #000000ff
+text 'Pay Bolongo for the fruit tree too.' 4,312 RuneScape/0/16 #f28c28ff
+=> 220x316

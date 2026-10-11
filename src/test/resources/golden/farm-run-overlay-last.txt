@@ -1,0 +1,38 @@
+fill rect(0,0,220,252) #463d329c
+draw rect(0,0,219,251) #383028da w=1
+draw rect(1,1,217,249) #54493cda w=1
+text 'Farm run - stop 3/3' 5,21 RuneScape/0/16 #000000ff
+text 'Farm run - stop 3/3' 4,20 RuneScape/0/16 #f28c28ff
+text '5/6 done' 165,21 RuneScape/0/16 #000000ff
+text '5/6 done' 164,20 RuneScape/0/16 #a5a5a5ff
+text 'Farming Guild' 5,37 RuneScape/0/16 #000000ff
+text 'Farming Guild' 4,36 RuneScape/0/16 #ffffffff
+image item:9810 4,36 #ffffffff
+text 'Use Farming cape' 47,53 RuneScape/0/16 #000000ff
+text 'Use Farming cape' 46,52 RuneScape/0/16 #00ffffff
+text 'Teleport with the cape.' 5,85 RuneScape/0/16 #000000ff
+text 'Teleport with the cape.' 4,84 RuneScape/0/16 #a5a5a5ff
+text 'Minigame teleports are on cooldown' 5,101 RuneScape/0/16 #000000ff
+text 'Minigame teleports are on cooldown' 4,100 RuneScape/0/16 #ffff00ff
+text 'for 12 more mins: use another way' 5,117 RuneScape/0/16 #000000ff
+text 'for 12 more mins: use another way' 4,116 RuneScape/0/16 #ffff00ff
+text 'there.' 5,133 RuneScape/0/16 #000000ff
+text 'there.' 4,132 RuneScape/0/16 #ffff00ff
+image img:1x4:ecbb4b55 4,132 #ffff00ff
+text '1 patch at the last stop still has no' 5,153 RuneScape/0/16 #000000ff
+text '1 patch at the last stop still has no' 4,152 RuneScape/0/16 #f97316ff
+text 'compost: use your Ultracompost on' 5,169 RuneScape/0/16 #000000ff
+text 'compost: use your Ultracompost on' 4,168 RuneScape/0/16 #f97316ff
+text 'it.' 5,185 RuneScape/0/16 #000000ff
+text 'it.' 4,184 RuneScape/0/16 #f97316ff
+text 'Herb: Torstol' 5,201 RuneScape/0/16 #000000ff
+text 'Herb: Torstol' 4,200 RuneScape/0/16 #a5a5a5ff
+text 'skipped' 173,201 RuneScape/0/16 #000000ff
+text 'skipped' 172,200 RuneScape/0/16 #a5a5a5ff
+text 'Compost bin' 5,217 RuneScape/0/16 #000000ff
+text 'Compost bin' 4,216 RuneScape/0/16 #ffe04aff
+text '  Take out the compost, then fill and' 5,233 RuneScape/0/16 #000000ff
+text '  Take out the compost, then fill and' 4,232 RuneScape/0/16 #a5a5a5ff
+text '  close the bin.' 5,249 RuneScape/0/16 #000000ff
+text '  close the bin.' 4,248 RuneScape/0/16 #a5a5a5ff
+=> 220x252

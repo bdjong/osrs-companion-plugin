@@ -1,0 +1,22 @@
+fill rect(0,0,213,121) #463d329c
+draw rect(0,0,212,120) #383028da w=1
+draw rect(1,1,210,118) #54493cda w=1
+text 'Ironman early game: Barrows' 5,21 RuneScape/0/16 #000000ff
+text 'Ironman early game: Barrows' 4,20 RuneScape/0/16 #f28c28ff
+text 'gloves and Fire cape - Current Goal' 5,37 RuneScape/0/16 #000000ff
+text 'gloves and Fire cape - Current Goal' 4,36 RuneScape/0/16 #f28c28ff
+image img:1x4:ecbb4b55 4,36 #f28c28ff
+image skill:AGILITY 4,40 #f28c28ff
+text 'Reach level 70 Agility for the' 36,57 RuneScape/0/16 #000000ff
+text 'Reach level 70 Agility for the' 35,56 RuneScape/0/16 #ffffffff
+text 'Ardougne rooftop course and' 36,73 RuneScape/0/16 #000000ff
+text 'Ardougne rooftop course and' 35,72 RuneScape/0/16 #ffffffff
+text 'graceful' 36,89 RuneScape/0/16 #000000ff
+text 'graceful' 35,88 RuneScape/0/16 #ffffffff
+fillRound 4,92,205,6,6,6 #0000006e
+fillRound 4,92,166,6,6,6 #2563ebff
+text '601K XP / 737K XP' 5,116 RuneScape/0/16 #000000ff
+text '601K XP / 737K XP' 4,115 RuneScape/0/16 #c6c6c6ff
+text '81%' 185,116 RuneScape/0/16 #000000ff
+text '81%' 184,115 RuneScape/0/16 #c6c6c6ff
+=> 213x121

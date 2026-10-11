@@ -1,0 +1,47 @@
+fill rect(0,0,220,352) #463d329c
+draw rect(0,0,219,351) #383028da w=1
+draw rect(1,1,217,349) #54493cda w=1
+text 'Dailies' 5,21 RuneScape/0/16 #000000ff
+text 'Dailies' 4,20 RuneScape/0/16 #f472b6ff
+text '1/3 done' 167,21 RuneScape/0/16 #000000ff
+text '1/3 done' 166,20 RuneScape/0/16 #a5a5a5ff
+image item:1391 4,20 #a5a5a5ff
+text 'Battlestaves from Zaff' 47,37 RuneScape/0/16 #000000ff
+text 'Battlestaves from Zaff' 46,36 RuneScape/0/16 #ffffffff
+text '(120)' 5,69 RuneScape/0/16 #000000ff
+text '(120)' 4,68 RuneScape/0/16 #ffffffff
+image item:8007 4,68 #ffffffff
+text 'Use Varrock teleport' 47,85 RuneScape/0/16 #000000ff
+text 'Use Varrock teleport' 46,84 RuneScape/0/16 #00ffffff
+text 'Teleport to Varrock and walk' 5,117 RuneScape/0/16 #000000ff
+text 'Teleport to Varrock and walk' 4,116 RuneScape/0/16 #a5a5a5ff
+text 'north-west past the fountain to the' 5,133 RuneScape/0/16 #000000ff
+text 'north-west past the fountain to the' 4,132 RuneScape/0/16 #a5a5a5ff
+text 'shop.' 5,149 RuneScape/0/16 #000000ff
+text 'shop.' 4,148 RuneScape/0/16 #a5a5a5ff
+image img:1x4:ecbb4b55 4,148 #a5a5a5ff
+text 'Zaff's Superior Staffs, Varrock' 5,169 RuneScape/0/16 #000000ff
+text 'Zaff's Superior Staffs, Varrock' 4,168 RuneScape/0/16 #ffffffff
+text 'Zaff: Buy-battlestaves' 5,185 RuneScape/0/16 #000000ff
+text 'Zaff: Buy-battlestaves' 4,184 RuneScape/0/16 #ffe04aff
+text 'Talk to Zaff and choose' 5,201 RuneScape/0/16 #000000ff
+text 'Talk to Zaff and choose' 4,200 RuneScape/0/16 #a5a5a5ff
+text 'Buy-battlestaves.' 5,217 RuneScape/0/16 #000000ff
+text 'Buy-battlestaves.' 4,216 RuneScape/0/16 #a5a5a5ff
+text 'Bank or note them at the bank' 5,233 RuneScape/0/16 #000000ff
+text 'Bank or note them at the bank' 4,232 RuneScape/0/16 #a5a5a5ff
+text 'behind the shop.' 5,249 RuneScape/0/16 #000000ff
+text 'behind the shop.' 4,248 RuneScape/0/16 #a5a5a5ff
+image item:995 4,248 #a5a5a5ff
+text 'Bring: 105k coins (up to 120' 47,265 RuneScape/0/16 #000000ff
+text 'Bring: 105k coins (up to 120' 46,264 RuneScape/0/16 #f97316ff
+text 'staves at 7k each with the' 5,297 RuneScape/0/16 #000000ff
+text 'staves at 7k each with the' 4,296 RuneScape/0/16 #f97316ff
+text 'Varrock hard diary)' 5,313 RuneScape/0/16 #000000ff
+text 'Varrock hard diary)' 4,312 RuneScape/0/16 #f97316ff
+text '120 left to buy today' 5,329 RuneScape/0/16 #000000ff
+text '120 left to buy today' 4,328 RuneScape/0/16 #ffff00ff
+image img:1x4:ecbb4b55 4,328 #ffff00ff
+text 'Ticks off by itself once you have it.' 5,349 RuneScape/0/16 #000000ff
+text 'Ticks off by itself once you have it.' 4,348 RuneScape/0/16 #0dc10dff
+=> 220x352
