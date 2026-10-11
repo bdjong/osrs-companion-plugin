@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.osrscompanion.FarmPatchProgress.Status;
@@ -57,6 +58,7 @@ import net.runelite.client.util.QuantityFormatter;
  * teleport's cooldown, where you are (finishing, compost at the stop just left). Once every patch is handled the run
  * pops up a summary and stops by itself when you leave the last stop.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class FarmRunManager {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -203,20 +205,6 @@ public class FarmRunManager {
 	private volatile boolean loadLastRun;
 	/** The route got ready while logged out: the in-game popup waits for the next login. */
 	private volatile String readyPopupPending;
-
-	@Inject
-	public FarmRunManager(Client client, OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager, OSRSCompanionConfig config, Notifier notifier,
-		GoalCompletionNotifier popups, TeleportLeftClick teleports, ConfigManager configManager, Gson gson) {
-		this.client = client;
-		this.apiClient = apiClient;
-		this.roadmapManager = roadmapManager;
-		this.config = config;
-		this.notifier = notifier;
-		this.popups = popups;
-		this.teleports = teleports;
-		this.configManager = configManager;
-		this.gson = gson;
-	}
 
 	// ---- Loading -----------------------------------------------------------------
 

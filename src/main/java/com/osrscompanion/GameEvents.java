@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import java.util.ArrayList;
@@ -56,6 +57,7 @@ import net.runelite.http.api.loottracker.LootRecordType;
  * from the patch. In order, each with its tick and time; sent with the other uploads every 30 seconds, and at once
  * after a kill, a drop, a death, the bank or logging out.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class GameEvents {
 	static final String GUARD_FEATURE = "game-events";
@@ -104,19 +106,6 @@ public class GameEvents {
 	/** The Kandarin and Kourend & Kebos diaries' completed varbits, easy to elite (they raise two herb patches' yields). */
 	private static final int[] KANDARIN_DIARY = {4515, 4516, 4517, 4518};
 	private static final int[] KOUREND_DIARY = {7929, 7930, 7931, 7932};
-
-	@Inject
-	public GameEvents(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient, ItemManager itemManager, SupplyCounter counter,
-		Gson gson, FarmRunManager farmRun, ConfigManager configManager) {
-		this.client = client;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.itemManager = itemManager;
-		this.counter = counter;
-		this.gson = gson;
-		this.farmRun = farmRun;
-		this.configManager = configManager;
-	}
 
 	private boolean on() {
 		return (config.bossTrips() || config.bossHistory() || config.syncFarmHarvests()) && SyncGuard.hasAppKey(config)

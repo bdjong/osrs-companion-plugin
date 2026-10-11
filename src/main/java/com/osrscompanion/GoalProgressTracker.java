@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapGoal;
 import java.util.HashSet;
@@ -14,6 +15,7 @@ import javax.inject.Singleton;
  * each goal's progress from the roadmap the website sent, and a goal the website newly reports complete (since
  * its last roadmap read this session) gets the completion popup and sound.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class GoalProgressTracker {
 	private final RoadmapManager roadmapManager;
@@ -22,12 +24,6 @@ public class GoalProgressTracker {
 	private final Map<Integer, Set<Integer>> completed = new ConcurrentHashMap<>();
 	/** Goals completed during this session (they linger in the roadmap window's tree). */
 	private final Set<Integer> completedThisSession = ConcurrentHashMap.newKeySet();
-
-	@Inject
-	public GoalProgressTracker(RoadmapManager roadmapManager, GoalCompletionNotifier completionNotifier) {
-		this.roadmapManager = roadmapManager;
-		this.completionNotifier = completionNotifier;
-	}
 
 	/** A roadmap read from the website: goals newly complete since its last read get the popup. */
 	public void onServerRoadmap(Roadmap roadmap) {
