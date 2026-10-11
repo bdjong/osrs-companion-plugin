@@ -27,3 +27,4 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 | RuneLite's produce list as a data file (`produce.txt`, checked against RuneLite for every value) | -1,977 |
 | The five windows on one `GameWindow` base (frame, clickable areas, tooltips, mouse and keys) | -5,322 |
 | In-game dailies guide dropped (the sync stays) | -10,046 |
+| One switcher list for three windows | -398 |
