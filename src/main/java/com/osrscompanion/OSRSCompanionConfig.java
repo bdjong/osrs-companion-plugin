@@ -276,14 +276,6 @@ public interface OSRSCompanionConfig extends Config {
 		return true;
 	}
 
-	@ConfigItem(
-			keyName = "showGearProgress",
-			name = "Show gear progression box",
-			description = "Show the next step of your active gear roadmap as a box in the game window, next to the roadmap box.",
-			hidden = true)
-	default boolean showGearProgress() {
-		return true;
-	}
 
 	@ConfigItem(
 			keyName = "showFarmRun",

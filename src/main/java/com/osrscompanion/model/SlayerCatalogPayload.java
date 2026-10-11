@@ -42,10 +42,6 @@ public class SlayerCatalogPayload {
 		return player_username;
 	}
 
-	public String getPayloadHash() {
-		return payload_hash;
-	}
-
 	public String toJson(Gson gson) {
 		return gson.toJson(this);
 	}

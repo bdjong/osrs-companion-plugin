@@ -40,6 +40,10 @@ owner's decision.
 185k projected). Checkpoint: the farm run guide goes website-driven next and is measured; if it falls short of the
 projection, two plugins (sync + guides) is the fallback, the data pump being needed either way.
 
+**Checkpoint (2026-10-12):** the farm guide's code went 12.5k to 9.2k (-27%), short of the half assumed: the end
+projection became about 200k. The owner chose to stay one plugin and drop the in-game gear progression and the
+in-game roadmap window (both stay on the website): about 185k projected, give or take 10k.
+
 ## Open: decide when the rework is done
 
 - **Advancing guide steps offline (the owner's preference).** The website would send each step with simple conditions ("this patch is planted", "this item is in the inventory", "you are in this area") and the plugin checks them itself: guides keep moving without the website, and simple steps react instantly again. Estimated 4,000-6,000 tokens. Decide with the exact token count at the end of the rework: do it if it fits under 195,000.
@@ -65,3 +69,4 @@ projection, two plugins (sync + guides) is the fallback, the data pump being nee
 | Error reporting dropped (owner's choice: no reports to Admin > Errors, no incidents or freeze watchdog; features still turn off safely) | -10,444 |
 | Debug logging dropped (owner's choice; warnings and errors still logged) | -5,122 |
 | Farm run guide worked out by the website (checkpoint: its code 12.5k to 9.2k, -27% where the projection assumed about half) | -3,368 |
+| In-game gear progression and roadmap window dropped (owner's choice; both stay on the website), with the code only they used | -18,875 |

@@ -44,4 +44,30 @@ final class UiSamples {
 	static FarmRoute route() {
 		return GSON.fromJson(ROUTE_JSON, FarmRoute.class);
 	}
+
+	/** A roadmap with goals of every kind. */
+	static final String ROADMAP_JSON = "{\"collection_id\":3,\"title\":\"Ironman early game\",\"goal_count\":7,\"goals\":["
+		+ "{\"id\":1,\"goal_type\":\"quest\",\"sort_order\":1,\"name\":\"Complete Waterfall Quest\",\"current\":1,\"target\":1,\"is_complete\":true,\"completed_at\":\"2026-09-01T10:00:00Z\"},"
+		+ "{\"id\":2,\"goal_type\":\"skill_level\",\"sort_order\":2,\"name\":\"Reach level 43 Prayer\",\"current\":50339,\"target\":50339,\"is_complete\":true,\"meta\":{\"skill\":\"Prayer\"}},"
+		+ "{\"id\":3,\"goal_type\":\"item_owned\",\"sort_order\":3,\"name\":\"Get a Dragon defender\",\"current\":0,\"target\":1,\"meta\":{\"item_id\":12954}},"
+		+ "{\"id\":4,\"goal_type\":\"skill_xp\",\"sort_order\":4,\"name\":\"Reach 1M Slayer XP\",\"current\":612000,\"target\":1000000,\"progress_percent\":61,\"meta\":{\"skill\":\"Slayer\"},\"dependency_ids\":[3]},"
+		+ "{\"id\":5,\"goal_type\":\"kc\",\"sort_order\":5,\"name\":\"Kill Zulrah 50 times for the Tanzanite fang and Magic fang (and a long name that wraps)\",\"current\":12,\"target\":50,\"progress_percent\":24,"
+		+ " \"image_url\":\"https://oldschool.runescape.wiki/images/Zulrah.png\"},"
+		+ "{\"id\":6,\"goal_type\":\"clog_item\",\"sort_order\":6,\"name\":\"Barrows gloves\",\"current\":0,\"target\":1,\"meta\":{\"item_id\":7462}},"
+		+ "{\"id\":7,\"goal_type\":\"custom\",\"sort_order\":7,\"name\":\"Do the Fight Caves\",\"current\":0,\"target\":1}"
+		+ "]}";
+
+	/** The slayer gear the website sends for a task. */
+	static final String SLAYER_GEAR_JSON = "{\"task\":\"Abyssal demons\",\"monster\":\"Abyssal demon\",\"sets\":["
+		+ "{\"key\":\"melee\",\"label\":\"Melee\",\"max_hit\":44,\"dps\":6.81,\"kills_per_hour\":121.4,"
+		+ " \"equipment\":[{\"slot\":\"head\",\"item\":11865,\"name\":\"Slayer helmet (i)\"},{\"slot\":\"weapon\",\"item\":12006,\"name\":\"Abyssal tentacle\"},"
+		+ "  {\"slot\":\"body\",\"item\":10551,\"name\":\"Fighter torso\"},{\"slot\":\"shield\",\"item\":12954,\"name\":\"Dragon defender\"},{\"slot\":\"neck\",\"item\":6585,\"name\":\"Amulet of fury\"},"
+		+ "  {\"slot\":\"legs\",\"item\":4087,\"name\":\"Dragon platelegs\"},{\"slot\":\"hands\",\"item\":7462,\"name\":\"Barrows gloves\"},{\"slot\":\"feet\",\"item\":11840,\"name\":\"Dragon boots\"},"
+		+ "  {\"slot\":\"ring\",\"item\":11773,\"name\":\"Berserker ring (i)\"},{\"slot\":\"cape\",\"item\":6570,\"name\":\"Fire cape\"}],"
+		+ " \"extras\":[{\"label\":\"Prayer\",\"name\":\"Piety\"},{\"label\":\"Boost\",\"name\":\"Super combat potion\"}],"
+		+ " \"bring\":[{\"kind\":\"food\",\"name\":\"Shark\",\"items\":[385]}]},"
+		+ "{\"key\":\"burst\",\"label\":\"Ice Burst (3 targets)\",\"max_hit\":22,\"dps\":9.4,\"kills_per_hour\":168.0,\"spell\":\"Ice Burst\","
+		+ " \"equipment\":[{\"slot\":\"head\",\"item\":11865,\"name\":\"Slayer helmet (i)\"},{\"slot\":\"weapon\",\"item\":12899,\"name\":\"Trident of the swamp\"}],"
+		+ " \"extras\":[],\"supplies\":{\"kind\":\"runes\",\"options\":[{\"name\":\"Ice Burst\",\"items\":[560,565]},{\"name\":\"Ice Blitz\",\"items\":[565,555]}]},\"bring\":[]}"
+		+ "]}";
 }

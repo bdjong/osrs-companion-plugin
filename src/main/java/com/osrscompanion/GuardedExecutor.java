@@ -52,11 +52,6 @@ final class GuardedExecutor implements ScheduledExecutorService {
 		PERIODIC.clear();
 	}
 
-	static int periodicCount() {
-		PERIODIC.removeIf(Future::isDone);
-		return PERIODIC.size();
-	}
-
 	private Runnable guard(Runnable task) {
 		return Guard.wrap(feature, task);
 	}

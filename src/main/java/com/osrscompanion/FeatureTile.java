@@ -51,11 +51,6 @@ class FeatureTile extends JComponent {
 		return new FeatureTile(titleWhite, titleAccent, subtitle, accent, from, to, icon, action, false);
 	}
 
-	/** A slim tile for small actions (Refresh). */
-	static FeatureTile slim(String title, Color accent, Runnable action) {
-		return new FeatureTile(title, "", null, accent, new Color(0x1B2130), new Color(0x263049), null, action, true);
-	}
-
 	private FeatureTile(String titleWhite, String titleAccent, String subtitle, Color accent, Color from, Color to,
 			BufferedImage icon, Runnable action, boolean compact) {
 		this.titleWhite = titleWhite;
