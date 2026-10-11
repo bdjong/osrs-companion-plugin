@@ -168,34 +168,13 @@ public final class UiKit {
 	static <T> T guarded(java.util.function.Supplier<T> render) {
 		Guard guard = Guard.shared();
 		guard.resetBreakers();
-		List<Throwable> failures = new ArrayList<>();
-		guard.setListener(new Guard.Listener() {
-			@Override
-			public void onFailure(String feature, Throwable error) {
-				failures.add(error);
-			}
-
-			@Override
-			public void onFatal(String feature, Throwable error) {
-				failures.add(error);
-			}
-
-			@Override
-			public void onFreeze(String feature, long elapsedMs, StackTraceElement[] stack) {
-			}
-
-			@Override
-			public void onDisabled(String feature) {
-			}
-		});
+		Guard.failTests = true;
 		try {
-			T result = render.get();
-			if (!failures.isEmpty()) {
-				throw new AssertionError("The UI failed while rendering: " + failures.get(0), failures.get(0));
-			}
-			return result;
+			return render.get();
+		} catch (AssertionError e) {
+			throw new AssertionError("The UI failed while rendering: " + e.getCause(), e.getCause() == null ? e : e.getCause());
 		} finally {
-			guard.setListener(null);
+			Guard.failTests = false;
 			guard.resetBreakers();
 		}
 	}
