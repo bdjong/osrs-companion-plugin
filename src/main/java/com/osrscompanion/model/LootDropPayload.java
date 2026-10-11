@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.List;
 
@@ -15,6 +16,7 @@ public class LootDropPayload
 	private final String npc_name;
 	private final Integer kill_count;
 	private final String dropped_at;
+	@Getter
 	private final List<LootSyncPayload.LootItem> items;
 
 	public LootDropPayload(String playerUsername, String sourceClient, int npcId, String npcName,
@@ -57,11 +59,6 @@ public class LootDropPayload
 	public String getDroppedAt()
 	{
 		return dropped_at;
-	}
-
-	public List<LootSyncPayload.LootItem> getItems()
-	{
-		return items;
 	}
 
 	public String toJson(Gson gson)

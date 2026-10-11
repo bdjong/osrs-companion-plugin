@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.GearPlan;
 import java.util.Collections;
@@ -31,26 +32,31 @@ public class GearProgressionManager {
 	private final OSRSCompanionApiClient apiClient;
 	private final RoadmapManager roadmapManager;
 
+	@Getter
 	private volatile boolean open;
+	@Getter
 	private volatile boolean loading;
+	@Getter
 	private volatile boolean loaded;
+	@Getter
 	private volatile GearPlan plan;
+	/** Every roadmap of the character (the active one included), oldest first. */
+	@Getter
 	private volatile List<GearPlan.Summary> plans = Collections.emptyList();
+	@Getter
 	private volatile String error;
+	@Getter
 	private volatile String status;
 	private volatile long fetchedAtMs;
 	private volatile int selectedTier = -1;
 	private volatile int selectedItemId = -1;
+	@Getter
 	private volatile boolean busy;
 
 	@Inject
 	public GearProgressionManager(OSRSCompanionApiClient apiClient, RoadmapManager roadmapManager) {
 		this.apiClient = apiClient;
 		this.roadmapManager = roadmapManager;
-	}
-
-	public boolean isOpen() {
-		return open;
 	}
 
 	public void toggle() {
@@ -227,35 +233,6 @@ public class GearProgressionManager {
 		if (newPlan != null && selectedItemId >= 0 && newPlan.findItem(selectedItemId) == null) {
 			selectedItemId = -1;
 		}
-	}
-
-	public GearPlan getPlan() {
-		return plan;
-	}
-
-	/** Every roadmap of the character (the active one included), oldest first. */
-	public List<GearPlan.Summary> getPlans() {
-		return plans;
-	}
-
-	public boolean isLoading() {
-		return loading;
-	}
-
-	public boolean isLoaded() {
-		return loaded;
-	}
-
-	public boolean isBusy() {
-		return busy;
-	}
-
-	public String getError() {
-		return error;
-	}
-
-	public String getStatus() {
-		return status;
 	}
 
 	/** The tier on show: the one the player picked, else the tier with the next open step. */

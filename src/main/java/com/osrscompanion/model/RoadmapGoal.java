@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -13,30 +14,40 @@ import java.util.Map;
  * endpoints. Only the fields the plugin renders are mapped.
  */
 public class RoadmapGoal {
+	@Getter
 	@SerializedName("id")
 	private int id;
 
+	@Getter
 	@SerializedName("goal_type")
 	private String goalType;
 
+	@Getter
 	@SerializedName("sort_order")
 	private int sortOrder;
 
+	@Getter
 	@SerializedName("name")
 	private String name;
 
+	/** Artwork the server links for this goal (a wiki image), or null. */
+	@Getter
 	@SerializedName("image_url")
 	private String imageUrl;
 
+	@Getter
 	@SerializedName("current")
 	private int current;
 
+	@Getter
 	@SerializedName("target")
 	private int target;
 
+	@Getter
 	@SerializedName("progress_percent")
 	private Integer progressPercent;
 
+	@Getter
 	@SerializedName("is_complete")
 	private boolean complete;
 
@@ -51,10 +62,6 @@ public class RoadmapGoal {
 
 	@SerializedName("meta")
 	private Meta meta;
-
-	public int getId() {
-		return id;
-	}
 
 	/** Ids of this goal's prerequisite goals (within the same roadmap). */
 	public List<Integer> getDependencyIds() {
@@ -165,42 +172,9 @@ public class RoadmapGoal {
 		private Map<String, Integer> heldBySource;
 	}
 
-	public String getGoalType() {
-		return goalType;
-	}
-
 	/** The parsed goal type; {@link GoalType#UNKNOWN} for unrecognised values. */
 	public GoalType getType() {
 		return GoalType.fromWire(goalType);
-	}
-
-	public int getSortOrder() {
-		return sortOrder;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	/** Artwork the server links for this goal (a wiki image), or null. */
-	public String getImageUrl() {
-		return imageUrl;
-	}
-
-	public int getCurrent() {
-		return current;
-	}
-
-	public int getTarget() {
-		return target;
-	}
-
-	public Integer getProgressPercent() {
-		return progressPercent;
-	}
-
-	public boolean isComplete() {
-		return complete;
 	}
 
 	/**

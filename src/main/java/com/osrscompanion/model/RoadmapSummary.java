@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 
 /**
@@ -7,12 +8,15 @@ import com.google.gson.annotations.SerializedName;
  * populate the panel's roadmap selector.
  */
 public class RoadmapSummary {
+	@Getter
 	@SerializedName("collection_id")
 	private int collectionId;
 
+	@Getter
 	@SerializedName("title")
 	private String title;
 
+	@Getter
 	@SerializedName("goal_count")
 	private int goalCount;
 
@@ -23,18 +27,6 @@ public class RoadmapSummary {
 		this.collectionId = collectionId;
 		this.title = title;
 		this.goalCount = goalCount;
-	}
-
-	public int getCollectionId() {
-		return collectionId;
-	}
-
-	public String getTitle() {
-		return title;
-	}
-
-	public int getGoalCount() {
-		return goalCount;
 	}
 
 	@Override

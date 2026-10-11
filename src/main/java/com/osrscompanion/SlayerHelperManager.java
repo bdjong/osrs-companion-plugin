@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.osrscompanion.api.OSRSCompanionApiClient;
@@ -211,17 +212,29 @@ public class SlayerHelperManager {
 	private final Map<String, String> taskNames = new ConcurrentHashMap<>();
 
 	// Read by the panel and overlays.
+	@Getter
 	private volatile Task task;
+	@Getter
 	private volatile SlayerGuide guide;
+	@Getter
 	private volatile String error;
+	@Getter
 	private volatile boolean loading;
 	private volatile long fetchedAtMs;
 	private volatile String player;
+	/** The location the guide leads to (the selected or recommended one), or null. */
+	@Getter
 	private volatile SlayerGuide.Location location;
+	/** The task location you are in, or null. */
+	@Getter
 	private volatile SlayerGuide.Location here;
+	/** The open session's numbers at the last tick, or null when there is none. */
+	@Getter
 	private volatile Stats stats;
 	/** Distance (tiles) and compass direction from you to the location; -1 / null when not comparable. */
+	@Getter
 	private volatile int distance = -1;
+	@Getter
 	private volatile String direction;
 
 	// Client thread only.
@@ -311,10 +324,12 @@ public class SlayerHelperManager {
 
 	// ---- Slayer gear (the website's DPS calculator) ---------------------------------------------
 
+	@Getter
 	private volatile SlayerGear gear;
 	/** The setup picked in the Slayer gear window (its key), stored per task in the RS profile; null: the best. */
 	private volatile String gearKey;
 	/** Whether the Slayer gear window is open. */
+	@Getter
 	private volatile boolean gearOpen;
 	private volatile boolean gearLoading;
 	/** RS profile config key prefix of the picked setup, per task ("slayerGearSet." + task). */
@@ -368,10 +383,6 @@ public class SlayerHelperManager {
 		return 0;
 	}
 
-	public SlayerGear getGear() {
-		return gear;
-	}
-
 	/** The picked setup (the best when none is picked or it is gone), or null when there is none. */
 	public SlayerGear.Set getGearSet() {
 		SlayerGear g = gear;
@@ -412,10 +423,6 @@ public class SlayerHelperManager {
 	}
 
 	// ---- The Slayer gear window ---------------------------------------------------------------
-
-	public boolean isGearOpen() {
-		return gearOpen;
-	}
 
 	public void toggleGearWindow() {
 		if (gearOpen) {
@@ -1425,37 +1432,10 @@ public class SlayerHelperManager {
 		return config.slayerGuide() && task != null && here != null;
 	}
 
-	public Task getTask() {
-		return task;
-	}
-
-	public SlayerGuide getGuide() {
-		return guide;
-	}
-
-	/** The location the guide leads to (the selected or recommended one), or null. */
-	public SlayerGuide.Location getLocation() {
-		return location;
-	}
-
-	/** The task location you are in, or null. */
-	public SlayerGuide.Location getHere() {
-		return here;
-	}
-
-	/** The open session's numbers at the last tick, or null when there is none. */
-	public Stats getStats() {
-		return stats;
-	}
-
 	/** The master's name as the website has it, or null. */
 	public String getMaster() {
 		SlayerGuide g = guide;
 		return matches(g, task) ? g.getTask().getMaster() : null;
-	}
-
-	public String getError() {
-		return error;
 	}
 
 	/**
@@ -1469,18 +1449,6 @@ public class SlayerHelperManager {
 	/** True when the loaded guide is about the task you have (false while it is loading or the website lags behind). */
 	public boolean isGuideForTask() {
 		return matches(guide, task);
-	}
-
-	public boolean isLoading() {
-		return loading;
-	}
-
-	public int getDistance() {
-		return distance;
-	}
-
-	public String getDirection() {
-		return direction;
 	}
 
 	/** Plugin shutdown: the open session is stored (and sent) first. Client thread. */

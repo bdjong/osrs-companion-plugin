@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import java.util.List;
 
 /**
@@ -12,7 +13,9 @@ import java.util.List;
  * {@code complete} / {@code tasks} to match the payload the backend expects.
  */
 public class DiaryTierResult {
+	@Getter
 	private final boolean complete;
+	@Getter
 	private final List<Boolean> tasks;
 
 	public DiaryTierResult(boolean complete, List<Boolean> tasks) {
@@ -20,11 +23,4 @@ public class DiaryTierResult {
 		this.tasks = tasks;
 	}
 
-	public boolean isComplete() {
-		return complete;
-	}
-
-	public List<Boolean> getTasks() {
-		return tasks;
-	}
 }

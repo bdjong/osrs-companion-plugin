@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
 import java.util.ArrayList;
@@ -89,7 +90,9 @@ public class SuppliesCheck {
 		}
 	}
 
+	@Getter
 	private volatile Result boss;
+	@Getter
 	private volatile Result farm;
 	private boolean dirty;
 	private Object lastSet;
@@ -104,14 +107,6 @@ public class SuppliesCheck {
 		this.farmRun = farmRun;
 		this.trips = trips;
 		this.counter = counter;
-	}
-
-	public Result getBoss() {
-		return boss;
-	}
-
-	public Result getFarm() {
-		return farm;
 	}
 
 	public void clear() {
