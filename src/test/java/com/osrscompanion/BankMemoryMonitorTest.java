@@ -64,5 +64,8 @@ public class BankMemoryMonitorTest {
 	public void sourceNames() {
 		assertEquals("inventory", BankMemoryMonitor.SOURCE_INVENTORY);
 		assertEquals("worn", BankMemoryMonitor.SOURCE_WORN);
+		assertTrue(GoalProgressState.isCarriedSource("worn"));
+		assertTrue(GoalProgressState.isCarriedSource("carried"));
+		assertFalse(GoalProgressState.isCarriedSource("bank"));
 	}
 }

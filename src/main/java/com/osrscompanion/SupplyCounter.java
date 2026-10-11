@@ -11,7 +11,6 @@ import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemVariationMapping;
 
@@ -22,10 +21,6 @@ import net.runelite.client.game.ItemVariationMapping;
  */
 @Singleton
 public class SupplyCounter {
-	/** Rune pouches (regular and divine, and their locked versions): the runes inside count as carried. */
-	static final java.util.Set<Integer> RUNE_POUCHES = com.google.common.collect.ImmutableSet.of(
-		ItemID.BH_RUNE_POUCH, ItemID.BH_RUNE_POUCH_TROUVER, ItemID.DIVINE_RUNE_POUCH, ItemID.DIVINE_RUNE_POUCH_TROUVER);
-
 	private final Client client;
 	private final ItemManager itemManager;
 
@@ -84,7 +79,7 @@ public class SupplyCounter {
 			}
 			for (Item item : c.getItems()) {
 				add(out, item.getId(), item.getQuantity());
-				pouch |= container == InventoryID.INV && RUNE_POUCHES.contains(item.getId());
+				pouch |= container == InventoryID.INV && FarmRunManager.RUNE_POUCHES.contains(item.getId());
 			}
 		}
 		if (pouch) {

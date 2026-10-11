@@ -15,7 +15,7 @@ The `warning=` line is shown by RuneLite before someone installs the plugin; the
 
 ## OSRS Companion
 
-Adds **OSRS Companion**: it syncs the player's own game data (skills, bank and other storage, collection log, quests, diaries, combat achievements, loot and kill counts, slayer, farming timers and harvests, boss trips, dailies) to the OSRS Companion website, a third-party site (`https://osrs-companion-web.vercel.app`) where the player's roadmaps, gear progression, farm routes, boss gear and slayer advice use it.
+Adds **OSRS Companion**: it syncs the player's own game data to the OSRS Companion website (a third-party site, `https://osrs-companion-web.vercel.app`) and shows the player's roadmap goals, gear progression, farm run guide, boss gear and slayer helper in game.
 
 ### Third-party website and data
 
@@ -27,11 +27,12 @@ Adds **OSRS Companion**: it syncs the player's own game data (skills, bank and o
 ### Things worth a look
 
 - **`client.menuAction` (collection log).** `CollectionLogMonitor.triggerFullRead` calls `client.menuAction(-1, InterfaceID.Collection.SEARCH_TOGGLE, MenuAction.CC_OP, 1, -1, "Search", null)` and then `client.runScript(2240)`, exactly as WikiSync does, so the game draws every obtained item and the plugin can read the whole log. It runs once per session, only when the player opens the collection log themselves, with Collection Log sync on and an App Key set. It is client-side only and sends no game action to the server. This is the only `menuAction` call in the plugin.
-- **Other client scripts (read only).** `QuestMonitor` runs `QUEST_STATUS_GET` to read each quest's state and `PotionStorageMonitor` runs `POTIONSTORE_DOSES` to read the potion storage's doses.
-- **No menu changes, overlays or hint arrows.** The plugin only reads game state and sends it; it changes nothing in the game. Other plugins' settings are only read (Inventory Setups loadouts, the kill counts RuneLite stores for `!kc` and Charges Improved storage), never written.
-- **Threads.** All network calls are asynchronous (OkHttp `enqueue`, from the injected `OkHttpClient` and `Gson`). The plugin has one small daemon thread of its own: a watchdog that switches off one of the plugin's own features if its code blocks the client thread for more than 2 seconds (it only looks at the plugin's own guarded sections).
-- **Vendored code.** `com.osrscompanion.runelite.farming` / `.hunter` are RuneLite's time-tracking classes (BSD 2-Clause, notices kept, see THIRD_PARTY_NOTICES.txt) so each farming patch can be named and read.
+- **Menu swaps (off by default).** "Auto set teleport left click" moves the teleport option the current farm run or Slayer guide step uses to the left click of that item, the way Menu Entry Swapper does, and adds a top-level copy of a sub-menu teleport (Max cape "Teleports") like Menu Entry Swapper's sub-menu swaps. "Farming cape for herbs: Force" deprioritises "Pick" on ready herb patches until the Farming cape is worn. Both are off (Remind) by default; nothing is removed, and nothing touches combat, PvP or other players.
+- **Hint arrows.** The farm run, Slayer and dailies guides set the client's hint arrow to the next stop and only ever clear an arrow they set themselves.
+- **Bank layouts.** Built on the Bank Tags API (`TagManager`, `LayoutManager`, `BankTagsService`), as Inventory Setups does. The plugin reads (never writes) other plugins' settings: Inventory Setups loadouts, the loot tracker and Charges Improved storage, and the Bank Tag Layouts plugin's "Enable layout by default", to tell the player once in the chat that turning that plugin off gives our layout instead of its re-sorted one.
+- **Threads.** All network calls are asynchronous (OkHttp `enqueue`, from the injected `OkHttpClient` and `Gson`). The plugin has two small daemon threads of its own: roadmap refreshes (ended after 30 s idle) and a watchdog that switches off one of the plugin's own features if its code blocks the client thread for more than 2 seconds (it only looks at the plugin's own guarded sections).
+- **Vendored code.** `com.osrscompanion.runelite.farming` / `.hunter` are RuneLite's time-tracking classes (BSD 2-Clause, notices kept, see THIRD_PARTY_NOTICES.txt) so each patch's timer can be named.
 
 ### Build
 
-`build=standard`; only the RuneLite client and Lombok. `./gradlew build` passes, including the unit tests. The review size is about 185,000 tokens (estimated by `PluginSizeTest`).
+`build=standard`; only the RuneLite client and Lombok. `./gradlew build` passes, including the unit tests.
