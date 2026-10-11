@@ -38,7 +38,6 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemVariationMapping;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginManager;
-import net.runelite.client.plugins.banktags.BankTagsPlugin;
 import net.runelite.client.plugins.banktags.BankTagsService;
 import net.runelite.client.plugins.banktags.TagManager;
 import net.runelite.client.plugins.banktags.tabs.Layout;
@@ -161,7 +160,6 @@ public class BankLayoutPrep {
 				if (first == null) {
 					first = e.getKey();
 				} else {
-					log.debug("Bank layout: '{}' and '{}' are both on, only one may be: turning '{}' off", first, e.getKey(), e.getKey());
 					configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, e.getKey(), false);
 				}
 			}
@@ -186,7 +184,6 @@ public class BankLayoutPrep {
 			}
 			for (Map.Entry<String, java.util.function.BooleanSupplier> e : bankLayoutSettings.entrySet()) {
 				if (!e.getKey().equals(event.getKey()) && e.getValue().getAsBoolean()) {
-					log.debug("Bank layout: '{}' turned on, turning '{}' off (only one bank layout at a time)", event.getKey(), e.getKey());
 					configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, e.getKey(), false);
 				}
 			}
@@ -206,8 +203,6 @@ public class BankLayoutPrep {
 			if (tabClick) {
 				userLeft = true;
 				waitingForBuild = false;
-				log.debug("Bank layout: you clicked '{}' in the bank, leaving the bank alone until it is reopened (our layout applied: {})",
-					option, applied != null);
 			}
 		});
 	}
@@ -317,13 +312,11 @@ public class BankLayoutPrep {
 				applied = null;
 				retries = 0;
 				userLeft = false;
-				log.debug("Bank layout: bank opened. {}", state());
 				// An active setup / route lays the bank out even with its window closed: make sure it is loaded and current.
 				long now = System.currentTimeMillis();
 				if (config.bossGearBankLayout() && config.bossGearActive() && !bossGear.isOpen() && !bossGear.isLoading()
 						&& (bossGear.getSet() == null || now - lastBossRefresh > AUTO_REFRESH_MS)) {
 					lastBossRefresh = now;
-					log.debug("Bank layout: reloading the boss setup ({})", bossGear.getSet() == null ? "none loaded" : "older than a minute");
 					bossGear.refresh();
 				}
 				if (config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isOpen()) {
@@ -346,7 +339,6 @@ public class BankLayoutPrep {
 		Guard.run(GUARD_FEATURE, () -> {
 			if (event.getScriptId() == ScriptID.BANKMAIN_BUILD && waitingForBuild && !userLeft) {
 				waitingForBuild = false;
-				log.debug("Bank layout: bank built, laying it out");
 				Guard.invokeLater(clientThread, GUARD_FEATURE, this::update);
 			}
 		});
@@ -357,9 +349,6 @@ public class BankLayoutPrep {
 		Guard.run(GUARD_FEATURE, () -> {
 			if (event.getGroupId() == InterfaceID.BANKMAIN) {
 				applied = null;
-				if (userLeft) {
-					log.debug("Bank layout: bank closed, the next bank open is laid out again");
-				}
 				userLeft = false;
 			}
 		});
@@ -377,12 +366,9 @@ public class BankLayoutPrep {
 				if (client.getTickCount() - bankOpenedTick < 2) {
 					return;
 				}
-				log.debug("Bank layout: no bank build seen, laying it out anyway");
 				waitingForBuild = false;
 			}
 			if (applied != null && client.getTickCount() <= verifyUntilTick && retries < MAX_RETRIES && bankTagsOn() && !showingOurs()) {
-				log.debug("Bank layout: did not stick (our tag open: {}, Bank Tags tag: {}), applying it again, retry {}/{}",
-					isOurTagOpen(), bankTags.getActiveTag(), retries + 1, MAX_RETRIES);
 				retries++;
 				if (isOurTagOpen()) {
 					bankTags.closeBankTag();
@@ -418,7 +404,6 @@ public class BankLayoutPrep {
 				Widget w = children[pos];
 				int id = w.getItemId();
 				if (positions[pos] == -1 && !w.isHidden() && id > 0 && id != BANK_FILLER && id != EMPTY_SLOT) {
-					log.debug("Bank layout: item {} shows at position {}, which the layout keeps empty: the layout is not drawn", id, pos);
 					return false;
 				}
 			}
@@ -430,7 +415,6 @@ public class BankLayoutPrep {
 			}
 			int item = itemManager.canonicalize(id);
 			if (!needs(d, item)) {
-				log.debug("Bank layout: the bank shows item {} the {} does not need", item, d);
 				return false;
 			}
 		}
@@ -467,7 +451,6 @@ public class BankLayoutPrep {
 				&& client.getGameState() == GameState.LOGGED_IN && now - lastPreloadTick >= PRELOAD_EVERY_TICKS) {
 			lastPreloadTick = now;
 			lastBossRefresh = System.currentTimeMillis();
-			log.debug("Bank layout: loading the boss setup in the background");
 			bossGear.refresh();
 		}
 	}
@@ -528,7 +511,6 @@ public class BankLayoutPrep {
 		String k = d == null ? null : key(d);
 		if (k == null) {
 			if (applied != null || isOurTagOpen()) {
-				log.debug("Bank layout: nothing to lay out any more, back to the normal bank. {}", state());
 				release();
 			}
 			applied = null;
@@ -537,7 +519,6 @@ public class BankLayoutPrep {
 		if (k.equals(applied)) {
 			return;
 		}
-		log.debug("Bank layout: laying out {} ({})", d, k);
 		applied = k;
 		try {
 			apply(d);
@@ -562,7 +543,6 @@ public class BankLayoutPrep {
 		laidOut = null;
 		if (!bankTagsOn()) {
 			// The layout goes through Bank Tags; without it the bank is left alone (no typing into the bank search).
-			log.debug("Bank layout: the Bank Tags plugin is off, the bank is left alone");
 			if (!bankTagsHintShown) {
 				bankTagsHintShown = true;
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff9040>OSRS Companion: turn on RuneLite's Bank Tags plugin to have your "
@@ -574,7 +554,6 @@ public class BankLayoutPrep {
 		if (conflict != HubConflict.NONE) {
 			// "Bank Tag Layouts" re-sorts our tag into its own order: the bank still shows only the needed
 			// items, just not in our layout. Tell the player once which of its settings gives ours.
-			log.debug("Bank layout: Bank Tag Layouts re-sorts '{}' ({}), the items show in its order", tag, conflict);
 			hubLayoutsHint(conflict);
 		}
 		BankItems bank = new BankItems();
@@ -585,13 +564,6 @@ public class BankLayoutPrep {
 		int options = BankTagsService.OPTION_HIDE_TAG_NAME | BankTagsService.OPTION_ITEMS_NOT_IN_LAYOUT_AT_BOTTOM
 			| (config.bankLayoutPositions() ? 0 : BankTagsService.OPTION_NO_LAYOUT);
 		bankTags.openBankTag(tag, options);
-		if (log.isDebugEnabled()) {
-			Layout saved = layoutManager.loadLayout(tag);
-			Object active = bankTags instanceof BankTagsPlugin ? ((BankTagsPlugin) bankTags).getActiveLayout() != null : "unknown";
-			log.debug("Bank layout: opened tag '{}' ({} positions, exact layout {}, {} bank items); Bank Tags now shows '{}', "
-				+ "layout saved {}, layout in use {}, positions {}", tag, positions.length, config.bankLayoutPositions(), bank.ids.size(),
-				bankTags.getActiveTag(), saved != null, active, java.util.Arrays.toString(positions));
-		}
 		verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
 	}
 

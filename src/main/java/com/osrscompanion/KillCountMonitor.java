@@ -9,7 +9,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.events.GameStateChanged;
@@ -34,7 +33,6 @@ import net.runelite.client.eventbus.Subscribe;
  * read + dedupe on the next {@link GameTick} (throttled). A JSON equality check
  * means an unchanged set is never resent.
  */
-@Slf4j
 @Singleton
 public class KillCountMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -176,11 +174,9 @@ public class KillCountMonitor {
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {
-			log.debug("Kill counts unchanged, skipping sync");
 			return;
 		}
 		lastSyncJson = json;
-		log.debug("Syncing {} kill counts for player: {}", killCounts.size(), playerUsername);
 		apiClient.sendKillCountsSync(payload);
 	}
 }

@@ -210,7 +210,6 @@ public class DeathMonitor {
 				view != null && view.isInstance(),
 				client.getWorld(),
 				worldTypeNames(client.getWorldType()));
-		log.debug("Recorded death: killer={} {}", death.getKillerType(), death.getNpcName());
 
 		pending.add(death);
 		trimPending(pending);
