@@ -74,7 +74,6 @@ public class OSRSCompanionApiClient
 	private static final String COLLECTION_LOG_ENDPOINT = "/api/runelite/collection-log/";
 	private static final String QUESTS_ENDPOINT = "/api/runelite/quests/";
 	private static final String FARMING_UNLOCKS_ENDPOINT = "/api/runelite/farming-unlocks/";
-	private static final String FARM_HARVESTS_ENDPOINT = "/api/runelite/farm-harvests/";
 	private static final String FARM_RUN_ENDPOINT = "/api/runelite/farm-run/";
 	private static final String DEATHS_ENDPOINT = "/api/runelite/deaths/";
 	private static final String KILL_COUNTS_ENDPOINT = "/api/runelite/kill-counts/";
@@ -209,13 +208,6 @@ public class OSRSCompanionApiClient
 	public void sendFarmingUnlocks(String json)
 	{
 		postAsync(FARMING_UNLOCKS_ENDPOINT, json, "farming-unlocks", false, true, key("farming-unlocks", playerInBody(json)), false,
-			null);
-	}
-
-	/** One patch picked clean (Harvest stats); an event, so never deduped. */
-	public void sendFarmHarvest(String json)
-	{
-		postAsync(FARM_HARVESTS_ENDPOINT, json, "farm-harvest", false, false, null, false,
 			null);
 	}
 

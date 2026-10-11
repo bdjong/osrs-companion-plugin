@@ -17,7 +17,7 @@ import org.junit.Test;
  * copied a new RuneLite version, delete the table and run the tests).
  */
 public class PatchTableTest {
-	static final Path TABLE = Paths.get("src", "main", "resources", "com", "osrscompanion", "runelite", "farming", PatchImplementation.TABLE);
+	static final Path TABLE = Paths.get("src", "test", "resources", "com", "osrscompanion", "runelite", "farming", PatchImplementation.TABLE);
 
 	/** The table from RuneLite's code: runs of values with the same produce and crop state and a stage moving by a fixed step. */
 	static String generate() {

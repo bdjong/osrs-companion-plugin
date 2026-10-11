@@ -30,9 +30,6 @@ import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
-import com.osrscompanion.runelite.farming.CompostTracker;
-import com.osrscompanion.runelite.farming.FarmingTracker;
-import com.osrscompanion.runelite.farming.FarmingWorld;
 
 @Slf4j
 // Bank Tags: its public API (BankTagsService, LayoutManager, TagManager) lays out the bank for the boss gear and farm run.
@@ -165,8 +162,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private FarmRunManager farmRunManager;
 
-	@Inject
-	private FarmHarvestTracker farmHarvestTracker;
 
 	@Inject
 	private FarmRunOverlay farmRunOverlay;
@@ -254,7 +249,7 @@ public class OSRSCompanionPlugin extends Plugin {
 				potionStorageMonitor, runePouchMonitor, plankSackMonitor, storageItemMonitor, loadoutMonitor, lootMonitor,
 				collectionLogMonitor, questMonitor, varPump, farmingUnlocksMonitor,
 				killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
-				slayerRewardsMonitor, farmRunManager, farmHarvestTracker, bankLayoutPrep,
+				slayerRewardsMonitor, farmRunManager, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
 				gameEvents, suppliesCheck, liveActivityMonitor);
 		for (Object subscriber : subscribers) {
@@ -310,13 +305,9 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	private void startFarming() {
-		FarmingWorld farmingWorld = new FarmingWorld();
-		CompostTracker compostTracker = new CompostTracker(configManager);
-		FarmingTracker farmingTracker = new FarmingTracker(client, configManager);
 
 		timerMonitor = new TimerMonitor(client, config, apiClient, configManager,
 				GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService), gson);
-		farmHarvestTracker.setFarming(farmingWorld, farmingTracker, compostTracker);
 	}
 
 	/**
@@ -416,7 +407,6 @@ public class OSRSCompanionPlugin extends Plugin {
 			}
 			subscribers = null;
 		}
-		step("farm harvests", farmHarvestTracker::stop);
 		step("bank layout", bankLayoutPrep::shutDown);
 		step("play sessions", sessionMonitor::stop);
 		step("game events", gameEvents::stop);
