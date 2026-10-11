@@ -1,4 +1,4 @@
-package com.osrscompanion.ui;
+package com.osrscompanion;
 
 import java.awt.Color;
 import java.awt.Composite;

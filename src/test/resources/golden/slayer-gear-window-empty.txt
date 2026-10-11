@@ -1,0 +1,20 @@
+fillRect 240,150,520,400 #3e3529ff
+drawRect 241,151,517,397 #0e0c08ff w=3
+drawRect 243,153,513,393 #5d5240ff w=1
+text 'Slayer Gear' 463,171 RuneScape Bold/1/16 #000000ff
+text 'Slayer Gear' 462,170 RuneScape Bold/1/16 #ff981fff
+fillRect 732,156,20,18 #3e3529ff
+drawRect 732,156,19,17 #14110cff w=1
+drawRect 733,157,17,15 #6a5c48ff w=1
+line 738,161-746,169 #c8a24aff w=2
+line 746,161-738,169 #c8a24aff w=2
+line 248,178-751,178 #14110cff w=1
+line 248,179-751,179 #5d5240ff w=1
+text 'Loading your slayer setups...' 419,341 RuneScape/0/16 #000000ff
+text 'Loading your slayer setups...' 418,340 RuneScape/0/16 #ffffffff
+fillRect 445,380,110,20 #3e3529ff
+drawRect 445,380,109,19 #14110cff w=1
+drawRect 446,381,107,17 #6a5c48ff w=1
+text 'Refresh' 481,395 RuneScape Small/0/16 #000000ff
+text 'Refresh' 480,394 RuneScape Small/0/16 #ff981fff
+=> 520x400

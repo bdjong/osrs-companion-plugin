@@ -6,7 +6,6 @@ import static org.mockito.Mockito.when;
 
 import com.osrscompanion.FarmPatchProgress.Status;
 import com.osrscompanion.model.FarmRoute;
-import com.osrscompanion.ui.UiKit;
 import org.junit.Test;
 
 /** Golden renders of the farm run guide's step box (see {@link UiKit}). */

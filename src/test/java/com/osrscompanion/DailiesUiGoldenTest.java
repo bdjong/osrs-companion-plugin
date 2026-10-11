@@ -6,7 +6,6 @@ import static org.mockito.Mockito.when;
 import com.google.gson.Gson;
 import com.osrscompanion.DailyChecks.State;
 import com.osrscompanion.model.Dailies;
-import com.osrscompanion.ui.UiKit;
 import java.util.Arrays;
 import org.junit.Test;
 

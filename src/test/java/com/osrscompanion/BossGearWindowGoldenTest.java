@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.gson.reflect.TypeToken;
 import com.osrscompanion.model.BossGear;
-import com.osrscompanion.ui.UiKit;
 import java.awt.event.KeyEvent;
 import java.util.Collections;
 import java.util.HashMap;

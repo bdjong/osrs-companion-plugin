@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 import com.google.gson.reflect.TypeToken;
 import com.osrscompanion.FarmPatchProgress.Status;
 import com.osrscompanion.model.FarmRoute;
-import com.osrscompanion.ui.UiKit;
 import java.awt.event.KeyEvent;
 import java.util.List;
 import net.runelite.api.Client;

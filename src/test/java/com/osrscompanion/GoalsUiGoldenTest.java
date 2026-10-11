@@ -8,7 +8,6 @@ import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.GoalType;
 import com.osrscompanion.model.Roadmap;
 import com.osrscompanion.model.RoadmapGoal;
-import com.osrscompanion.ui.UiKit;
 import java.awt.Color;
 import net.runelite.api.Skill;
 import net.runelite.client.game.SkillIconManager;

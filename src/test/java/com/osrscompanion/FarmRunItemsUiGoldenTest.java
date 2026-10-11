@@ -6,8 +6,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.osrscompanion.model.FarmRoute;
-import com.osrscompanion.ui.RecordingGraphics;
-import com.osrscompanion.ui.UiKit;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
@@ -26,6 +24,10 @@ public class FarmRunItemsUiGoldenTest {
 
 	/** Item ids in an inventory (group 149) or the bank (group 12), in 4 columns of 42 x 36. */
 	private UiKit.Rendered draw(int group, int... items) {
+		return UiKit.guarded(() -> drawUnguarded(group, items));
+	}
+
+	private UiKit.Rendered drawUnguarded(int group, int... items) {
 		FarmRunItemOverlay overlay = new FarmRunItemOverlay(new TestOSRSCompanionConfig(), manager);
 		BufferedImage img = new BufferedImage(200, 300, BufferedImage.TYPE_INT_ARGB);
 		List<String> log = new ArrayList<>();
