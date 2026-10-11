@@ -106,9 +106,9 @@ public class LiveActivityMonitor {
 			b.put("state", state);
 			b.put("activity", choice.kind.wire);
 			b.put("subject", choice.subject);
-			b.put("detail", choice.detail);
-			b.put("icon", choice.icon);
 			b.put("npc_id", choice.npcId);
+			// The website writes the text and picture from these.
+			b.put("parts", choice.parts);
 			b.put("since", since);
 			b.put("world", world);
 			b.put("area", area);
