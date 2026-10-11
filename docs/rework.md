@@ -71,3 +71,4 @@ in-game roadmap window (both stay on the website): about 185k projected, give or
 | Farm run guide worked out by the website (checkpoint: its code 12.5k to 9.2k, -27% where the projection assumed about half) | -3,368 |
 | In-game gear progression and roadmap window dropped (owner's choice; both stay on the website), with the code only they used | -18,875 |
 | Boss trips and boss history worked out by the website from game events (six classes replaced by one recorder; proven with 450 oracle sequences) | -16,322 |
+| Harvest stats worked out by the website from game events; RuneLite's farming copies left the plugin (their table tests stay) | -7,319 |

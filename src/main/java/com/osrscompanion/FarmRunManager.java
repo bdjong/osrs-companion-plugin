@@ -5,7 +5,6 @@ import com.google.gson.Gson;
 import com.osrscompanion.FarmPatchProgress.Status;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.FarmRoute;
-import com.osrscompanion.runelite.farming.FarmingPatch;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -1060,23 +1059,6 @@ public class FarmRunManager {
 	/** Whether a Farming cape (or the trimmed one) is worn. */
 	public boolean isFarmingCapeWorn() {
 		return capeWorn;
-	}
-
-	/** The route patch for a RuneLite patch (same region, varbit and type), or null when the route does not have it. */
-	public FarmRoute.Patch routePatch(FarmingPatch fp) {
-		FarmRoute r = route;
-		if (r == null || fp == null || fp.getRegion() == null) {
-			return null;
-		}
-		for (FarmRoute.Stop stop : r.getStops()) {
-			for (FarmRoute.Patch p : stop.getPatches()) {
-				if (p.getVarbit() == fp.getVarbit() && fp.getRegion().getName().equals(p.getRegion())
-					&& fp.getImplementation().name().equals(p.getImpl())) {
-					return p;
-				}
-			}
-		}
-		return null;
 	}
 
 	/** Item names (lower case) read on the client thread, for the side panel which paints on Swing's thread. */
