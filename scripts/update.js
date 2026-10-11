@@ -22,8 +22,9 @@ const IGNORED_FILES = [
   'BirdHouseTracker.java',
   'BirdHouseData.java',
   'BirdHouseState.java',
-  // The plugin's PatchImplementation reads patch-states.txt; RuneLite's goes to the tests (see the end).
+  // The plugin's PatchImplementation and Produce read data tables; RuneLite's go to the tests (see the end).
   'PatchImplementation.java',
+  'Produce.java',
 ]
 
 function patchCopiedFiles(search, replace) {
@@ -159,8 +160,31 @@ ref = "// RuneLite's PatchImplementation, unchanged but renamed and without Lomb
   + '// patch table (patch-states.txt) is generated from and checked against. Run: node update.js\n\n' + ref
 fs.mkdirpSync(path.dirname(REFERENCE_PATH))
 fs.writeFileSync(REFERENCE_PATH, ref, 'utf-8')
-console.log('  Next: delete src/main/resources/com/osrscompanion/runelite/farming/patch-states.txt and run ./gradlew test.')
-console.log("  PatchTableTest writes it again from RuneLite's code and checks every value; a new patch type in RuneLite")
-console.log('  also needs its constant in src/main/java/com/osrscompanion/runelite/farming/PatchImplementation.java.')
+console.log('RuneLite Produce -> tests (RuneLiteProduce, the produce table reference)')
+const PRODUCE_REF_PATH = path.join(__dirname, '../src/test/java/com/osrscompanion/runelite/farming/RuneLiteProduce.java')
+const fields = [['String', 'name'], ['String', 'contractName'], ['PatchImplementation', 'patchImplementation'], ['int', 'itemID'],
+  ['int', 'tickrate'], ['int', 'stages'], ['int', 'regrowTickrate'], ['int', 'harvestStages']]
+let produce = fs.readFileSync(path.join(RUNELITE_PLUGIN_PATH, 'farming', 'Produce.java'), 'utf-8').replace(/\r\n/g, '\n')
+produce = produce
+  .replace('package net.runelite.client.plugins.timetracking.farming;', 'package com.osrscompanion.runelite.farming;')
+  .replace('import lombok.Getter;\n', '')
+  .replace('import lombok.RequiredArgsConstructor;\n', '')
+  .replace('@RequiredArgsConstructor\n@Getter\npublic enum Produce', 'public enum RuneLiteProduce')
+  .replace(/\bProduce\(/g, 'RuneLiteProduce(')
+  .replace(/static Produce get/g, 'static RuneLiteProduce get')
+  .replace(/\(Produce produce : Produce\.values\(\)\)/g, '(RuneLiteProduce produce : RuneLiteProduce.values())')
+const ctor = '\tRuneLiteProduce(' + fields.map(([t, n]) => t + ' ' + n).join(', ') + ')\n\t{\n'
+  + fields.map(([, n]) => '\t\tthis.' + n + ' = ' + n + ';\n').join('') + '\t}\n\n'
+const firstCtor = produce.indexOf('\tRuneLiteProduce(String name, int itemID, int tickrate, int stages, int regrowTickrate, int harvestStages)')
+produce = produce.slice(0, firstCtor) + ctor + produce.slice(firstCtor)
+const getters = fields.map(([t, n]) => '\tpublic ' + t + ' get' + n[0].toUpperCase() + n.slice(1) + '()\n\t{\n\t\treturn ' + n + ';\n\t}\n').join('\n')
+produce = produce.slice(0, produce.lastIndexOf('}')) + getters + '}\n'
+produce = "// RuneLite's Produce, unchanged but renamed and without Lombok: the reference the plugin's produce table\n"
+  + '// (produce.txt) is generated from and checked against. Run: node update.js\n\n' + produce
+fs.writeFileSync(PRODUCE_REF_PATH, produce, 'utf-8')
+
+console.log('  Next: delete patch-states.txt and produce.txt in src/main/resources/com/osrscompanion/runelite/farming/,')
+console.log("  then run ./gradlew test twice (the first run writes the tables from RuneLite's code, the second checks every")
+console.log('  value). A new patch type or produce in RuneLite also needs its constant in PatchImplementation.java / Produce.java.')
 
 console.log('Done. Run ./gradlew build to verify.')
