@@ -1,0 +1,8 @@
+hintArrow npc Zaff
+mapPoint WorldPoint(x=3203, y=3434, plane=0) 'Daily: Battlestaves from Zaff' jump=true
+outline zaff w=3 #f472b6 f=4
+outline zaff w=3 #f472b6 f=4
+--- drawing
+text 'Buy-battlestaves' 181,141 RuneScape/0/16 #000000ff
+text 'Buy-battlestaves' 180,140 RuneScape/0/16 #f472b6ff
+=> null

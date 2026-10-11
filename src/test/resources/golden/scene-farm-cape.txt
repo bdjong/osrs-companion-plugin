@@ -1,0 +1,7 @@
+outline guild-herb w=2 #ffe04a f=4
+outline guild-herb w=2 #ffe04a f=4
+--- drawing
+fill Polygon[0:60,200 1:80,210 1:60,220 1:40,210 4:40,210 ] #ffe04a28
+text 'WEAR Farming cape' 51,191 RuneScape/0/16 #000000ff
+text 'WEAR Farming cape' 50,190 RuneScape/0/16 #f97316ff
+=> null

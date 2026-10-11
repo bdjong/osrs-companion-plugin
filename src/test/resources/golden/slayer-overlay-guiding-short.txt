@@ -1,0 +1,20 @@
+fill rect(0,0,220,120) #463d329c
+draw rect(0,0,219,119) #383028da w=1
+draw rect(1,1,217,117) #54493cda w=1
+text 'Slayer: Abyssal demons' 5,21 RuneScape/0/16 #000000ff
+text 'Slayer: Abyssal demons' 4,20 RuneScape/0/16 #f28c28ff
+text '143 left' 173,21 RuneScape/0/16 #000000ff
+text '143 left' 172,20 RuneScape/0/16 #a5a5a5ff
+text 'Slayer Tower top floor' 5,37 RuneScape/0/16 #000000ff
+text 'Slayer Tower top floor' 4,36 RuneScape/0/16 #ffffffff
+image img:14x14:7242fcad 4,36 #ffffffff
+text 'Go east, 1 tile' 25,53 RuneScape/0/16 #000000ff
+text 'Go east, 1 tile' 24,52 RuneScape/0/16 #ffe04aff
+image item:11866 4,52 #ffe04aff
+text 'Use Slayer ring' 47,69 RuneScape/0/16 #000000ff
+text 'Use Slayer ring' 46,68 RuneScape/0/16 #00ffffff
+text 'Rub it and choose Morytania Slayer' 5,101 RuneScape/0/16 #000000ff
+text 'Rub it and choose Morytania Slayer' 4,100 RuneScape/0/16 #a5a5a5ff
+text 'Tower.' 5,117 RuneScape/0/16 #000000ff
+text 'Tower.' 4,116 RuneScape/0/16 #a5a5a5ff
+=> 220x120

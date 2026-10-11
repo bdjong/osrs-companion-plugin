@@ -1,0 +1,20 @@
+outline portal-nexus w=3 #22d3ee f=4
+outline herb-patch w=2 #ffe04a f=4
+outline flower-patch w=2 #f97316 f=4
+outline allotment-patch w=2 #a5a5a5 f=4
+outline portal-nexus w=3 #22d3ee f=4
+outline herb-patch w=2 #ffe04a f=4
+outline flower-patch w=2 #f97316 f=4
+outline allotment-patch w=2 #a5a5a5 f=4
+--- drawing
+text 'Use: Portal Nexus' 91,191 RuneScape/0/16 #000000ff
+text 'Use: Portal Nexus' 90,190 RuneScape/0/16 #22d3eeff
+fill Polygon[0:58,200 1:78,210 1:58,220 1:38,210 4:38,210 ] #ffe04a28
+text 'Harvest the herbs' 49,191 RuneScape/0/16 #000000ff
+text 'Harvest the herbs' 48,190 RuneScape/0/16 #ffe04aff
+fill Polygon[0:54,200 1:74,210 1:54,220 1:34,210 4:34,210 ] #f9731628
+text 'Flower - compost it' 45,191 RuneScape/0/16 #000000ff
+text 'Flower - compost it' 44,190 RuneScape/0/16 #f97316ff
+text 'Allotment - not ready' 41,191 RuneScape/0/16 #000000ff
+text 'Allotment - not ready' 40,190 RuneScape/0/16 #a5a5a5ff
+=> null

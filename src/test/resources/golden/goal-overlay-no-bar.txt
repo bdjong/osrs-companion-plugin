@@ -1,0 +1,10 @@
+fill rect(0,0,175,60) #463d329c
+draw rect(0,0,174,59) #383028da w=1
+draw rect(1,1,172,57) #54493cda w=1
+text 'Main roadmap - Current Goal' 5,21 RuneScape/0/16 #000000ff
+text 'Main roadmap - Current Goal' 4,20 RuneScape/0/16 #f28c28ff
+image img:1x4:ecbb4b55 4,20 #f28c28ff
+image item:385 4,24 #f28c28ff
+text 'Collect 1,000 Shark' 47,41 RuneScape/0/16 #000000ff
+text 'Collect 1,000 Shark' 46,40 RuneScape/0/16 #ffffffff
+=> 175x60

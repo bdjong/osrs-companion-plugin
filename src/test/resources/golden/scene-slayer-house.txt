@@ -1,0 +1,6 @@
+outline jewellery-box w=3 #22d3ee f=4
+outline jewellery-box w=3 #22d3ee f=4
+--- drawing
+text 'Use: Ornate jewellery box' 71,191 RuneScape/0/16 #000000ff
+text 'Use: Ornate jewellery box' 70,190 RuneScape/0/16 #22d3eeff
+=> null
