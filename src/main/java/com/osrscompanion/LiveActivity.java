@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -95,102 +96,82 @@ final class LiveActivity {
 	}
 
 	/**
-	 * The chosen activity: its kind, what it is about (same subject = same activity), the text shown and
-	 * a picture hint: the wiki file of the thing involved ("Raw shark.png", "Varrock Teleport.png"), or null.
-	 * For combat, slayer and boss activities also the id of the NPC fought (for its exact picture), or null.
-	 * The NPC id is not part of the key: another version of the same monster is the same activity.
+	 * The chosen activity: its kind, what it is about (same subject = same activity), the NPC fought (for its picture)
+	 * and the parts the website writes the text and picture from (a slayer task's kills left, the farm run's patches,
+	 * the spell, the item...). The NPC id is not part of the key: another version of the same monster is the same
+	 * activity.
 	 */
 	static final class Choice {
 		final Kind kind;
 		final String subject;
-		final String detail;
-		final String icon;
 		final Integer npcId;
+		final Map<String, Object> parts;
 
-		Choice(Kind kind, String subject, String detail) {
-			this(kind, subject, detail, null);
-		}
-
-		Choice(Kind kind, String subject, String detail, String icon) {
-			this(kind, subject, detail, icon, null);
-		}
-
-		Choice(Kind kind, String subject, String detail, String icon, Integer npcId) {
+		Choice(Kind kind, String subject, Integer npcId, Map<String, Object> parts) {
 			this.kind = kind;
 			this.subject = subject;
-			this.detail = detail;
-			this.icon = icon;
 			this.npcId = npcId;
+			// Always sent (also empty): it tells the website to write the text itself.
+			this.parts = parts == null ? Collections.emptyMap() : parts;
 		}
 
 		/** Two choices with the same key are the same activity (only counts like "12 left" differ). */
 		String key() {
 			return kind.wire + "|" + (subject == null ? "" : subject);
 		}
+	}
 
-		@Override
-		public String toString() {
-			return key() + " (" + detail + ")";
+	private static Map<String, Object> parts(Object... kv) {
+		Map<String, Object> m = new LinkedHashMap<>();
+		for (int i = 0; i < kv.length; i += 2) {
+			if (kv[i + 1] != null) {
+				m.put((String) kv[i], kv[i + 1]);
+			}
 		}
+		return m;
 	}
 
 	/** The activity for these signals (see the class comment for the order). */
 	static Choice choose(Signals s) {
 		if (notBlank(s.raid)) {
-			return new Choice(Kind.RAID, s.raid, s.raid);
+			return new Choice(Kind.RAID, s.raid, null, null);
 		}
 		if (notBlank(s.minigame)) {
-			return new Choice(Kind.MINIGAME, s.minigame, s.minigame);
+			return new Choice(Kind.MINIGAME, s.minigame, null, null);
 		}
 		if (s.idle) {
-			return new Choice(Kind.IDLE, null, "Idle");
+			return new Choice(Kind.IDLE, null, null, null);
 		}
 		if (notBlank(s.boss)) {
-			return new Choice(Kind.BOSS, s.boss, s.boss, null, positive(s.bossId));
+			return new Choice(Kind.BOSS, s.boss, positive(s.bossId), null);
 		}
 		if (s.slaying && notBlank(s.slayerTask)) {
-			String task = capitalize(s.slayerTask);
-			return new Choice(Kind.SLAYER, task, task + (s.slayerLeft > 0 ? " · " + s.slayerLeft + " left" : ""),
-				notBlank(s.slayerNpc) ? MagicSpells.wikiFile(s.slayerNpc) : null,
-				notBlank(s.slayerNpc) ? positive(s.slayerNpcId) : null);
+			boolean npc = notBlank(s.slayerNpc);
+			return new Choice(Kind.SLAYER, s.slayerTask, npc ? positive(s.slayerNpcId) : null,
+				parts("left", s.slayerLeft, "npc", npc ? s.slayerNpc : null));
 		}
 		if (notBlank(s.farmRoute)) {
-			return new Choice(Kind.FARM_RUN, s.farmRoute,
-				s.farmRoute + (s.farmTotal > 0 ? " · " + s.farmDone + "/" + s.farmTotal + " patches" : ""),
-				notBlank(s.farmItem) ? MagicSpells.wikiFile(s.farmItem) : null);
+			return new Choice(Kind.FARM_RUN, s.farmRoute, null,
+				parts("done", s.farmDone, "total", s.farmTotal, "item", notBlank(s.farmItem) ? s.farmItem : null));
 		}
 		if (notBlank(s.combatNpc)) {
-			if (s.combatMagic) {
-				return new Choice(Kind.COMBAT, s.combatNpc,
-					"Training Magic on " + s.combatNpc + (notBlank(s.combatSpell) ? " · " + s.combatSpell : ""),
-					MagicSpells.spellIcon(s.combatSpell), positive(s.combatNpcId));
-			}
-			return new Choice(Kind.COMBAT, s.combatNpc, s.combatNpc, null, positive(s.combatNpcId));
+			return new Choice(Kind.COMBAT, s.combatNpc, positive(s.combatNpcId),
+				s.combatMagic ? parts("magic", true, "spell", notBlank(s.combatSpell) ? s.combatSpell : null) : null);
 		}
 		if (s.teleport != null) {
 			// The Magic skill as subject: teleport after teleport stays one stretch of Magic on the website.
-			return new Choice(Kind.SKILLING, "Magic", s.teleport.text(), s.teleport.icon());
+			return new Choice(Kind.SKILLING, "Magic", null, parts("cast", s.teleport));
 		}
 		if (notBlank(s.skill)) {
-			String skill = capitalize(s.skill);
 			if (s.magicCast != null && "magic".equalsIgnoreCase(s.skill)) {
-				return magicChoice(s.magicCast, s.alchs);
+				return new Choice(Kind.SKILLING, s.magicCast.spell, null, parts("cast", s.magicCast, "alchs", s.alchs));
 			}
-			return notBlank(s.skillItem)
-				? new Choice(Kind.SKILLING, skill, skill + " · " + s.skillItem, MagicSpells.wikiFile(s.skillItem))
-				: new Choice(Kind.SKILLING, skill, skill);
+			return new Choice(Kind.SKILLING, s.skill, null, parts("skill", true, "item", notBlank(s.skillItem) ? s.skillItem : null));
 		}
 		if (s.bankOpen) {
-			return new Choice(Kind.BANKING, null, "Banking");
+			return new Choice(Kind.BANKING, null, null, null);
 		}
-		return new Choice(Kind.OTHER, null, "Playing");
-	}
-
-	/** Skilling Magic with a known cast: the spell as subject, "High alching Rune platebody · 37 alchs" as detail. */
-	static Choice magicChoice(MagicSpells.Cast cast, int alchs) {
-		boolean alch = cast.type == MagicSpells.Type.HIGH_ALCH || cast.type == MagicSpells.Type.LOW_ALCH;
-		String text = cast.text() + (alch && alchs > 0 ? " · " + alchs + (alchs == 1 ? " alch" : " alchs") : "");
-		return new Choice(Kind.SKILLING, cast.spell, text, cast.icon());
+		return new Choice(Kind.OTHER, null, null, null);
 	}
 
 	// ---- Idle ---------------------------------------------------------------------------------
@@ -346,17 +327,5 @@ final class LiveActivity {
 
 	static boolean notBlank(String s) {
 		return s != null && !s.trim().isEmpty();
-	}
-
-	/** "abyssal demons" -> "Abyssal demons"; "FISHING" stays as the game names skills ("Fishing"). */
-	static String capitalize(String s) {
-		if (s == null || s.isEmpty()) {
-			return s;
-		}
-		String t = s.trim();
-		if (t.equals(t.toUpperCase(Locale.ROOT))) {
-			t = t.toLowerCase(Locale.ROOT);
-		}
-		return Character.toUpperCase(t.charAt(0)) + t.substring(1);
 	}
 }
