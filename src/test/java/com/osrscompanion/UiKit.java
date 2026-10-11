@@ -200,6 +200,16 @@ public final class UiKit {
 		}
 	}
 
+	private static boolean lookAndFeel;
+
+	/** RuneLite's own look and feel (dark, RuneScape fonts), as in the client; set before building a panel. */
+	public static synchronized void runeLiteLookAndFeel() {
+		if (!lookAndFeel) {
+			net.runelite.client.ui.laf.RuneLiteLAF.setup();
+			lookAndFeel = true;
+		}
+	}
+
 	/** Lays out and paints a Swing component at the given width (height 0: its preferred height). */
 	public Rendered render(JComponent component, int w, int h) {
 		return guarded(() -> renderSwing(component, w, h));
@@ -230,6 +240,15 @@ public final class UiKit {
 				layout(child);
 			}
 		}
+	}
+
+	/** The same render with the daily reset countdown ("resets in 5h 12m") replaced, for goldens. */
+	public static Rendered withoutClock(Rendered r) {
+		List<String> log = new ArrayList<>();
+		for (String line : r.log) {
+			log.add(line.replaceAll("resets in (now|[0-9]+d [0-9]+h|[0-9]+h [0-9]+m|[0-9]+m)", "resets in <time>"));
+		}
+		return new Rendered(log, r.image);
 	}
 
 	/** Compares a render with its golden file (recording it when there is none yet). */
