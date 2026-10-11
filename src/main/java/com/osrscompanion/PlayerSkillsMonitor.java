@@ -19,6 +19,7 @@ import net.runelite.api.Skill;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.gameval.VarbitID;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.eventbus.Subscribe;
 
 /**
@@ -37,6 +38,7 @@ public class PlayerSkillsMonitor {
 	static final int TRAINING_SYNC_INTERVAL_SECONDS = 60;
 
 	private final Client client;
+	private final ClientThread clientThread;
 	private final OSRSCompanionConfig config;
 	private final OSRSCompanionApiClient apiClient;
 	private final ScheduledExecutorService executorService;
@@ -53,11 +55,13 @@ public class PlayerSkillsMonitor {
 	@Inject
 	public PlayerSkillsMonitor(
 			Client client,
+			ClientThread clientThread,
 			OSRSCompanionConfig config,
 			OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executorService) {
 		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
+		this.clientThread = clientThread;
 		this.config = config;
 		this.apiClient = apiClient;
 		this.executorService = executorService;
@@ -90,12 +94,14 @@ public class PlayerSkillsMonitor {
 		return lastUploadedXp;
 	}
 
-	/**
-	 * Re-runs the skills sync immediately on the background executor. Used by the
-	 * roadmap panel's "Sync &amp; refresh" button to re-push current progress.
-	 */
+	/** Re-runs the skills sync now (App Key entered while logged in). */
 	public void forceSync() {
-		executorService.execute(this::syncPlayerSkills);
+		syncOnClientThread();
+	}
+
+	/** The game is read on the client thread only: RuneLite asserts it for varbits and the local player. */
+	private void syncOnClientThread() {
+		Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncPlayerSkills);
 	}
 
 	@Subscribe
@@ -105,7 +111,7 @@ public class PlayerSkillsMonitor {
 
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
 				log.debug("Player logged in, scheduling skills sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
-				executorService.schedule(this::syncPlayerSkills, LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
+				executorService.schedule(this::syncOnClientThread, LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
 				log.debug("Player logged out, syncing skills");
 				lastSeenXp.clear();
@@ -138,12 +144,12 @@ public class PlayerSkillsMonitor {
 			return;
 		}
 		xpDirty = false;
-		syncPlayerSkills();
+		syncOnClientThread();
 	}
 
 	/**
 	 * Reads all skill levels and XP from the client, builds a payload with
-	 * total and combat levels, and sends it to the OSRS Companion API.
+	 * total and combat levels, and sends it to the OSRS Companion API. Client thread.
 	 */
 	private void syncPlayerSkills() {
 		if (!SyncGuard.hasAppKey(config)) {
@@ -166,6 +172,9 @@ public class PlayerSkillsMonitor {
 		}
 
 		Player localPlayer = client.getLocalPlayer();
+		if (localPlayer == null) {
+			return;
+		}
 		Map<String, PlayerSkillsSyncPayload.SkillData> skills = new HashMap<>();
 		Map<String, Integer> xpSnapshot = new HashMap<>();
 		int totalLevel = 0;
