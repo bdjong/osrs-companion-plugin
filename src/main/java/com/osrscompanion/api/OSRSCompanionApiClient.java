@@ -159,7 +159,7 @@ public class OSRSCompanionApiClient
 	public void sendTimeTracking(String json, String playerUsername)
 	{
 		postAsync(TIME_TRACKING_ENDPOINT, json, "time-tracking", false, true, key("time-tracking", playerUsername), false,
-			() -> log.debug("OSRS Companion Time Tracking data sent"));
+			null);
 	}
 
 	public void sendPlayerSkillsSync(PlayerSkillsSyncPayload payload)
@@ -174,7 +174,6 @@ public class OSRSCompanionApiClient
 		// rechecks and WikiSync, so it must run even when the payload is unchanged.
 		postAsync(SKILLS_ENDPOINT, payload.toJson(gson), "skills", false, false, key("skills", payload.getPlayer()), false,
 			() -> {
-				log.debug("OSRS Companion player skills sync successful for player: {}", payload.getPlayer());
 				if (onSuccess != null)
 				{
 					onSuccess.run();
@@ -185,7 +184,7 @@ public class OSRSCompanionApiClient
 	public void sendLoadoutSync(LoadoutSyncPayload payload)
 	{
 		postAsync(LOADOUT_ENDPOINT, payload.toJson(gson), "loadout", false, true, key("loadout", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion loadout sync successful for player: {}", payload.getPlayerUsername()));
+			null);
 	}
 
 	public void sendBankSync(BankSyncPayload payload)
@@ -194,23 +193,20 @@ public class OSRSCompanionApiClient
 		String sources = payload.getItems() == null ? "" : String.join(",", new java.util.TreeSet<>(payload.getItems().keySet()));
 		postAsync(BANK_ENDPOINT, payload.toJson(gson), "bank", false, true,
 			key("bank", payload.getPlayerUsername() + "|" + sources), false,
-			() -> log.debug("OSRS Companion bank sync successful: {} items for player: {}",
-				payload.getTotalItemCount(), payload.getPlayerUsername()));
+			null);
 	}
 
 	public void sendCollectionLogSync(CollectionLogSyncPayload payload)
 	{
 		postAsync(COLLECTION_LOG_ENDPOINT, payload.toJson(gson), "collection-log", false, true,
 			key("collection-log", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion collection log sync successful: {} items for player: {}",
-				payload.getItemCount(), payload.getPlayerUsername()));
+			null);
 	}
 
 	public void sendQuestsSync(QuestsSyncPayload payload)
 	{
 		postAsync(QUESTS_ENDPOINT, payload.toJson(gson), "quests", false, true, key("quests", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion quests sync successful: {} quests for player: {}",
-				payload.getQuests().size(), payload.getPlayerUsername()));
+			null);
 	}
 
 
@@ -218,28 +214,28 @@ public class OSRSCompanionApiClient
 	public void sendFarmingUnlocks(String json)
 	{
 		postAsync(FARMING_UNLOCKS_ENDPOINT, json, "farming-unlocks", false, true, key("farming-unlocks", playerInBody(json)), false,
-			() -> log.debug("OSRS Companion farming unlocks synced"));
+			null);
 	}
 
 	/** One patch picked clean (Harvest stats); an event, so never deduped. */
 	public void sendFarmHarvest(String json)
 	{
 		postAsync(FARM_HARVESTS_ENDPOINT, json, "farm-harvest", false, false, null, false,
-			() -> log.debug("OSRS Companion farm harvest recorded"));
+			null);
 	}
 
 	/** A guided farm run that ended (Run history); an event, so never deduped. */
 	public void sendFarmRun(Map<String, Object> body)
 	{
 		postAsync(FARM_RUNS_ENDPOINT, gson.toJson(body), "farm-run", false, false, null, false,
-			() -> log.debug("OSRS Companion farm run recorded"));
+			null);
 	}
 
 	/** One finished boss trip (Boss Gear page, Trips); an event, so never deduped. */
 	public void sendBossTrip(String json)
 	{
 		postAsync(BOSS_TRIPS_ENDPOINT, json, "boss-trip", false, false, null, false,
-			() -> log.debug("OSRS Companion boss trip recorded"));
+			null);
 	}
 
 
@@ -254,8 +250,6 @@ public class OSRSCompanionApiClient
 		// The body is every death not yet acknowledged, so a newer one holds the older one's too.
 		postAsync(DEATHS_ENDPOINT, payload.toJson(gson), "deaths", false, false, key("deaths", payload.getPlayerUsername()), false,
 			() -> {
-				log.debug("OSRS Companion deaths sync successful: {} deaths for player: {}",
-					payload.getEvents().size(), payload.getPlayerUsername());
 				if (onSuccess != null)
 				{
 					onSuccess.run();
@@ -267,8 +261,7 @@ public class OSRSCompanionApiClient
 	{
 		postAsync(KILL_COUNTS_ENDPOINT, payload.toJson(gson), "kill-counts", false, true,
 			key("kill-counts", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion kill counts sync successful: {} bosses for player: {}",
-				payload.getKillCounts().size(), payload.getPlayerUsername()));
+			null);
 	}
 
 	/**
@@ -290,8 +283,6 @@ public class OSRSCompanionApiClient
 		postAsync(SLAYER_ENDPOINT, payload.toJson(gson), "slayer", false, false, key("slayer", payload.getPlayerUsername()),
 			urgent || !payload.getEvents().isEmpty(),
 			() -> {
-				log.debug("OSRS Companion slayer sync successful: {} events for player: {}",
-					payload.getEvents().size(), payload.getPlayerUsername());
 				if (onSuccess != null)
 				{
 					onSuccess.run();
@@ -309,8 +300,7 @@ public class OSRSCompanionApiClient
 	public void sendSlayerCatalog(SlayerCatalogPayload payload)
 	{
 		postAsync(SLAYER_CATALOG_ENDPOINT, payload.toJson(gson), "slayer-catalog", true, true, "slayer-catalog", false,
-			() -> log.debug("OSRS Companion slayer catalog upload successful: hash {}",
-				payload.getPayloadHash()));
+			null);
 	}
 
 	public void sendSlayerRewards(SlayerRewardsPayload payload)
@@ -318,8 +308,7 @@ public class OSRSCompanionApiClient
 		// Dedupe off: identical scrapes are still distinct per-player facts,
 		// and the monitor already skips byte-identical repeats in-session.
 		postAsync(SLAYER_REWARDS_ENDPOINT, payload.toJson(gson), "slayer-rewards", false, false, null, false,
-			() -> log.debug("OSRS Companion slayer rewards sync successful: {} rows for player: {}",
-				payload.getRows().size(), payload.getPlayerUsername()));
+			null);
 	}
 
 	/** Fetches the current slayer task and its locations, best first (see the Slayer helper contract). */
@@ -350,7 +339,6 @@ public class OSRSCompanionApiClient
 		postAsync(SLAYER_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "slayer-session", false, false,
 			key("slayer-session", String.valueOf(body.get("session_uuid"))), urgent,
 			() -> {
-				log.debug("OSRS Companion slayer session {} synced", body.get("session_uuid"));
 				if (onSuccess != null)
 				{
 					onSuccess.run();
@@ -369,7 +357,6 @@ public class OSRSCompanionApiClient
 		postAsync(BOSS_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "boss-session", false, false,
 			key("boss-session", String.valueOf(body.get("session_uuid"))), urgent,
 			() -> {
-				log.debug("OSRS Companion boss session {} synced", body.get("session_uuid"));
 				if (onSuccess != null)
 				{
 					onSuccess.run();
@@ -380,8 +367,7 @@ public class OSRSCompanionApiClient
 	public void sendLootSync(LootSyncPayload payload)
 	{
 		postAsync(LOOT_ENDPOINT, payload.toJson(gson), "loot", true, true, key("loot", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion loot sync successful: {} records for player: {}",
-				payload.getLootRecords().size(), payload.getPlayerUsername()));
+			null);
 	}
 
 	public void sendLootDrops(List<LootDropPayload> drops)
@@ -413,8 +399,7 @@ public class OSRSCompanionApiClient
 		String json = gson.toJson(payload);
 		// Append-style events: each batch is distinct (fresh dropped_at per drop), so never dedupe.
 		postAsync(LOOT_DROP_ENDPOINT, json, "loot-drops", true, false, null, true,
-			() -> log.debug("OSRS Companion loot drops batch recorded: {} drops for player: {}",
-				drops.size(), playerUsername));
+			null);
 	}
 
 	/**
@@ -535,7 +520,7 @@ public class OSRSCompanionApiClient
 		body.put("event", event);
 		body.put("at", at);
 		postAsync(SESSION_ENDPOINT, gson.toJson(body), "session", false, false, null, false,
-			() -> log.debug("OSRS Companion session {} recorded for {}", event, playerUsername));
+			null);
 	}
 
 	/**
@@ -545,7 +530,7 @@ public class OSRSCompanionApiClient
 	public void sendActivity(String playerUsername, String json, boolean priority)
 	{
 		postAsync(ACTIVITY_ENDPOINT, json, ACTIVITY_LABEL, false, false, key(ACTIVITY_LABEL, playerUsername), priority,
-			() -> log.debug("OSRS Companion activity sent for {}", playerUsername));
+			null);
 	}
 
 	/**
@@ -678,7 +663,7 @@ public class OSRSCompanionApiClient
 	public void sendVars(String json, String playerUsername)
 	{
 		postAsync(VARS_ENDPOINT, json, "vars", false, true, key("vars", playerUsername), false,
-			() -> log.debug("OSRS Companion raw values sent"));
+			null);
 	}
 
 
@@ -813,7 +798,6 @@ public class OSRSCompanionApiClient
 	{
 		if (!SyncGuard.hasAppKey(config))
 		{
-			log.debug("Skipping {} sync: no OSRS Companion App Key configured", syncType);
 			return;
 		}
 
@@ -822,7 +806,6 @@ public class OSRSCompanionApiClient
 		// otherwise going back to what the server had must still replace the newer queued one.
 		if (dedupe && isDuplicate(lastSentBodyByType.get(syncType), json) && (box == null || !box.hasPending(syncType)))
 		{
-			log.debug("Skipping {} sync: identical to last sent request", syncType);
 			return;
 		}
 
@@ -831,7 +814,10 @@ public class OSRSCompanionApiClient
 			{
 				lastSentBodyByType.put(syncType, json);
 			}
-			onSuccess.run();
+			if (onSuccess != null)
+			{
+				onSuccess.run();
+			}
 		};
 		String baseUrl = BASE_URL;
 		String appKey = config.osrsCompanionAppKey().trim();
@@ -1129,7 +1115,6 @@ public class OSRSCompanionApiClient
 			@Override
 			public void onFailure(Call call, IOException e)
 			{
-				log.debug("Web version check failed: {}", e.getMessage());
 				callback.onError("Network error");
 			}
 
@@ -1147,11 +1132,9 @@ public class OSRSCompanionApiClient
 				}
 				catch (IOException e)
 				{
-					log.debug("Failed to read the web version: {}", e.getMessage());
 				}
 				catch (RuntimeException e)
 				{
-					log.debug("Failed to read the web version: {}", e.getMessage());
 				}
 				finally
 				{
@@ -1189,7 +1172,6 @@ public class OSRSCompanionApiClient
 		Runnable listener = webVersionChangedListener;
 		if (changed && listener != null)
 		{
-			log.debug("Website data changed (webVersion {}), refreshing", version);
 			listener.run();
 		}
 	}

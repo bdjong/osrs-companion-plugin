@@ -5,7 +5,6 @@ import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.BossAreasResponse;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 
 /**
@@ -15,7 +14,6 @@ import net.runelite.client.config.ConfigManager;
  * version in use (the website answers "unchanged" while it is current), and kept in the config so the next
  * start uses it before the website answers. Without an answer the built-in list stays.
  */
-@Slf4j
 @Singleton
 public class BossAreasSync {
 	static final String CACHE_KEY = "bossAreasServer";
@@ -60,7 +58,6 @@ public class BossAreasSync {
 				}
 				if (apply(r)) {
 					store(r);
-					log.debug("Boss lairs from the website: version {}", r.getVersion());
 				}
 			}
 
@@ -68,7 +65,6 @@ public class BossAreasSync {
 			public void onError(String message) {
 				inFlight = false;
 				nextFetchMs = System.currentTimeMillis() + RETRY_MS;
-				log.debug("Boss lairs request failed: {}", message);
 			}
 		});
 	}
@@ -89,7 +85,6 @@ public class BossAreasSync {
 				apply(gson.fromJson(json, BossAreasResponse.class));
 			}
 		} catch (RuntimeException e) {
-			log.debug("Dropping unreadable stored boss lairs", e);
 			configManager.unsetConfiguration(OSRSCompanionConfig.CONFIG_GROUP, CACHE_KEY);
 		}
 	}
@@ -98,7 +93,6 @@ public class BossAreasSync {
 		try {
 			configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, CACHE_KEY, gson.toJson(r));
 		} catch (RuntimeException e) {
-			log.debug("Could not store the boss lairs", e);
 		}
 	}
 }

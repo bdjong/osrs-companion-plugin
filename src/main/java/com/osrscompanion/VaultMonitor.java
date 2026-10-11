@@ -10,7 +10,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
@@ -29,7 +28,6 @@ import net.runelite.client.game.ItemManager;
  * with a per-source key. Every read is also handed to the goal tracker so
  * owned-item goals do not count a deposit as a loss.
  */
-@Slf4j
 @Singleton
 public class VaultMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -141,7 +139,6 @@ public class VaultMonitor {
 				e.getValue().forEach((id, qty) -> banked.merge(id, qty, Integer::sum));
 				emptied.put(e.getKey(), new LinkedHashMap<>());
 			}
-			log.debug("Bank-cargo: current hold {} -> banking {} from {}", current, banked, emptied.keySet());
 			if (emptied.isEmpty()) {
 				return;
 			}
@@ -181,7 +178,6 @@ public class VaultMonitor {
 
 			Map<Integer, Integer> itemQuantities = new LinkedHashMap<>();
 			ItemCollector.collectItems(container, itemManager, itemQuantities);
-			log.debug("Container {} ({}) read: {} distinct items", event.getContainerId(), source, itemQuantities.size());
 			lastRead.put(source, new LinkedHashMap<>(itemQuantities));
 
 			Map<String, Map<Integer, Integer>> bySource = new LinkedHashMap<>();

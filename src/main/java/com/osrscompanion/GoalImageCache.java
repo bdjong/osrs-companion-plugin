@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.util.ImageUtil;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -28,7 +27,6 @@ import okhttp3.Response;
  * {@link #get} returns null and the overlay simply draws no icon. Failed URLs
  * are not retried for the rest of the session.
  */
-@Slf4j
 @Singleton
 public class GoalImageCache {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -113,7 +111,6 @@ public class GoalImageCache {
 		httpClient.newCall(request).enqueue(new Callback() {
 			@Override
 			public void onFailure(Call call, IOException e) {
-				log.debug("Goal image fetch error for {}: {}", url, e.toString());
 				failed.add(url);
 				pending.remove(url);
 			}
@@ -128,21 +125,18 @@ public class GoalImageCache {
 	private void read(String url, Response response) {
 		try (Response r = response) {
 			if (!r.isSuccessful() || r.body() == null) {
-				log.debug("Goal image fetch failed ({}): {}", r.code(), url);
 				failed.add(url);
 				return;
 			}
 			try (InputStream in = r.body().byteStream()) {
 				BufferedImage image = ImageIO.read(in);
 				if (image == null) {
-					log.debug("Goal image not decodable: {}", url);
 					failed.add(url);
 					return;
 				}
 				images.put(url, fit(image));
 			}
 		} catch (IOException | RuntimeException e) {
-			log.debug("Goal image fetch error for {}: {}", url, e.toString());
 			failed.add(url);
 		} finally {
 			pending.remove(url);

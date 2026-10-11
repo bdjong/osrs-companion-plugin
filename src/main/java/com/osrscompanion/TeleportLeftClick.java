@@ -14,7 +14,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.MenuAction;
@@ -29,7 +28,6 @@ import net.runelite.client.util.Text;
  * the option the travel text names, else its teleport option. Shared by the farm run and the
  * Slayer helper; the caller decides when it applies. Client thread (from PostMenuSort).
  */
-@Slf4j
 @Singleton
 public class TeleportLeftClick {
 	/** Capes with teleports a route uses: Max capes, Construction capes, Farming capes, Ardougne cloaks. */
@@ -245,7 +243,6 @@ public class TeleportLeftClick {
 	private void logOnce(String line) {
 		if (!line.equals(lastLog)) {
 			lastLog = line;
-			log.debug(line);
 		}
 	}
 

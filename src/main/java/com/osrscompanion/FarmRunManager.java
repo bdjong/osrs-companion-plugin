@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -69,7 +68,6 @@ import net.runelite.client.util.QuantityFormatter;
  * <p>Network work runs on OkHttp threads, game reads on the client thread; fields the
  * panel and overlays read are volatile or concurrent.
  */
-@Slf4j
 @Singleton
 public class FarmRunManager {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -351,19 +349,9 @@ public class FarmRunManager {
 		// Picking up a run done in part (logged out, client restarted): stops whose patches were already
 		// replanted have nothing to do, so the run goes on from the first stop that still has work.
 		advance();
-		if (log.isDebugEnabled()) {
-			Map<Status, Integer> counts = new java.util.EnumMap<>(Status.class);
-			for (FarmRoute.Stop stop : r.getStops()) {
-				for (FarmRoute.Patch p : stop.getPatches()) {
-					counts.merge(statusOf(p), 1, Integer::sum);
-				}
-			}
-			log.debug("Farm run: started '{}', now at step {}: {} (complete: {})", r.getName(), stopIndex + 1, counts, isComplete());
-		}
 	}
 
 	public void stop() {
-		log.debug("Farm run: stopped");
 		boolean completed = isComplete();
 		FarmRoute r = route;
 		boolean was;
@@ -464,7 +452,6 @@ public class FarmRunManager {
 		}
 		if (completedTick < 0) {
 			completedTick = client.getTickCount();
-			log.debug("Farm run: complete at step {} ({} / {} patches handled)", stopIndex + 1, progress()[0], progress()[1]);
 			int[] done = finishedCounts();
 			if (done[0] == 0) {
 				// Nothing was planted: every patch is still growing or skipped.
@@ -517,7 +504,6 @@ public class FarmRunManager {
 		Map<String, Object> body = FarmRunRecord.build(player, r, new HashMap<>(status), startedAtMs, System.currentTimeMillis(), runTicks,
 			lastXp - startXp, completed);
 		if (body != null) {
-			log.debug("Farm run: recorded '{}' ({} / {} patches, {} XP)", r.getName(), body.get("patches_done"), body.get("patches_total"), body.get("xp_gained"));
 			apiClient.sendFarmRun(body);
 		}
 	}
@@ -546,7 +532,6 @@ public class FarmRunManager {
 
 	private void turnOff(String key) {
 		if (Boolean.parseBoolean(configManager.getConfiguration(OSRSCompanionConfig.CONFIG_GROUP, key))) {
-			log.debug("Farm run / boss setup / slayer guide: {} turned off", key);
 			configManager.setConfiguration(OSRSCompanionConfig.CONFIG_GROUP, key, false);
 		}
 	}
@@ -591,7 +576,6 @@ public class FarmRunManager {
 			String json = configManager.getRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, READY_KEY);
 			lastRun = json == null ? null : gson.fromJson(json, FarmRouteReady.class);
 		} catch (RuntimeException ex) {
-			log.debug("Could not read the last farm run", ex);
 			lastRun = null;
 		}
 	}
@@ -604,7 +588,6 @@ public class FarmRunManager {
 				configManager.setRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, READY_KEY, gson.toJson(run));
 			}
 		} catch (RuntimeException ex) {
-			log.debug("Could not save the last farm run", ex);
 		}
 	}
 
@@ -633,7 +616,6 @@ public class FarmRunManager {
 		FarmRouteReady run = new FarmRouteReady(r.getName(), planted, readyAt);
 		lastRun = run;
 		saveLastRun(run);
-		log.debug("Farm run: watching {} patches of '{}' (grown at {})", planted.size(), r.getName(), readyAt);
 	}
 
 	/**
@@ -655,7 +637,6 @@ public class FarmRunManager {
 		run.markNotified();
 		saveLastRun(run);
 		String message = FarmRouteReady.message(run.getRoute(), run.getPatches().size());
-		log.debug("Farm run: {}", message);
 		notifier.notify(message);
 		if (client.getGameState() == GameState.LOGGED_IN) {
 			popups.showMessage(READY_TITLE, "<col=ffffff>" + message + "</col>");
@@ -680,7 +661,6 @@ public class FarmRunManager {
 			return prediction.getCropState() == CropState.GROWING && !grown
 				&& prediction.getProduce() != Produce.WEEDS && prediction.getProduce() != Produce.SCARECROW;
 		} catch (RuntimeException e) {
-			log.debug("Could not read patch {}", ref.getKey(), e);
 			return null;
 		}
 	}
@@ -736,7 +716,6 @@ public class FarmRunManager {
 			CompostState state = tracker.getCompostState(patch);
 			return state != null;
 		} catch (RuntimeException e) {
-			log.debug("Could not read the compost on {}", p.getKey(), e);
 			return false;
 		}
 	}
@@ -1211,7 +1190,6 @@ public class FarmRunManager {
 			boolean grown = prediction.getStages() > 1 && prediction.getStage() >= prediction.getStages() - 1;
 			return new Snapshot(prediction.getCropState(), weeds, prediction.getDoneEstimate(), grown, weeds ? prediction.getStage() : 0);
 		} catch (RuntimeException e) {
-			log.debug("Could not read patch {}", p.getKey(), e);
 			return null;
 		}
 	}
@@ -1257,7 +1235,6 @@ public class FarmRunManager {
 						latest = Math.max(latest, prediction.getDoneEstimate());
 					}
 				} catch (RuntimeException e) {
-					log.debug("Could not read patch {}", p.getKey(), e);
 				}
 			}
 		}

@@ -196,7 +196,6 @@ public final class Guard {
 			if (logged.putIfAbsent(key(feature), Boolean.TRUE) == null || fatal) {
 				log.warn("OSRS Companion: {} failed", feature, error);
 			} else {
-				log.debug("OSRS Companion: {} failed again: {}", feature, error.toString());
 			}
 		} catch (Throwable ignored) {
 			// Logging itself failed (out of memory?): the breaker below still works.
@@ -228,7 +227,6 @@ public final class Guard {
 				throw (AssertionError) e;
 			}
 			try {
-				log.debug("Guard listener failed", e);
 			} catch (Throwable ignored) {
 				// nothing left to do
 			}

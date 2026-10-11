@@ -217,11 +217,9 @@ public class CollectionLogMonitor {
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {
-			log.debug("Collection log unchanged, skipping sync");
 			return;
 		}
 		lastSyncJson = json;
-		log.debug("Syncing {} collection log items for player: {}", sortedIds.size(), playerUsername);
 		apiClient.sendCollectionLogSync(payload);
 	}
 

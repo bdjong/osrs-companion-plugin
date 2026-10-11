@@ -19,7 +19,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -68,7 +67,6 @@ import net.runelite.http.api.loottracker.LootRecordType;
  * <p>The same events drive the boss history ({@link BossHistory}: sessions per visit to a boss, with their
  * trips, drops and fight times): this class hands them on, with the supplies each finished trip used.
  */
-@Slf4j
 @Singleton
 public class BossTripTracker {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -418,7 +416,6 @@ public class BossTripTracker {
 		}
 		Map<String, Long> supplies = new LinkedHashMap<>(used);
 		supplies.values().removeIf(v -> v <= 0);
-		log.debug("Boss trip: {} x{} ({}), {} supplies, {} loot", boss, kills, reason, supplies.size(), loot.size());
 		remember(bossKey, supplies);
 		history(() -> bossHistory.onTripSupplies(boss, supplyStacks(supplies)));
 		send(reason, died, endedAt, supplies);
@@ -517,7 +514,6 @@ public class BossTripTracker {
 		try {
 			configManager.setRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, HISTORY_KEY + key, gson.toJson(list));
 		} catch (RuntimeException e) {
-			log.debug("Could not store the trip supplies for {}", key, e);
 		}
 	}
 
@@ -535,7 +531,6 @@ public class BossTripTracker {
 			String json = configManager.getRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, HISTORY_KEY + key);
 			loaded = json == null ? null : gson.fromJson(json, HISTORY_TYPE);
 		} catch (RuntimeException e) {
-			log.debug("Could not read the trip supplies for {}", key, e);
 		}
 		List<Map<String, Long>> out = loaded == null ? Collections.emptyList() : loaded;
 		// Only cache once the profile is known (before that nothing can be read).

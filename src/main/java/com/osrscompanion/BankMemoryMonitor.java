@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
@@ -44,7 +43,6 @@ import net.runelite.client.game.ItemManager;
  * {@code group_storage} while its interface ({@code InterfaceID.SHARED_BANK}) is open, through the same
  * syncer, and flushed when it closes.
  */
-@Slf4j
 @Singleton
 public class BankMemoryMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -263,7 +261,6 @@ public class BankMemoryMonitor {
 
 	private Map<String, Map<Integer, Integer>> readSources(boolean inventoryOnlyOk) {
 		if (GameModeUtil.isSpecialGameMode(client)) {
-			log.debug("Bank sync skipped: special game mode detected");
 			return null;
 		}
 		GameState state = client.getGameState();
@@ -300,7 +297,6 @@ public class BankMemoryMonitor {
 			bySource.put(SOURCE_WORN, wornQuantities);
 		} else {
 			// Not known (yet): leave the server's inventory as it is rather than send a partial one.
-			log.debug("Bank sync: inventory/worn not read (containers not both loaded yet)");
 		}
 		return bySource.isEmpty() ? null : bySource;
 	}

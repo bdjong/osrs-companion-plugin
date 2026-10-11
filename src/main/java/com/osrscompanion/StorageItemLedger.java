@@ -8,7 +8,6 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Inferred contents of one storage item (see {@link StorageItemSpec}),
@@ -22,7 +21,6 @@ import lombok.extern.slf4j.Slf4j;
  * the Check listing is an exact resync. The ledger is only ever as good as
  * these signals, so the monitor logs inferred-vs-checked totals to judge it.
  */
-@Slf4j
 final class StorageItemLedger {
 	private static final Pattern CHECK_ENTRY = Pattern.compile("(\\d+)\\s*[x×]\\s*([A-Za-z' ]+?)\\s*(?:,|$|/)");
 	private static final Pattern GEM_ENTRY = Pattern.compile("([A-Za-z ]+?):\\s*(\\d+)");
@@ -239,7 +237,6 @@ final class StorageItemLedger {
 	boolean settle(boolean open) {
 		if (checkListing != null || checkedEmpty) {
 			Map<Integer, Integer> exact = checkListing == null ? Map.of() : checkListing;
-			log.debug("{} check: inferred {} vs listed {}", spec.source, contents, exact);
 			contents.clear();
 			exact.forEach((id, qty) -> add(id, qty));
 			full = false;

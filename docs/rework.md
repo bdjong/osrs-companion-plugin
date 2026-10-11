@@ -36,6 +36,10 @@ guides once website-driven (≈ 20k of 40k), and the sync monitors with their lo
 **About 198k, give or take 15k**: at the limit rather than the 170-190k first expected, so the way on is the
 owner's decision.
 
+**Decided (2026-10-11): one plugin.** The owner dropped the error reporting and the debug logging (≈ 15k, so about
+185k projected). Checkpoint: the farm run guide goes website-driven next and is measured; if it falls short of the
+projection, two plugins (sync + guides) is the fallback, the data pump being needed either way.
+
 ## Open: decide when the rework is done
 
 - **Advancing guide steps offline (the owner's preference).** The website would send each step with simple conditions ("this patch is planted", "this item is in the inventory", "you are in this area") and the plugin checks them itself: guides keep moving without the website, and simple steps react instantly again. Estimated 4,000-6,000 tokens. Decide with the exact token count at the end of the rework: do it if it fits under 195,000.
@@ -58,3 +62,5 @@ owner's decision.
 | Data pump: diaries, combat achievements, Kingdom, house location, farming unlocks, dailies (six monitors removed; diaries and dailies proven with 100 and 600 oracle cases) | -10,718 |
 | Farming: RuneLite's patch list as a data file (`farming-patches.txt`, checked against RuneLite for every tab); the unused parts of the copied RuneLite trackers removed (nothing wrote or subscribed them); unused imports and fields | -10,158 |
 | Timers from the website: the plugin sends RuneLite's stored Time Tracking data, the website works out every timer (proven with 150 oracle cases) | -3,844 |
+| Error reporting dropped (owner's choice: no reports to Admin > Errors, no incidents or freeze watchdog; features still turn off safely) | -10,444 |
+| Debug logging dropped (owner's choice; warnings and errors still logged) | -5,122 |

@@ -308,8 +308,6 @@ public class SlayerHelperManager {
 				error = null;
 				guide = result;
 				loadGear(name);
-				log.debug("Slayer guide: task {}, {} locations", result.getTask() == null ? null : result.getTask().getTaskName(),
-					result.getLocations().size());
 				Guard.invokeLater(clientThread, GUARD_FEATURE, () -> onGuide(result));
 			}
 
@@ -353,7 +351,6 @@ public class SlayerHelperManager {
 			@Override
 			public void onError(String message) {
 				gearLoading = false;
-				log.debug("Slayer gear: {}", message);
 			}
 		});
 	}
@@ -699,7 +696,6 @@ public class SlayerHelperManager {
 		}
 		if (session != null && closeAtTick < 0) {
 			// Closed in a few ticks: the last monster's death and loot come just after the count.
-			log.debug("Slayer helper: task {} ended (completed: {}), closing its session", before.displayName(), completed);
 			session.close(completed, nowMs);
 			closeAtTick = client.getTickCount() + CLOSE_DELAY_TICKS;
 			closeCompleted = completed;
@@ -759,7 +755,6 @@ public class SlayerHelperManager {
 			return;
 		}
 		long xp = xpGained(t);
-		log.debug("Slayer helper: task {} complete, {} Slayer XP", t.displayName(), xp);
 		popups.showMessage("<col=" + TITLE_COLOUR + ">Slayer task complete!</col>", finishedBody(t.displayName(), t.original, xp));
 	}
 
@@ -841,7 +836,6 @@ public class SlayerHelperManager {
 		if (session != null && (known || adhocSession)) {
 			boolean wasInside = session.inside;
 			if (session.tick(in != null, nowMs)) {
-				log.debug("Slayer helper: trip {} at {}", session.tripCount, session.locationName);
 				persist(true);
 			} else if (wasInside && !session.inside) {
 				// Left the area: the website's trip timer runs on from here for 15 minutes at most.
@@ -915,7 +909,6 @@ public class SlayerHelperManager {
 		}
 		session.player = player;
 		lastSentUpdate = -1;
-		log.debug("Slayer helper: session started for {} at {}", t.displayName(), in.getName());
 	}
 
 	/** Whether a location key is an area made in the game (round a boss, or an unknown spot), not the guide's. */
@@ -1026,7 +1019,6 @@ public class SlayerHelperManager {
 				}
 			}
 		} catch (RuntimeException ex) {
-			log.debug("Dropping unreadable unsent slayer sessions", ex);
 			configManager.unsetRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, UNSENT_KEY);
 		}
 		SlayerSession stored = null;
@@ -1034,7 +1026,6 @@ public class SlayerHelperManager {
 			String json = configManager.getRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, SESSION_KEY);
 			stored = json == null ? null : gson.fromJson(json, SlayerSession.class);
 		} catch (RuntimeException ex) {
-			log.debug("Dropping an unreadable slayer session", ex);
 		}
 		if (stored != null && stored.uuid != null && stored.isOpen()) {
 			if (now != null && now.key().equals(stored.taskKey)) {
@@ -1052,7 +1043,6 @@ public class SlayerHelperManager {
 				adhocArea = bossAreaOf(stored);
 				lastSentUpdate = -1;
 				lastPersistedUpdate = stored.updatedMs;
-				log.debug("Slayer helper: picked up the session at {} ({} kills)", stored.locationName, stored.kills);
 			} else {
 				// The task ended while the plugin was off: close it when it was last seen.
 				stored.close(now == null && stored.amountRemaining <= COMPLETE_FROM_LEFT, Math.max(stored.updatedMs, stored.startedMs));
@@ -1192,7 +1182,6 @@ public class SlayerHelperManager {
 				: SlayerGuide.Location.area(SlayerKillLog.spotKey(region), SlayerKillLog.spotName(region), at.getX(), at.getY(), at.getPlane(),
 					BOSS_AREA_RADIUS, spotMonsters(t, npcName));
 			adhocArea = area;
-			log.debug("Slayer helper: fighting {} for {} at {}, its area counts", name, t.displayName(), area.getName());
 		}
 		if (session != null && Objects.equals(session.locationKey, area.getKey())) {
 			// The same boss or region again: the session goes on round the new centre.

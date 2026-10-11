@@ -422,7 +422,6 @@ public class SlayerMonitor {
 			}
 			long storedKey = parsed.getOrDefault("task", 0.0).longValue();
 			if (!now.hasTask() || storedKey != taskKey(now)) {
-				log.debug("Discarding slayer timing for a different task");
 				resetTiming();
 				return;
 			}
@@ -552,7 +551,6 @@ public class SlayerMonitor {
 		if (client.getVarpValue(VarPlayerID.IF1) != client.getVarpValue(VarPlayerID.SLAYER_COUNT)
 				|| client.getVarpValue(VarPlayerID.IF2)
 						!= client.getVarpValue(VarPlayerID.SLAYER_TARGET)) {
-			log.debug("Skipping stored-task capture: IF varps serve another interface");
 			return;
 		}
 		int amount = client.getVarpValue(VarPlayerID.IF4);
@@ -582,7 +580,6 @@ public class SlayerMonitor {
 		configManager.setRSProfileConfiguration(
 				"osrscompanion", STORED_TASK_CONFIG_KEY, gson.toJson(capture));
 		checkPending = true;
-		log.debug("Captured stored slayer task: {} x {}", capture.amount, capture.taskName);
 	}
 
 	/**
@@ -721,7 +718,6 @@ public class SlayerMonitor {
 		storedTaskDirty = false;
 		String json = payload.toJson(gson);
 		if (json.equals(lastSyncJson)) {
-			log.debug("Slayer state unchanged, skipping sync");
 			return;
 		}
 		lastSyncJson = json;
@@ -729,7 +725,6 @@ public class SlayerMonitor {
 		lastSyncedAmount = now.amountRemaining;
 
 		List<SlayerTaskEvent> sent = new ArrayList<>(pendingEvents);
-		log.debug("Syncing slayer state ({} events) for player: {}", sent.size(), playerUsername);
 		apiClient.sendSlayerSync(payload, () -> onEventsAcknowledged(sent), killed);
 	}
 
@@ -803,7 +798,6 @@ public class SlayerMonitor {
 				firstKillMs, lastKillMs, activeMs, pendingZeroMs);
 		resetTiming();
 		currentTaskAssignedAt = null;
-		log.debug("Slayer task transition staged: {}", before.taskName);
 	}
 
 	/** Builds and queues the event for the staged transition, if any. */
@@ -874,7 +868,6 @@ public class SlayerMonitor {
 		lastCompletionChatTick = -1;
 		lastCompletionChatText = null;
 		draft = null;
-		log.debug("Slayer task transition: {} -> {}", taskEvent.getTaskName(), outcome);
 	}
 
 	/**
@@ -1019,7 +1012,6 @@ public class SlayerMonitor {
 			return (String) client.getDBTableField(
 					taskDbRow, DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0)[0];
 		} catch (RuntimeException e) {
-			log.debug("Slayer task name resolution failed for task {}", taskId, e);
 			return null;
 		}
 	}
@@ -1137,8 +1129,6 @@ public class SlayerMonitor {
 		pendingOfferRows = modifierCount(offers) < offers.size() ? rows : null;
 		offersCapturedMs = System.currentTimeMillis();
 		offersCapturedAt = Instant.now().toString();
-		log.debug("Captured {} slayer task offers, {} with a modifier",
-				offers.size(), modifierCount(offers));
 		readAndSync(true);
 	}
 
@@ -1353,7 +1343,6 @@ public class SlayerMonitor {
 				storedTask = parsed;
 			}
 		} catch (RuntimeException e) {
-			log.debug("Discarding unparseable stored-task capture", e);
 			configManager.unsetRSProfileConfiguration("osrscompanion", STORED_TASK_CONFIG_KEY);
 		}
 	}

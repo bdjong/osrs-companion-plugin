@@ -188,7 +188,6 @@ public final class SyncOutbox {
 						item.onSuccess.clear();
 						item.onSuccess.addAll(merged);
 						item.priority |= old.priority;
-						log.debug("Outbox: {} replaced by a newer copy before it was sent", item.label);
 					}
 				}
 			}
@@ -319,7 +318,6 @@ public final class SyncOutbox {
 				chunk.add(item);
 			}
 		} catch (RuntimeException e) {
-			log.debug("Outbox: the batch extra failed", e);
 		}
 	}
 
@@ -370,7 +368,6 @@ public final class SyncOutbox {
 			synchronized (this) {
 				batchUnsupportedUntilMs = clockMs.getAsLong() + BATCH_RETRY_AFTER_404_MS;
 			}
-			log.debug("Outbox: no batch endpoint on this server, sending {} requests one by one", chunk.size());
 			sendIndividually(chunk, 0, results);
 			return;
 		}
@@ -443,7 +440,6 @@ public final class SyncOutbox {
 				if (status == null) {
 					if (stopped) {
 						queue.remove(item);
-						log.debug("Outbox: {} dropped (plugin stopped)", item.label);
 					}
 					continue;
 				}

@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
@@ -59,7 +58,6 @@ import net.runelite.client.eventbus.Subscribe;
  * (attas raises yields) and the Kandarin and Kourend &amp; Kebos diary tiers (their diaries
  * raise the Catherby and Hosidius herb yields).
  */
-@Slf4j
 @Singleton
 public class FarmHarvestTracker {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -180,7 +178,6 @@ public class FarmHarvestTracker {
 			}
 			active = new Harvest(patch, at, prediction.getProduce() == null ? null : prediction.getProduce().getName(),
 				rememberedCompost(patch), clear, client.getTickCount());
-			log.debug("{} started at {} ({})", clear ? "Clearing a dead crop" : "Harvest", patch, active.produce);
 		});
 	}
 
@@ -276,7 +273,6 @@ public class FarmHarvestTracker {
 					active = null;
 					send(h);
 				} else if (client.getTickCount() - h.lastTick > IDLE_TICKS || tooFar(h)) {
-					log.debug("Harvest at {} dropped unfinished ({} picked)", h.patch, h.amount);
 					active = null;
 				}
 			}
@@ -322,7 +318,6 @@ public class FarmHarvestTracker {
 		body.put("boosted_level", client.getBoostedSkillLevel(Skill.FARMING));
 		body.put("on_run", farmRunManager.isRunning() && routePatch != null);
 		body.put("harvested_at", Instant.now().toString());
-		log.debug("Harvest at {}: {} x {}{}", h.patch, h.amount, h.produce, h.dead ? " (dead)" : "");
 		apiClient.sendFarmHarvest(gson.toJson(body));
 		// The crop is gone: a disease mark belonged to it, not to the next one.
 		forgetDisease(h.patch);
@@ -484,7 +479,6 @@ public class FarmHarvestTracker {
 		try {
 			return tracker.predictPatch(fp);
 		} catch (RuntimeException e) {
-			log.debug("Could not read patch {}", fp, e);
 			return null;
 		}
 	}
