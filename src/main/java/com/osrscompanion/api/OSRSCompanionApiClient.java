@@ -77,7 +77,7 @@ public class OSRSCompanionApiClient
 	private static final String QUESTS_ENDPOINT = "/api/runelite/quests/";
 	private static final String FARMING_UNLOCKS_ENDPOINT = "/api/runelite/farming-unlocks/";
 	private static final String FARM_HARVESTS_ENDPOINT = "/api/runelite/farm-harvests/";
-	private static final String FARM_RUNS_ENDPOINT = "/api/runelite/farm-runs/";
+	private static final String FARM_RUN_ENDPOINT = "/api/runelite/farm-run/";
 	private static final String BOSS_TRIPS_ENDPOINT = "/api/runelite/boss-trips/";
 	private static final String DEATHS_ENDPOINT = "/api/runelite/deaths/";
 	private static final String KILL_COUNTS_ENDPOINT = "/api/runelite/kill-counts/";
@@ -225,11 +225,12 @@ public class OSRSCompanionApiClient
 	}
 
 	/** A guided farm run that ended (Run history); an event, so never deduped. */
-	public void sendFarmRun(Map<String, Object> body)
+	/** The farm run guide's action and state ({@link com.osrscompanion.FarmRunManager}), answered at once. */
+	public <T> void postFarmRun(String json, Class<T> type, RoadmapCallback<T> callback)
 	{
-		postAsync(FARM_RUNS_ENDPOINT, gson.toJson(body), "farm-run", false, false, null, false,
-			null);
+		postForResult(FARM_RUN_ENDPOINT, json, "farm-run", type, callback);
 	}
+
 
 	/** One finished boss trip (Boss Gear page, Trips); an event, so never deduped. */
 	public void sendBossTrip(String json)

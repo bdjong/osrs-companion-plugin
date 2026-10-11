@@ -328,7 +328,6 @@ public class OSRSCompanionPlugin extends Plugin {
 
 		timerMonitor = new TimerMonitor(client, config, apiClient, configManager,
 				GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService), gson);
-		farmRunManager.setFarming(farmingWorld, farmingTracker, compostTracker);
 		farmHarvestTracker.setFarming(farmingWorld, farmingTracker, compostTracker);
 	}
 
