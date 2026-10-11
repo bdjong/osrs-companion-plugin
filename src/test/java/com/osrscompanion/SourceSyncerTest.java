@@ -219,7 +219,7 @@ public class SourceSyncerTest {
 
 	@Test
 	public void aPendingUploadStillGoesUpWhenTheMonitorsFeatureWasTurnedOff() {
-		Guard guard = new Guard(() -> now, System::nanoTime);
+		Guard guard = new Guard(() -> now);
 		Guard previous = Guard.shared();
 		Guard.setShared(guard);
 		try {
@@ -229,8 +229,12 @@ public class SourceSyncerTest {
 			bank.submit(qty(13124, 1), false);
 			assertEquals(1, sent.size());
 			bank.submit(qty(13124, 2), false);
-			// The bank sync tripped its breaker (a freeze while loading, five errors...).
-			guard.frozen("bank-sync", 5_000, new StackTraceElement[0]);
+			// The bank sync tripped its breaker (five errors).
+			for (int i = 0; i < Guard.FAILURE_LIMIT; i++) {
+				guard.runIn("bank-sync", () -> {
+					throw new IllegalStateException("boom");
+				});
+			}
 			assertTrue(guard.isDisabled("bank-sync"));
 			advance(DEFAULT_MS);
 			assertEquals("what was already read is not dropped", 2, sent.size());

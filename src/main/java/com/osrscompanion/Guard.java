@@ -8,110 +8,63 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.callback.ClientThread;
 
 /**
- * Runs the plugin's code so a bug in one feature can never break or freeze the RuneLite client.
+ * Runs the plugin's code so a bug in one feature can never break the RuneLite client.
  *
  * <ul>
  *   <li>{@link #run}, {@link #render} and {@link #call} catch every Throwable except {@link ThreadDeath}
- *       (rethrown). The first failure of a feature is logged with its stack, later ones at debug, and
- *       every failure goes to the {@link Listener} (which reports it).</li>
+ *       (rethrown). The first failure of a feature is logged with its stack.</li>
  *   <li>Each feature has a {@link CircuitBreaker}: {@value #FAILURE_LIMIT} failures within
- *       {@value #FAILURE_WINDOW_MS} ms, a fatal error ({@link VirtualMachineError}, such as
- *       OutOfMemoryError or StackOverflowError) or a freeze turn the feature off for the rest of the
- *       session: its sections are skipped (renders draw nothing). The listener hears it once.</li>
- *   <li>The features in {@link #NEVER_DISABLED} (uploads, error reports, the website version
- *       watcher) are exempt: their failures, fatal errors and freezes are still caught, logged and
- *       reported, but they are never turned off, so one bad upload cannot stop every upload and
- *       every error report for the session.</li>
- *   <li>On the watched thread (the client thread), the outermost running section's feature and
- *       start time are published for the {@link FreezeWatchdog}; in debug logging, any section over
- *       {@value #SLOW_MS} ms is logged as slow.</li>
+ *       {@value #FAILURE_WINDOW_MS} ms or a fatal error ({@link VirtualMachineError}, such as
+ *       OutOfMemoryError or StackOverflowError) turn the feature off for the rest of the session: its
+ *       sections are skipped (renders draw nothing), and the player is told once.</li>
+ *   <li>The features in {@link #NEVER_DISABLED} (uploads, the website version watcher) are exempt: their
+ *       failures are still caught and logged, but they are never turned off, so one bad upload cannot
+ *       stop every upload for the session.</li>
  *   <li>Under tests (system property {@value #RETHROW_TEST_FAILURES_PROPERTY}, set by build.gradle's
  *       {@code test} task), {@link AssertionError} is rethrown, so a failing assertion inside guarded
  *       code fails the test instead of being swallowed. Never in production.</li>
  * </ul>
  *
- * The static methods use one shared instance; tests make their own (fake clocks, no client).
+ * The static methods use one shared instance; tests make their own (fake clock).
  */
 @Slf4j
 public final class Guard {
 	static final int FAILURE_LIMIT = 5;
 	static final long FAILURE_WINDOW_MS = 60_000;
-	static final long SLOW_MS = 50;
 	/** More distinct features than this share one breaker, so the map stays bounded. */
 	static final int MAX_FEATURES = 256;
 	static final String OTHER_FEATURE = "other";
-	/** The outbox, upload and error report jobs ({@code GuardedExecutor.wrap(SYNC_FEATURE, ...)}). */
+	/** The outbox and upload jobs ({@code GuardedExecutor.wrap(SYNC_FEATURE, ...)}). */
 	public static final String SYNC_FEATURE = "sync";
-	/**
-	 * Features that are never turned off: every upload and every error report goes through them, so
-	 * turning them off would silence the plugin for the session. Their failures are still reported.
-	 */
+	/** Features that are never turned off: every upload goes through them. */
 	static final Set<String> NEVER_DISABLED = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
 		SYNC_FEATURE, WebVersionWatcher.GUARD_FEATURE)));
 	/** {@code -D} switch the test task sets: rethrow {@link AssertionError} (see the class comment). */
 	static final String RETHROW_TEST_FAILURES_PROPERTY = "osrscompanion.guard.rethrowTestFailures";
 
 	private static volatile boolean rethrowTestFailures = Boolean.getBoolean(RETHROW_TEST_FAILURES_PROPERTY);
+	/** Tests that must see every swallowed failure (the UI goldens) turn this on. */
+	static volatile boolean failTests;
 
-	/** What the plugin does with failures: report them, persist fatal ones, tell the player. Called on any thread. */
-	public interface Listener {
-		/** Every caught failure (the reporter counts repeats). */
-		void onFailure(String feature, Throwable error);
-
-		/** An error the JVM may not survive (OutOfMemoryError...): worth persisting before anything else. */
-		void onFatal(String feature, Throwable error);
-
-		/** A section ran longer than the freeze limit on the watched thread. */
-		void onFreeze(String feature, long elapsedMs, StackTraceElement[] stack);
-
-		/** The feature is now off for the rest of the session (once per feature). */
-		void onDisabled(String feature);
-	}
-
-	private static final Listener NO_LISTENER = new Listener() {
-		@Override
-		public void onFailure(String feature, Throwable error) {
-		}
-
-		@Override
-		public void onFatal(String feature, Throwable error) {
-		}
-
-		@Override
-		public void onFreeze(String feature, long elapsedMs, StackTraceElement[] stack) {
-		}
-
-		@Override
-		public void onDisabled(String feature) {
-		}
-	};
-
-	private static volatile Guard shared = new Guard(System::currentTimeMillis, System::nanoTime);
+	private static volatile Guard shared = new Guard(System::currentTimeMillis);
 
 	private final LongSupplier clockMs;
-	private final LongSupplier nanoTime;
 	private final Map<String, CircuitBreaker> breakers = new ConcurrentHashMap<>();
 	/** Features whose first failure was logged with its stack. */
 	private final Map<String, Boolean> logged = new ConcurrentHashMap<>();
-	private volatile Listener listener = NO_LISTENER;
+	/** Hears once per feature that it is now off for the rest of the session (any thread). */
+	private volatile Consumer<String> onDisabled = feature -> {
+	};
 
-	// The watched thread's outermost section, published as a seqlock: odd seq = running.
-	private volatile Thread watched;
-	/** Only the watched thread touches this. */
-	private int depth;
-	private volatile long seq;
-	private volatile String sectionFeature;
-	private volatile long sectionStartNanos;
-
-	Guard(LongSupplier clockMs, LongSupplier nanoTime) {
+	Guard(LongSupplier clockMs) {
 		this.clockMs = clockMs;
-		this.nanoTime = nanoTime;
 	}
 
 	/** The instance the static methods use. */
@@ -154,8 +107,7 @@ public final class Guard {
 	}
 
 	/**
-	 * A clean-up (plugin stop, unregistering what a feature registered), guarded: caught, reported and
-	 * timed like the others, but it runs even when the feature is off, so nothing is left behind.
+	 * A clean-up (plugin stop, unregistering what a feature registered), guarded: caught like the others, but it runs even when the feature is off, so nothing is left behind.
 	 */
 	public static Runnable wrapCleanup(String feature, Runnable body) {
 		return () -> shared.callIn(feature, () -> {
@@ -189,17 +141,9 @@ public final class Guard {
 
 	// ------------------------------------------------------------------ instance
 
-	void setListener(Listener listener) {
-		this.listener = listener == null ? NO_LISTENER : listener;
-	}
-
-	/** The thread whose sections the watchdog times (the client thread); null for none. */
-	void watchThread(Thread thread) {
-		this.watched = thread;
-	}
-
-	Thread watchedThread() {
-		return watched;
+	void setOnDisabled(Consumer<String> listener) {
+		this.onDisabled = listener == null ? feature -> {
+		} : listener;
 	}
 
 	/** Turns every feature back on (plugin start: a fresh session). */
@@ -230,16 +174,6 @@ public final class Guard {
 		if (breaker.isOpen() && !evenIfOff) {
 			return fallback;
 		}
-		// Counted on entry, so the matching exit undoes exactly this entry even if the watched
-		// thread changes in between (plugin stop clears it while a section may still be running).
-		boolean counted = Thread.currentThread() == watched;
-		boolean tracked = counted && depth++ == 0;
-		long start = nanoTime.getAsLong();
-		if (tracked) {
-			sectionFeature = feature;
-			sectionStartNanos = start;
-			seq++;
-		}
 		try {
 			return body.get();
 		} catch (ThreadDeath death) {
@@ -248,18 +182,11 @@ public final class Guard {
 			if (isTestFailure(error)) {
 				throw (AssertionError) error;
 			}
+			if (failTests) {
+				throw new AssertionError(feature + " failed", error);
+			}
 			failed(feature, breaker, error);
 			return fallback;
-		} finally {
-			if (counted && depth > 0 && --depth == 0 && (seq & 1) == 1) {
-				seq++;
-			}
-			if (log.isDebugEnabled()) {
-				long ms = (nanoTime.getAsLong() - start) / 1_000_000;
-				if (ms > SLOW_MS) {
-					log.debug("Slow: {} took {} ms on {}", feature, ms, Thread.currentThread().getName());
-				}
-			}
 		}
 	}
 
@@ -275,37 +202,11 @@ public final class Guard {
 			// Logging itself failed (out of memory?): the breaker below still works.
 		}
 		boolean opened = fatal ? breaker.trip() : breaker.recordFailure(clockMs.getAsLong());
-		notify(() -> {
-			if (fatal) {
-				listener.onFatal(feature, error);
-			}
-			listener.onFailure(feature, error);
-		});
 		if (opened) {
 			disabled(feature, fatal ? "a fatal error" : FAILURE_LIMIT + " errors within a minute");
 		}
 	}
 
-	/**
-	 * A failure caught outside a guarded section (a plugin start or stop step): logged and reported
-	 * like the others, without counting towards a breaker.
-	 */
-	void reportOnly(String feature, Throwable error) {
-		try {
-			log.warn("OSRS Companion: {} failed", feature, error);
-		} catch (Throwable ignored) {
-			// see failed()
-		}
-		notify(() -> listener.onFailure(feature, error));
-	}
-
-	/** The watchdog saw a freeze in {@code feature}: off from now on, and reported once. */
-	void frozen(String feature, long elapsedMs, StackTraceElement[] stack) {
-		notify(() -> listener.onFreeze(feature, elapsedMs, stack));
-		if (breaker(feature).trip()) {
-			disabled(feature, "a freeze of " + elapsedMs + " ms");
-		}
-	}
 
 	private void disabled(String feature, String why) {
 		try {
@@ -313,10 +214,10 @@ public final class Guard {
 		} catch (Throwable ignored) {
 			// see failed()
 		}
-		notify(() -> listener.onDisabled(feature));
+		notify(() -> onDisabled.accept(feature));
 	}
 
-	/** The listener's own failures never escape, and are not reported (no loops). */
+	/** The listener's own failures never escape. */
 	private static void notify(Runnable call) {
 		try {
 			call.run();
@@ -368,39 +269,6 @@ public final class Guard {
 
 	private static String key(String feature) {
 		return feature == null ? OTHER_FEATURE : feature;
-	}
-
-	/** The watched thread's running outermost section, or null; consistent (never a mix of two). */
-	Section currentSection() {
-		for (int attempt = 0; attempt < 3; attempt++) {
-			long s1 = seq;
-			if ((s1 & 1) == 0) {
-				return null;
-			}
-			String feature = sectionFeature;
-			long start = sectionStartNanos;
-			if (seq == s1) {
-				return new Section(s1, feature, start);
-			}
-		}
-		return null;
-	}
-
-	long nanoTime() {
-		return nanoTime.getAsLong();
-	}
-
-	/** One run of a section on the watched thread; {@code id} tells two runs of the same feature apart. */
-	static final class Section {
-		final long id;
-		final String feature;
-		final long startNanos;
-
-		Section(long id, String feature, long startNanos) {
-			this.id = id;
-			this.feature = feature;
-			this.startNanos = startNanos;
-		}
 	}
 
 	/** "slayer-helper-overlay" as the player reads it: "Slayer helper overlay". */
