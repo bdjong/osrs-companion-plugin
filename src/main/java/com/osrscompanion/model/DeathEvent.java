@@ -61,14 +61,6 @@ public class DeathEvent {
 		return event_uuid;
 	}
 
-	public String getDiedAt() {
-		return died_at;
-	}
-
-	public String getKillerType() {
-		return killer_type;
-	}
-
 	public Integer getNpcId() {
 		return npc_id;
 	}
