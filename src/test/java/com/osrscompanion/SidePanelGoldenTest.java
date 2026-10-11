@@ -49,7 +49,7 @@ public class SidePanelGoldenTest {
 	public void setUp() {
 		UiKit.runeLiteLookAndFeel();
 		when(roadmaps.hasAppKey()).thenReturn(true);
-		when(roadmaps.getPlayerUsername()).thenReturn("Iron Zeekr");
+		when(roadmaps.getPlayerUsername()).thenReturn("Iron Bob");
 		Roadmap roadmap = UiSamples.GSON.fromJson(RoadmapWindowGoldenTest.ROADMAP_JSON, Roadmap.class);
 		when(roadmaps.getCurrentRoadmap()).thenReturn(roadmap);
 
