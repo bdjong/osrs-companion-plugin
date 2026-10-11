@@ -3,7 +3,6 @@ package com.osrscompanion;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.DiaryTierResult;
-import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.runelite.farming.CompostState;
 import com.osrscompanion.runelite.farming.CompostTracker;
 import com.osrscompanion.runelite.farming.CropState;
@@ -89,7 +88,6 @@ public class FarmHarvestTracker {
 	private final OSRSCompanionConfig config;
 	private final OSRSCompanionApiClient apiClient;
 	private final ConfigManager configManager;
-	private final FarmRunManager farmRunManager;
 	private final AchievementDiariesReader diaryReader;
 	private final Gson gson;
 
@@ -108,12 +106,11 @@ public class FarmHarvestTracker {
 
 	@Inject
 	public FarmHarvestTracker(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient, ConfigManager configManager,
-		FarmRunManager farmRunManager, AchievementDiariesReader diaryReader, Gson gson) {
+		AchievementDiariesReader diaryReader, Gson gson) {
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;
 		this.configManager = configManager;
-		this.farmRunManager = farmRunManager;
 		this.diaryReader = diaryReader;
 		this.gson = gson;
 	}
@@ -267,10 +264,10 @@ public class FarmHarvestTracker {
 					h.picks++;
 					h.lastTick = client.getTickCount();
 					// Worn for most picks: the cape and secateurs act on every pick.
-					if (farmRunManager.isFarmingCapeWorn()) {
+					if (farmingCapeWorn()) {
 						h.capePicks++;
 					}
-					if (farmRunManager.carried(ItemID.FAIRY_ENCHANTED_SECATEURS) > 0) {
+					if (secateursCarried()) {
 						h.secateursPicks++;
 					}
 				}
@@ -288,6 +285,29 @@ public class FarmHarvestTracker {
 		});
 	}
 
+	/** The Farming cape (or its trimmed version) is worn. Client thread. */
+	private boolean farmingCapeWorn() {
+		return has(InventoryID.WORN, ItemID.SKILLCAPE_FARMING, ItemID.SKILLCAPE_FARMING_TRIMMED);
+	}
+
+	/** Magic secateurs are worn or in the inventory. Client thread. */
+	private boolean secateursCarried() {
+		return has(InventoryID.WORN, ItemID.FAIRY_ENCHANTED_SECATEURS) || has(InventoryID.INV, ItemID.FAIRY_ENCHANTED_SECATEURS);
+	}
+
+	private boolean has(int container, int... ids) {
+		ItemContainer c = client.getItemContainer(container);
+		if (c == null) {
+			return false;
+		}
+		for (int id : ids) {
+			if (c.contains(id)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private boolean tooFar(Harvest h) {
 		return client.getLocalPlayer() == null || client.getLocalPlayer().getWorldLocation().distanceTo2D(h.at) > MAX_DISTANCE;
 	}
@@ -302,20 +322,19 @@ public class FarmHarvestTracker {
 		}
 		// The item picked most (grimy herb, berries, ...); none when it all went into a herb sack.
 		Integer produceItem = h.items.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
-		FarmRoute.Patch routePatch = farmRunManager.routePatch(h.patch);
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("player_username", player);
 		body.put("region", h.patch.getRegion().getName());
 		body.put("varbit", h.patch.getVarbit());
 		body.put("impl", h.patch.getImplementation().name());
-		body.put("patch_key", routePatch == null ? null : routePatch.getKey());
+		body.put("patch_key", null);
 		body.put("produce", h.produce);
 		body.put("produce_item", produceItem);
 		body.put("amount", h.amount);
 		body.put("outcome", h.dead ? "dead" : "harvested");
 		// A dead crop has no picks: what was worn when it was cleared.
-		body.put("farming_cape", h.picks == 0 ? farmRunManager.isFarmingCapeWorn() : h.capePicks * 2 >= h.picks);
-		body.put("magic_secateurs", h.picks == 0 ? farmRunManager.carried(ItemID.FAIRY_ENCHANTED_SECATEURS) > 0 : h.secateursPicks * 2 >= h.picks);
+		body.put("farming_cape", h.picks == 0 ? farmingCapeWorn() : h.capePicks * 2 >= h.picks);
+		body.put("magic_secateurs", h.picks == 0 ? secateursCarried() : h.secateursPicks * 2 >= h.picks);
 		body.put("compost", h.compost);
 		body.put("diseased", h.dead || "true".equals(rememberedRaw(diseaseKey(h.patch))));
 		body.put("anima", animaPlant());
@@ -324,7 +343,7 @@ public class FarmHarvestTracker {
 		body.put("kourend_diary", diaryTier(diaries, KOUREND));
 		body.put("farming_level", client.getRealSkillLevel(Skill.FARMING));
 		body.put("boosted_level", client.getBoostedSkillLevel(Skill.FARMING));
-		body.put("on_run", farmRunManager.isRunning() && routePatch != null);
+		body.put("on_run", false);
 		body.put("harvested_at", Instant.now().toString());
 		log.debug("Harvest at {}: {} x {}{}", h.patch, h.amount, h.produce, h.dead ? " (dead)" : "");
 		apiClient.sendFarmHarvest(gson.toJson(body));
