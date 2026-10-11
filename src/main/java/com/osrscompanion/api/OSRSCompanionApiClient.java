@@ -109,6 +109,7 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
 	private static final String BOSS_SESSIONS_ENDPOINT = "/api/runelite/boss-sessions/";
 	private static final String BOSS_AREAS_ENDPOINT = "/api/runelite/boss-areas/";
+	private static final String VARS_ENDPOINT = "/api/runelite/vars/";
 	static final String BATCH_ENDPOINT = "/api/runelite/batch";
 	static final String VERSION_ENDPOINT = "/api/runelite/version";
 	static final String ERRORS_ENDPOINT = "/api/runelite/errors";
@@ -725,6 +726,19 @@ public class OSRSCompanionApiClient
 	}
 
 	/** Which dailies are done, open or locked (and the ones ticked by hand); deduped like the other syncs. */
+	/** The data pump's watch list: the varbits and varplayers the website wants ({@link com.osrscompanion.VarPump}). */
+	public <T> void getVarWatchList(String playerUsername, Class<T> type, RoadmapCallback<T> callback)
+	{
+		getAsync(VARS_ENDPOINT + "?player=" + urlEncode(playerUsername), "vars", type, callback);
+	}
+
+	/** The data pump's raw values (merged per player: only the newest set matters). */
+	public void sendVars(String json, String playerUsername)
+	{
+		postAsync(VARS_ENDPOINT, json, "vars", false, true, key("vars", playerUsername), false,
+			() -> log.debug("OSRS Companion raw values sent"));
+	}
+
 	public void sendDailies(String json)
 	{
 		// Not merged: a body may be a single untick rather than the whole list.
