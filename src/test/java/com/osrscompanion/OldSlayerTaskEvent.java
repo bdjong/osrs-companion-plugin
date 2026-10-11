@@ -1,4 +1,4 @@
-package com.osrscompanion.model;
+package com.osrscompanion;
 
 import lombok.Getter;
 
@@ -11,7 +11,7 @@ import lombok.Getter;
  * from the same signals and records disagreements, so the claim never needs to
  * be perfect, only honest. {@code event_uuid} makes replays idempotent.
  */
-public class SlayerTaskEvent {
+public class OldSlayerTaskEvent {
 	private final String event_uuid;
 	@Getter
 	private final String outcome;
@@ -38,7 +38,7 @@ public class SlayerTaskEvent {
 	private final String last_kill_at;
 	private final Long active_seconds;
 
-	public SlayerTaskEvent(
+	public OldSlayerTaskEvent(
 			String eventUuid,
 			String outcome,
 			Integer taskId,

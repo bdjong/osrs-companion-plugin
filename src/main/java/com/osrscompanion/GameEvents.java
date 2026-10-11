@@ -108,11 +108,11 @@ public class GameEvents {
 	private static final int[] KOUREND_DIARY = {7929, 7930, 7931, 7932};
 
 	private boolean on() {
-		return (config.bossTrips() || config.bossHistory() || config.syncFarmHarvests()) && SyncGuard.hasAppKey(config)
+		return (config.bossTrips() || config.bossHistory() || config.syncFarmHarvests() || config.syncSlayer()) && SyncGuard.hasAppKey(config)
 			&& !GameModeUtil.isSpecialGameMode(client);
 	}
 
-	private Map<String, Object> add(String type, Object... kv) {
+	Map<String, Object> add(String type, Object... kv) {
 		Map<String, Object> e = new LinkedHashMap<>();
 		e.put("t", client.getTickCount());
 		e.put("ms", System.currentTimeMillis());
