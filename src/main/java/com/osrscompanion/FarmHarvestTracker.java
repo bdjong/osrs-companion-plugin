@@ -2,7 +2,6 @@ package com.osrscompanion;
 
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
-import com.osrscompanion.model.DiaryTierResult;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.runelite.farming.CompostState;
 import com.osrscompanion.runelite.farming.CompostTracker;
@@ -70,9 +69,9 @@ public class FarmHarvestTracker {
 	private static final String COMPOST_KEY = "harvestCompost.";
 	private static final String DISEASE_KEY = "harvestDiseased.";
 	/** Diaries whose rewards raise herb yields at one patch (Catherby, Hosidius), as the diary reader names them. */
-	private static final String KANDARIN = "Kandarin";
-	private static final String KOUREND = "Kourend & Kebos";
-	private static final String[] DIARY_TIERS = {"Easy", "Medium", "Hard", "Elite"};
+	/** The diaries' completed varbits, easy to elite (as the achievement diary sync reads them). */
+	private static final int[] KANDARIN_DIARY = {4515, 4516, 4517, 4518};
+	private static final int[] KOUREND_DIARY = {7929, 7930, 7931, 7932};
 	/** Ticks without a pick before an unfinished harvest is dropped (about three minutes). */
 	private static final int IDLE_TICKS = 300;
 	/** Tiles from the patch before an unfinished harvest is dropped. */
@@ -90,7 +89,6 @@ public class FarmHarvestTracker {
 	private final OSRSCompanionApiClient apiClient;
 	private final ConfigManager configManager;
 	private final FarmRunManager farmRunManager;
-	private final AchievementDiariesReader diaryReader;
 	private final Gson gson;
 
 	private volatile FarmingWorld farmingWorld;
@@ -108,13 +106,12 @@ public class FarmHarvestTracker {
 
 	@Inject
 	public FarmHarvestTracker(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient, ConfigManager configManager,
-		FarmRunManager farmRunManager, AchievementDiariesReader diaryReader, Gson gson) {
+		FarmRunManager farmRunManager, Gson gson) {
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;
 		this.configManager = configManager;
 		this.farmRunManager = farmRunManager;
-		this.diaryReader = diaryReader;
 		this.gson = gson;
 	}
 
@@ -319,9 +316,8 @@ public class FarmHarvestTracker {
 		body.put("compost", h.compost);
 		body.put("diseased", h.dead || "true".equals(rememberedRaw(diseaseKey(h.patch))));
 		body.put("anima", animaPlant());
-		Map<String, Map<String, DiaryTierResult>> diaries = readDiaries();
-		body.put("kandarin_diary", diaryTier(diaries, KANDARIN));
-		body.put("kourend_diary", diaryTier(diaries, KOUREND));
+		body.put("kandarin_diary", diaryTier(KANDARIN_DIARY));
+		body.put("kourend_diary", diaryTier(KOUREND_DIARY));
 		body.put("farming_level", client.getRealSkillLevel(Skill.FARMING));
 		body.put("boosted_level", client.getBoostedSkillLevel(Skill.FARMING));
 		body.put("on_run", farmRunManager.isRunning() && routePatch != null);
@@ -361,27 +357,10 @@ public class FarmHarvestTracker {
 		return null;
 	}
 
-	private Map<String, Map<String, DiaryTierResult>> readDiaries() {
-		try {
-			return diaryReader.read(client);
-		} catch (RuntimeException e) {
-			log.debug("Could not read the achievement diaries", e);
-			return null;
-		}
-	}
-
-	/** Highest tier of the diary done in order: 0 none, 1 easy, 2 medium, 3 hard, 4 elite; null when not read. */
-	private static Integer diaryTier(Map<String, Map<String, DiaryTierResult>> diaries, String region) {
-		Map<String, DiaryTierResult> tiers = diaries == null ? null : diaries.get(region);
-		if (tiers == null) {
-			return null;
-		}
+	/** Highest tier of the diary done in order: 0 none, 1 easy, 2 medium, 3 hard, 4 elite. */
+	private int diaryTier(int[] tiers) {
 		int done = 0;
-		for (String tier : DIARY_TIERS) {
-			DiaryTierResult r = tiers.get(tier);
-			if (r == null || !r.isComplete()) {
-				break;
-			}
+		while (done < tiers.length && client.getVarbitValue(tiers[done]) == 1) {
 			done++;
 		}
 		return done;

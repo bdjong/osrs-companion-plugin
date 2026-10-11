@@ -9,18 +9,14 @@ import com.osrscompanion.Guard;
 import com.osrscompanion.OSRSCompanionConfig;
 import com.osrscompanion.PluginVersion;
 import com.osrscompanion.SyncGuard;
-import com.osrscompanion.model.AchievementDiariesSyncPayload;
-import com.osrscompanion.model.HouseLocationSyncPayload;
 import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
-import com.osrscompanion.model.CombatAchievementsSyncPayload;
 import com.osrscompanion.model.DeathSyncPayload;
 import com.osrscompanion.model.BossAreasResponse;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.GearPlan;
 import com.osrscompanion.model.KillCountsSyncPayload;
-import com.osrscompanion.model.KingdomSyncPayload;
 import com.osrscompanion.model.LoadoutSyncPayload;
 import com.osrscompanion.model.LootDropPayload;
 import com.osrscompanion.model.LootSyncPayload;
@@ -81,16 +77,12 @@ public class OSRSCompanionApiClient
 	private static final String BANK_ENDPOINT = "/api/runelite/bank/";
 	private static final String COLLECTION_LOG_ENDPOINT = "/api/runelite/collection-log/";
 	private static final String QUESTS_ENDPOINT = "/api/runelite/quests/";
-	private static final String ACHIEVEMENT_DIARIES_ENDPOINT = "/api/runelite/achievement-diaries/";
-	private static final String HOUSE_LOCATION_ENDPOINT = "/api/runelite/house-location/";
 	private static final String FARMING_UNLOCKS_ENDPOINT = "/api/runelite/farming-unlocks/";
 	private static final String FARM_HARVESTS_ENDPOINT = "/api/runelite/farm-harvests/";
 	private static final String FARM_RUNS_ENDPOINT = "/api/runelite/farm-runs/";
 	private static final String BOSS_TRIPS_ENDPOINT = "/api/runelite/boss-trips/";
-	private static final String COMBAT_ACHIEVEMENTS_ENDPOINT = "/api/runelite/combat-achievements/";
 	private static final String DEATHS_ENDPOINT = "/api/runelite/deaths/";
 	private static final String KILL_COUNTS_ENDPOINT = "/api/runelite/kill-counts/";
-	private static final String KINGDOM_ENDPOINT = "/api/runelite/kingdom/";
 	private static final String LOADOUT_ENDPOINT = "/api/runelite/loadouts/";
 	private static final String LOOT_ENDPOINT = "/api/runelite/loot/";
 	private static final String LOOT_DROP_ENDPOINT = "/api/runelite/loot/drop/";
@@ -103,7 +95,6 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_CATALOG_ENDPOINT = "/api/runelite/slayer/catalog/";
 	private static final String SLAYER_CATALOG_STATUS_ENDPOINT = "/api/runelite/slayer/catalog/status/";
 	private static final String SLAYER_REWARDS_ENDPOINT = "/api/runelite/slayer/rewards/";
-	private static final String DAILIES_ENDPOINT = "/api/runelite/dailies/";
 	private static final String SLAYER_GUIDE_ENDPOINT = "/api/runelite/slayer/guide/";
 	private static final String SLAYER_GEAR_ENDPOINT = "/api/runelite/slayer/gear/";
 	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
@@ -243,13 +234,6 @@ public class OSRSCompanionApiClient
 				payload.getQuests().size(), payload.getPlayerUsername()));
 	}
 
-	public void sendAchievementDiariesSync(AchievementDiariesSyncPayload payload)
-	{
-		postAsync(ACHIEVEMENT_DIARIES_ENDPOINT, payload.toJson(gson), "achievement-diaries", false, true,
-			key("achievement-diaries", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion achievement diaries sync successful: {} regions for player: {}",
-				payload.getAchievementDiaries().size(), payload.getPlayerUsername()));
-	}
 
 	/** Auto-weed and Barbarian Farming state, for the farm route's loadout. */
 	public void sendFarmingUnlocks(String json)
@@ -279,28 +263,8 @@ public class OSRSCompanionApiClient
 			() -> log.debug("OSRS Companion boss trip recorded"));
 	}
 
-	public void sendHouseLocationSync(HouseLocationSyncPayload payload)
-	{
-		postAsync(HOUSE_LOCATION_ENDPOINT, payload.toJson(gson), "house-location", false, true,
-			key("house-location", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion house location sync successful: varbit {} for player: {}",
-				payload.getHouseLocationVarbit(), payload.getPlayerUsername()));
-	}
 
-	public void sendKingdomSync(KingdomSyncPayload payload)
-	{
-		postAsync(KINGDOM_ENDPOINT, payload.toJson(gson), "kingdom", false, true, key("kingdom", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion kingdom sync successful: approval {} coffer {} for player: {}",
-				payload.getApprovalPoints(), payload.getCoffer(), payload.getPlayerUsername()));
-	}
 
-	public void sendCombatAchievementsSync(CombatAchievementsSyncPayload payload)
-	{
-		postAsync(COMBAT_ACHIEVEMENTS_ENDPOINT, payload.toJson(gson), "combat-achievements", false, true,
-			key("combat-achievements", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion combat achievements sync successful: {} tasks for player: {}",
-				payload.getCombatAchievements().size(), payload.getPlayerUsername()));
-	}
 
 	/**
 	 * Sends the queued deaths. Never deduped: an identical body is a retry of
@@ -725,8 +689,7 @@ public class OSRSCompanionApiClient
 			BossGear.Response.class, callback);
 	}
 
-	/** Which dailies are done, open or locked (and the ones ticked by hand); deduped like the other syncs. */
-	/** The data pump's watch list: the varbits and varplayers the website wants ({@link com.osrscompanion.VarPump}). */
+	/** The data pump's watch list: per data type, the values the website wants ({@link com.osrscompanion.VarPump}). */
 	public <T> void getVarWatchList(String playerUsername, Class<T> type, RoadmapCallback<T> callback)
 	{
 		getAsync(VARS_ENDPOINT + "?player=" + urlEncode(playerUsername), "vars", type, callback);
@@ -739,12 +702,6 @@ public class OSRSCompanionApiClient
 			() -> log.debug("OSRS Companion raw values sent"));
 	}
 
-	public void sendDailies(String json)
-	{
-		// Not merged: a body may be a single untick rather than the whole list.
-		postAsync(DAILIES_ENDPOINT, json, "dailies", false, true, null, false,
-			() -> log.debug("OSRS Companion dailies synced"));
-	}
 
 	/**
 	 * Sends error reports ({@code POST /api/runelite/errors}) through the outbox as a normal upload.
