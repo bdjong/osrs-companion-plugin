@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.List;
 
@@ -48,6 +49,7 @@ public class LootSyncPayload
 		private final int npc_id;
 		private final String npc_name;
 		private final int kill_count;
+		@Getter
 		private final List<LootItem> items;
 		/** First and last kill as epoch milliseconds, from the loot tracker (null when it has none). */
 		private final Long first_at;
@@ -93,10 +95,6 @@ public class LootSyncPayload
 			return kill_count;
 		}
 
-		public List<LootItem> getItems()
-		{
-			return items;
-		}
 	}
 
 	/**
@@ -105,6 +103,7 @@ public class LootSyncPayload
 	public static class LootItem
 	{
 		private final int item_id;
+		@Getter
 		private final int quantity;
 
 		public LootItem(int itemId, int quantity)
@@ -118,9 +117,5 @@ public class LootSyncPayload
 			return item_id;
 		}
 
-		public int getQuantity()
-		{
-			return quantity;
-		}
 	}
 }

@@ -1,5 +1,7 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
+
 /**
  * One slayer task transition (completed / skipped / blocked / reset / unknown)
  * detected client-side. Field names match the wire format of
@@ -11,6 +13,7 @@ package com.osrscompanion.model;
  */
 public class SlayerTaskEvent {
 	private final String event_uuid;
+	@Getter
 	private final String outcome;
 	private final Integer task_id;
 	private final String task_name;
@@ -88,10 +91,6 @@ public class SlayerTaskEvent {
 
 	public String getEventUuid() {
 		return event_uuid;
-	}
-
-	public String getOutcome() {
-		return outcome;
 	}
 
 	public String getTaskName() {

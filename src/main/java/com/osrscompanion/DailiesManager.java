@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import com.osrscompanion.DailyChecks.Result;
 import com.osrscompanion.DailyChecks.State;
@@ -61,8 +62,11 @@ public class DailiesManager {
 	private volatile boolean ironman;
 	private volatile boolean ultimate;
 	private volatile String player;
+	@Getter
 	private volatile Dailies guide;
+	@Getter
 	private volatile boolean loading;
+	@Getter
 	private volatile String error;
 	private volatile long fetchedAtMs;
 	/** Dailies ticked by hand: id to when the tick stops counting (the reset). */
@@ -74,6 +78,7 @@ public class DailiesManager {
 	private long readDay = -1;
 	private String lastSyncJson;
 
+	@Getter
 	private volatile boolean running;
 	private volatile String currentId;
 	private final Set<String> skipped = ConcurrentHashMap.newKeySet();
@@ -481,24 +486,8 @@ public class DailiesManager {
 
 	// ---- Getters --------------------------------------------------------------------------------
 
-	public boolean isRunning() {
-		return running;
-	}
-
 	public Entry current() {
 		return running ? entry(currentId) : null;
-	}
-
-	public Dailies getGuide() {
-		return guide;
-	}
-
-	public boolean isLoading() {
-		return loading;
-	}
-
-	public String getError() {
-		return error;
 	}
 
 	/** Open dailies and the GP they are worth (website values), for the panel. */

@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.Map;
 
@@ -8,7 +9,9 @@ import java.util.Map;
  * Matches the format expected by POST /api/runelite/skills/
  */
 public class PlayerSkillsSyncPayload {
+	@Getter
 	private final String player;
+	@Getter
 	private final Map<String, SkillData> skills;
 	private final int total_level;
 	private final int combat_level;
@@ -40,14 +43,6 @@ public class PlayerSkillsSyncPayload {
 		return account_type;
 	}
 
-	public String getPlayer() {
-		return player;
-	}
-
-	public Map<String, SkillData> getSkills() {
-		return skills;
-	}
-
 	public int getTotalLevel() {
 		return total_level;
 	}
@@ -64,16 +59,13 @@ public class PlayerSkillsSyncPayload {
 	 * Represents skill level and experience data
 	 */
 	public static class SkillData {
+		@Getter
 		private final int level;
 		private final int current_xp;
 
 		public SkillData(int level, int currentXp) {
 			this.level = level;
 			this.current_xp = currentXp;
-		}
-
-		public int getLevel() {
-			return level;
 		}
 
 		public int getCurrentXp() {

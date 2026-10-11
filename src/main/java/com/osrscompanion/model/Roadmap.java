@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -10,29 +11,20 @@ import java.util.List;
  * endpoints.
  */
 public class Roadmap {
+	@Getter
 	@SerializedName("collection_id")
 	private int collectionId;
 
+	@Getter
 	@SerializedName("title")
 	private String title;
 
+	@Getter
 	@SerializedName("goal_count")
 	private int goalCount;
 
 	@SerializedName("goals")
 	private List<RoadmapGoal> goals;
-
-	public int getCollectionId() {
-		return collectionId;
-	}
-
-	public String getTitle() {
-		return title;
-	}
-
-	public int getGoalCount() {
-		return goalCount;
-	}
 
 	public List<RoadmapGoal> getGoals() {
 		return goals == null ? Collections.emptyList() : goals;

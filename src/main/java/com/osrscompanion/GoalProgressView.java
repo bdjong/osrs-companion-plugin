@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.osrscompanion.model.GoalType;
 import com.osrscompanion.model.RoadmapGoal;
 
@@ -9,11 +10,16 @@ import com.osrscompanion.model.RoadmapGoal;
  * per read by {@link GoalProgressState}.
  */
 public final class GoalProgressView {
+	@Getter
 	private final GoalType type;
+	@Getter
 	private final int current;
+	@Getter
 	private final int target;
 	/** 0-100, or null for binary goals that have no progress bar. */
+	@Getter
 	private final Integer percent;
+	@Getter
 	private final boolean complete;
 
 	GoalProgressView(GoalType type, int current, int target, Integer percent, boolean complete) {
@@ -31,26 +37,6 @@ public final class GoalProgressView {
 			percent = 100;
 		}
 		return new GoalProgressView(goal.getType(), goal.getCurrent(), goal.getTarget(), percent, goal.isComplete());
-	}
-
-	public GoalType getType() {
-		return type;
-	}
-
-	public int getCurrent() {
-		return current;
-	}
-
-	public int getTarget() {
-		return target;
-	}
-
-	public Integer getPercent() {
-		return percent;
-	}
-
-	public boolean isComplete() {
-		return complete;
 	}
 
 	/** True when this goal is drawn with a progress bar. */

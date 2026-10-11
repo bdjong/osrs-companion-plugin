@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,6 +14,7 @@ import java.util.Set;
  * {@code locations} is empty when the website has no data for the task.
  */
 public class SlayerGuide {
+	@Getter
 	@SerializedName("task")
 	private Task task;
 
@@ -20,19 +22,12 @@ public class SlayerGuide {
 	private List<Location> locations;
 
 	/** The player's own pick on the website, else the recommended location's key. */
+	@Getter
 	@SerializedName("selected")
 	private String selected;
 
-	public Task getTask() {
-		return task;
-	}
-
 	public List<Location> getLocations() {
 		return locations == null ? Collections.emptyList() : locations;
-	}
-
-	public String getSelected() {
-		return selected;
 	}
 
 	/** The location to guide to: the selected one, else the recommended one, else the first; null when there is none. */
@@ -52,57 +47,38 @@ public class SlayerGuide {
 	}
 
 	public static class Task {
+		@Getter
 		@SerializedName("task_id")
 		private Integer taskId;
 
+		@Getter
 		@SerializedName("task_name")
 		private String taskName;
 
+		@Getter
 		@SerializedName("area_id")
 		private Integer areaId;
 
+		@Getter
 		@SerializedName("area_name")
 		private String areaName;
 
+		@Getter
 		@SerializedName("amount_remaining")
 		private int amountRemaining;
 
+		@Getter
 		@SerializedName("amount_original")
 		private int amountOriginal;
 
+		@Getter
 		@SerializedName("master")
 		private String master;
 
-		public Integer getTaskId() {
-			return taskId;
-		}
-
-		public String getTaskName() {
-			return taskName;
-		}
-
-		public Integer getAreaId() {
-			return areaId;
-		}
-
-		public String getAreaName() {
-			return areaName;
-		}
-
-		public int getAmountRemaining() {
-			return amountRemaining;
-		}
-
-		public int getAmountOriginal() {
-			return amountOriginal;
-		}
-
-		public String getMaster() {
-			return master;
-		}
 	}
 
 	public static class Location {
+		@Getter
 		@SerializedName("key")
 		private String key;
 
@@ -114,6 +90,7 @@ public class SlayerGuide {
 		private List<Integer> tile;
 
 		/** Tiles from {@link #tile} that still count as being in the area. */
+		@Getter
 		@SerializedName("radius")
 		private int radius;
 
@@ -121,9 +98,11 @@ public class SlayerGuide {
 		@SerializedName("region_ids")
 		private List<Integer> regionIds;
 
+		@Getter
 		@SerializedName("multi")
 		private boolean multi;
 
+		@Getter
 		@SerializedName("recommended")
 		private boolean recommended;
 
@@ -134,6 +113,7 @@ public class SlayerGuide {
 		private List<String> requirements;
 
 		/** The way there, same shape as a farm route stop's. */
+		@Getter
 		@SerializedName("travel")
 		private FarmRoute.Travel travel;
 
@@ -153,10 +133,6 @@ public class SlayerGuide {
 			l.radius = radius;
 			l.monsters = monsters == null ? null : new ArrayList<>(monsters);
 			return l;
-		}
-
-		public String getKey() {
-			return key;
 		}
 
 		public String getName() {
@@ -180,20 +156,8 @@ public class SlayerGuide {
 			return hasTile() ? tile.get(2) : 0;
 		}
 
-		public int getRadius() {
-			return radius;
-		}
-
 		public List<Integer> getRegionIds() {
 			return regionIds == null ? Collections.emptyList() : regionIds;
-		}
-
-		public boolean isMulti() {
-			return multi;
-		}
-
-		public boolean isRecommended() {
-			return recommended;
 		}
 
 		public String getWhy() {
@@ -202,11 +166,6 @@ public class SlayerGuide {
 
 		public List<String> getRequirements() {
 			return requirements == null ? Collections.emptyList() : requirements;
-		}
-
-		/** Null when the website sent no way there. */
-		public FarmRoute.Travel getTravel() {
-			return travel;
 		}
 
 		public List<String> getSteps() {

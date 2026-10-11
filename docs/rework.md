@@ -22,3 +22,4 @@ Goal: every feature stays, the in-game UI looks exactly as it does now, and `src
 | Start: the full plugin | 351,691 |
 | Farm patch rules as a data file (`patch-states.txt`, checked against RuneLite for every value) | -18,816 |
 | Developer-only slayer debug mode removed | -2,053 |
+| 219 plain getters as Lombok `@Getter` (same methods) | -2,280 |

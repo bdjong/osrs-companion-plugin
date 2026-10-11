@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -12,9 +13,11 @@ import java.util.Map;
  * still current the answer is just {@code { version, unchanged: true }}.
  */
 public class BossAreasResponse {
+	@Getter
 	@SerializedName("version")
 	private String version;
 
+	@Getter
 	@SerializedName("unchanged")
 	private boolean unchanged;
 
@@ -22,27 +25,16 @@ public class BossAreasResponse {
 	private List<Boss> bosses;
 
 	public static class Boss {
+		@Getter
 		@SerializedName("key")
 		private String key;
 
 		@SerializedName("regions")
 		private List<Integer> regions;
 
-		public String getKey() {
-			return key;
-		}
-
 		public List<Integer> getRegions() {
 			return regions == null ? Collections.emptyList() : regions;
 		}
-	}
-
-	public String getVersion() {
-		return version;
-	}
-
-	public boolean isUnchanged() {
-		return unchanged;
 	}
 
 	/** Boss key -> regions, in the website's order. */

@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.Getter;
 import com.google.common.collect.ImmutableSet;
 import com.osrscompanion.FarmPatchProgress.Snapshot;
 import com.osrscompanion.FarmPatchProgress.Status;
@@ -129,14 +130,21 @@ public class FarmRunManager {
 	private volatile FarmingTracker farmingTracker;
 	private volatile CompostTracker compostTracker;
 
+	@Getter
 	private volatile FarmRoute route;
+	@Getter
 	private volatile List<FarmRoute.RouteSummary> routes = Collections.emptyList();
+	@Getter
 	private volatile String error;
+	@Getter
 	private volatile boolean loading;
+	@Getter
 	private volatile boolean loaded;
 	private volatile long fetchedAtMs;
 
+	@Getter
 	private volatile boolean running;
+	@Getter
 	private volatile int stopIndex;
 	private final Map<String, Snapshot> startState = new ConcurrentHashMap<>();
 	private final Map<String, Status> status = new ConcurrentHashMap<>();
@@ -190,6 +198,7 @@ public class FarmRunManager {
 	private volatile String runPlayer;
 
 	/** The in-game farm run window, and the stop shown in its details (-1: the current one). */
+	@Getter
 	private volatile boolean open;
 	private volatile int selectedStop = -1;
 
@@ -1283,10 +1292,6 @@ public class FarmRunManager {
 
 	// ---- The window --------------------------------------------------------------------
 
-	public boolean isOpen() {
-		return open;
-	}
-
 	public void toggle() {
 		if (open) {
 			close();
@@ -1330,34 +1335,6 @@ public class FarmRunManager {
 	}
 
 	// ---- Read by the panel and overlays -------------------------------------------
-
-	public FarmRoute getRoute() {
-		return route;
-	}
-
-	public List<FarmRoute.RouteSummary> getRoutes() {
-		return routes;
-	}
-
-	public String getError() {
-		return error;
-	}
-
-	public boolean isLoading() {
-		return loading;
-	}
-
-	public boolean isLoaded() {
-		return loaded;
-	}
-
-	public boolean isRunning() {
-		return running;
-	}
-
-	public int getStopIndex() {
-		return stopIndex;
-	}
 
 	public FarmRoute.Stop getCurrentStop() {
 		FarmRoute r = route;
