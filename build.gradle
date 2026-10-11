@@ -25,6 +25,8 @@ dependencies {
 	testImplementation 'junit:junit:4.12'
 	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
+	// Tests only (the Plugin Hub builds just the main code): stand-ins for RuneLite classes in the UI golden tests.
+	testImplementation 'org.mockito:mockito-core:4.11.0'
 }
 
 group = 'com.osrscompanion'

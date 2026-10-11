@@ -1,0 +1,13 @@
+fill rect(0,0,177,76) #463d329c
+draw rect(0,0,176,75) #383028da w=1
+draw rect(1,1,174,73) #54493cda w=1
+text 'Main account end-game gear' 5,21 RuneScape/0/16 #000000ff
+text 'Main account end-game gear' 4,20 RuneScape/0/16 #f28c28ff
+text 'progression for raids' 5,37 RuneScape/0/16 #000000ff
+text 'progression for raids' 4,36 RuneScape/0/16 #f28c28ff
+text 'Next gear' 5,53 RuneScape/0/16 #000000ff
+text 'Next gear' 4,52 RuneScape/0/16 #f28c28ff
+image img:1x4:ecbb4b55 4,52 #f28c28ff
+text 'Every step is done!' 5,73 RuneScape/0/16 #000000ff
+text 'Every step is done!' 4,72 RuneScape/0/16 #0dc10dff
+=> 177x76

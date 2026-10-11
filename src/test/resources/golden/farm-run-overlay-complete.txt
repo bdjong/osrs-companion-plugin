@@ -1,0 +1,18 @@
+fill rect(0,0,220,104) #463d329c
+draw rect(0,0,219,103) #383028da w=1
+draw rect(1,1,217,101) #54493cda w=1
+text 'Farm run complete!' 5,21 RuneScape/0/16 #000000ff
+text 'Farm run complete!' 4,20 RuneScape/0/16 #0dc10dff
+text '6/6 done' 164,21 RuneScape/0/16 #000000ff
+text '6/6 done' 163,20 RuneScape/0/16 #a5a5a5ff
+text 'Every patch is planted, skipped or' 5,37 RuneScape/0/16 #000000ff
+text 'Every patch is planted, skipped or' 4,36 RuneScape/0/16 #a5a5a5ff
+text 'still growing. The run stops when you' 5,53 RuneScape/0/16 #000000ff
+text 'still growing. The run stops when you' 4,52 RuneScape/0/16 #a5a5a5ff
+text 'leave this stop.' 5,69 RuneScape/0/16 #000000ff
+text 'leave this stop.' 4,68 RuneScape/0/16 #a5a5a5ff
+text 'Herb: no compost yet: use your' 5,85 RuneScape/0/16 #000000ff
+text 'Herb: no compost yet: use your' 4,84 RuneScape/0/16 #f97316ff
+text 'Ultracompost on the patch.' 5,101 RuneScape/0/16 #000000ff
+text 'Ultracompost on the patch.' 4,100 RuneScape/0/16 #f97316ff
+=> 220x104

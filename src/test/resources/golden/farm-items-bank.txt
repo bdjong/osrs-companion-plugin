@@ -1,0 +1,11 @@
+item 952
+fill rect(8,8,36,32) #ffffff2d
+draw rect(8,8,35,31) #ffffffc8 w=1.500
+item 5341
+item 5295
+fill rect(92,8,36,32) #22c55e2d
+draw rect(92,8,35,31) #22c55eff w=1.500
+item 1
+item 13128
+fill rect(8,44,36,32) #22d3ee2d
+draw rect(8,44,35,31) #22d3eeff w=1.500

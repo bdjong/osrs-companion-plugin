@@ -1,0 +1,15 @@
+fillRect 514,44,230,82 #3e3529ff
+drawRect 514,44,229,81 #0e0c08ff w=1
+drawRect 515,45,227,79 #5d5240ff w=1
+text 'Herbs + trees' 523,63 RuneScape Bold/1/16 #000000ff
+text 'Herbs + trees' 522,62 RuneScape Bold/1/16 #ff981fff
+text 'Not enough for one run (runs out of: Ultr...' 523,77 RuneScape Small/0/16 #000000ff
+text 'Not enough for one run (runs out of: Ultr...' 522,76 RuneScape Small/0/16 #ff3d3dff
+text 'Your farm route' 523,90 RuneScape Small/0/16 #000000ff
+text 'Your farm route' 522,89 RuneScape Small/0/16 #9a9080ff
+image item:21483 522,94 20x18 #9a9080ff
+text 'Ultracompost x6' 547,109 RuneScape Small/0/16 #000000ff
+text 'Ultracompost x6' 546,108 RuneScape Small/0/16 #ff3d3dff
+text '0 runs' 704,109 RuneScape Small/0/16 #000000ff
+text '0 runs' 703,108 RuneScape Small/0/16 #ff3d3dff
+=> null

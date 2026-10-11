@@ -1,0 +1,15 @@
+fillRect 180,130,640,440 #3e3529ff
+drawRect 181,131,637,437 #0e0c08ff w=3
+drawRect 183,133,633,433 #5d5240ff w=1
+text 'Boss Gear' 468,151 RuneScape Bold/1/16 #000000ff
+text 'Boss Gear' 467,150 RuneScape Bold/1/16 #ff981fff
+fillRect 792,136,20,18 #3e3529ff
+drawRect 792,136,19,17 #14110cff w=1
+drawRect 793,137,17,15 #6a5c48ff w=1
+line 798,141-806,149 #c8a24aff w=2
+line 806,141-798,149 #c8a24aff w=2
+line 188,158-811,158 #14110cff w=1
+line 188,159-811,159 #5d5240ff w=1
+text 'Loading your boss gear...' 430,341 RuneScape/0/16 #000000ff
+text 'Loading your boss gear...' 429,340 RuneScape/0/16 #ffffffff
+=> 640x440
