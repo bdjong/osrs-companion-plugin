@@ -34,11 +34,4 @@ public class DailyResetTest {
 		assertEquals("now", DailyReset.until(now, now - 1));
 	}
 
-	@Test
-	public void handTicksLastUntilTheirReset() {
-		long now = at("2026-10-07T13:30:00Z");
-		assertEquals(at("2026-10-08T00:00:00Z"), DailiesManager.tickExpiry("daily", now));
-		assertEquals(at("2026-10-14T00:00:00Z"), DailiesManager.tickExpiry("weekly", now));
-		assertEquals(now + 50 * 60_000L, DailiesManager.tickExpiry("timer", now));
-	}
 }

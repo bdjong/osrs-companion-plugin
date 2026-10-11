@@ -242,15 +242,6 @@ public final class UiKit {
 		}
 	}
 
-	/** The same render with the daily reset countdown ("resets in 5h 12m") replaced, for goldens. */
-	public static Rendered withoutClock(Rendered r) {
-		List<String> log = new ArrayList<>();
-		for (String line : r.log) {
-			log.add(line.replaceAll("resets in (now|[0-9]+d [0-9]+h|[0-9]+h [0-9]+m|[0-9]+m)", "resets in <time>"));
-		}
-		return new Rendered(log, r.image);
-	}
-
 	/** Compares a render with its golden file (recording it when there is none yet). */
 	public static void golden(String name, Rendered r) {
 		Path txt = GOLDEN.resolve(name + ".txt");

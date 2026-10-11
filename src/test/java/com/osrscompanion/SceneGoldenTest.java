@@ -6,7 +6,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.osrscompanion.DailyChecks.State;
 import com.osrscompanion.FarmPatchProgress.Status;
 import com.osrscompanion.model.FarmRoute;
 import java.awt.Color;
@@ -21,9 +20,7 @@ import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
 import net.runelite.api.NPC;
 import net.runelite.api.Point;
-import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.GameTick;
 import net.runelite.client.ui.overlay.outline.ModelOutlineRenderer;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPoint;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
@@ -130,31 +127,4 @@ public class SceneGoldenTest {
 
 	// ---- dailies: the NPC, the arrow and the map marker --------------------------------------------
 
-	@Test
-	public void dailiesNpcWithArrowAndMapMarker() {
-		DailiesManager manager = mock(DailiesManager.class);
-		DailiesManager.Entry e = new DailiesManager.Entry("battlestaves", "Battlestaves from Zaff", State.OPEN, null, false,
-			DailiesUiGoldenTest.daily("{\"id\":\"battlestaves\",\"name\":\"Battlestaves from Zaff\",\"icon\":1391,\"npc\":\"Zaff\",\"option\":\"Buy-battlestaves\","
-				+ "\"area\":\"Varrock\",\"x\":3203,\"y\":3434,\"plane\":0,\"bring\":[],\"steps\":[]}"), true, 120);
-		when(manager.current()).thenReturn(e);
-		when(manager.isRunning()).thenReturn(true);
-		NPC zaff = mock(NPC.class, "zaff");
-		when(zaff.getName()).thenReturn("Zaff");
-		when(zaff.getWorldLocation()).thenReturn(new WorldPoint(3202, 3433, 0));
-		when(zaff.getLogicalHeight()).thenReturn(200);
-		when(zaff.getCanvasTextLocation(any(Graphics2D.class), any(String.class), anyInt())).thenReturn(new Point(180, 140));
-		WorldView view = mock(WorldView.class);
-		when(client.getTopLevelWorldView()).thenReturn(view);
-		@SuppressWarnings("unchecked")
-		net.runelite.api.IndexedObjectSet<NPC> npcs = mock(net.runelite.api.IndexedObjectSet.class);
-		when(npcs.iterator()).thenAnswer(a -> Arrays.asList(zaff).iterator());
-		doAnswer(a -> npcs).when(view).npcs();
-		DailiesSceneOverlay overlay = new DailiesSceneOverlay(client, manager, mock(FarmRunManager.class), new TestOSRSCompanionConfig(), outlines, worldMap,
-			kit.itemManager());
-		UiKit.guarded(() -> {
-			overlay.onGameTick(new GameTick());
-			return null;
-		});
-		UiKit.golden("scene-dailies-npc", withEvents(kit.render(overlay, 400, 300)));
-	}
 }

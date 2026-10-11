@@ -43,7 +43,6 @@ public class WebVersionWatcher {
 	private final SlayerHelperManager slayerHelperManager;
 	private final BossGearManager bossGearManager;
 	private final GearProgressionManager gearProgressionManager;
-	private final DailiesManager dailiesManager;
 	private final LiveActivityMonitor liveActivity;
 
 	private ScheduledFuture<?> task;
@@ -54,7 +53,7 @@ public class WebVersionWatcher {
 	public WebVersionWatcher(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executor, RoadmapManager roadmapManager, FarmRunManager farmRunManager,
 			SlayerHelperManager slayerHelperManager, BossGearManager bossGearManager,
-			GearProgressionManager gearProgressionManager, DailiesManager dailiesManager, LiveActivityMonitor liveActivity) {
+			GearProgressionManager gearProgressionManager, LiveActivityMonitor liveActivity) {
 		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.config = config;
@@ -65,7 +64,6 @@ public class WebVersionWatcher {
 		this.slayerHelperManager = slayerHelperManager;
 		this.bossGearManager = bossGearManager;
 		this.gearProgressionManager = gearProgressionManager;
-		this.dailiesManager = dailiesManager;
 		this.liveActivity = liveActivity;
 	}
 
@@ -156,9 +154,6 @@ public class WebVersionWatcher {
 		}
 		if (gearProgressionManager.isLoaded() || gearProgressionManager.isOpen()) {
 			run("gear progression", gearProgressionManager::refresh);
-		}
-		if (dailiesManager.getGuide() != null) {
-			run("dailies", dailiesManager::refresh);
 		}
 	}
 
