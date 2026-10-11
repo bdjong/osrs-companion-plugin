@@ -1211,25 +1211,6 @@ public class SlayerHelperManager {
 		return SlayerGuide.Location.area(s.locationKey, s.locationName, tile.get(0), tile.get(1), tile.get(2), BOSS_AREA_RADIUS, s.monsters);
 	}
 
-	/** Debug mode is only offered to the developer's characters (name contains this). */
-	static final String DEBUG_NAME = "zeekr";
-
-	/** Whether this character may use the slayer debug mode. */
-	static boolean debugAllowed(String playerName) {
-		return playerName != null && playerName.toLowerCase().contains(DEBUG_NAME);
-	}
-
-	/** Debug mode: your tile in the chat when you attack a task monster (the debug box shows the rest). Client thread. */
-	private void showDebugTile() {
-		Player me = client.getLocalPlayer();
-		if (!config.slayerDebug() || me == null || !debugAllowed(me.getName())) {
-			return;
-		}
-		WorldPoint at = WorldPoint.fromLocalInstance(client, me.getLocalLocation());
-		String text = at.getX() + ", " + at.getY() + ", " + at.getPlane();
-		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Slayer debug: " + text + " (region " + at.getRegionID() + ")", null);
-	}
-
 	/** Kills are timed while a session is going (and for a few ticks after its task ended). */
 	private boolean timing() {
 		return session != null && (session.isOpen() || closeAtTick >= 0);
@@ -1241,9 +1222,6 @@ public class SlayerHelperManager {
 			Actor target = e.getTarget();
 			if (e.getSource() == client.getLocalPlayer() && target instanceof NPC) {
 				noteArea((NPC) target);
-			}
-			if (e.getSource() == client.getLocalPlayer() && target instanceof NPC && isTaskNpc((NPC) target)) {
-				showDebugTile();
 			}
 			if (timing() && e.getSource() == client.getLocalPlayer() && target instanceof NPC && isTaskNpc((NPC) target)) {
 				timer.attacked(((NPC) target).getIndex(), System.currentTimeMillis());
