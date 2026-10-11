@@ -49,10 +49,6 @@ public class PlayerSkillsMonitor {
 	private final Map<String, Integer> lastSeenXp = new HashMap<>();
 	private volatile boolean xpDirty;
 	private ScheduledFuture<?> trainingTask;
-	/** The XP snapshot of the last upload the server acknowledged, keyed by skill name. */
-	@Getter
-	private volatile Map<String, Integer> lastUploadedXp = Collections.emptyMap();
-	private volatile Consumer<Map<String, Integer>> uploadListener;
 
 	@Inject
 	public PlayerSkillsMonitor(
@@ -84,12 +80,6 @@ public class PlayerSkillsMonitor {
 		previousGameState = GameState.UNKNOWN;
 		lastSeenXp.clear();
 		xpDirty = false;
-		uploadListener = null;
-	}
-
-	/** Receives each acknowledged upload's XP snapshot (set by the plugin). */
-	public void setUploadListener(Consumer<Map<String, Integer>> listener) {
-		this.uploadListener = listener;
 	}
 
 	/** Re-runs the skills sync now (App Key entered while logged in, or the roadmap's "Sync &amp; refresh"). */
@@ -174,14 +164,12 @@ public class PlayerSkillsMonitor {
 			return;
 		}
 		Map<String, PlayerSkillsSyncPayload.SkillData> skills = new HashMap<>();
-		Map<String, Integer> xpSnapshot = new HashMap<>();
 		int totalLevel = 0;
 
 		for (Skill skill : Skill.values()) {
 			int level = client.getRealSkillLevel(skill);
 			int xp = client.getSkillExperience(skill);
 			skills.put(skill.getName(), new PlayerSkillsSyncPayload.SkillData(level, xp));
-			xpSnapshot.put(skill.getName(), xp);
 			totalLevel += level;
 		}
 
@@ -192,13 +180,6 @@ public class PlayerSkillsMonitor {
 		PlayerSkillsSyncPayload payload = new PlayerSkillsSyncPayload(playerUsername, skills, totalLevel, combatLevel, accountType);
 		log.debug("Syncing {} skills for player: {} (Total Level: {}, Combat Level: {})",
 				skills.size(), playerUsername, totalLevel, combatLevel);
-		Map<String, Integer> snapshot = Collections.unmodifiableMap(xpSnapshot);
-		apiClient.sendPlayerSkillsSync(payload, () -> {
-			lastUploadedXp = snapshot;
-			Consumer<Map<String, Integer>> listener = uploadListener;
-			if (listener != null) {
-				listener.accept(snapshot);
-			}
-		});
+		apiClient.sendPlayerSkillsSync(payload);
 	}
 }

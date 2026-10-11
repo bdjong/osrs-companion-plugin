@@ -51,7 +51,6 @@ public class RunePouchMonitor {
 
 	private boolean dirty;
 	private GameState previousGameState = GameState.UNKNOWN;
-	private volatile BiConsumer<String, Map<Integer, Integer>> snapshotListener;
 
 	@Inject
 	public RunePouchMonitor(
@@ -69,25 +68,9 @@ public class RunePouchMonitor {
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 	}
 
-	/** Receives every read (source, item id to quantity), before any sync gate. */
-	public void setSnapshotListener(BiConsumer<String, Map<Integer, Integer>> listener) {
-		this.snapshotListener = listener;
-	}
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
-	}
-
 	public void stop() {
 		syncer.stop();
 		dirty = false;
-	}
-
-	/** Upload the current contents right away (an owned-item goal just completed). */
-	public void syncNow() {
-		syncer.invalidate();
-		dirty = true;
 	}
 
 	@Subscribe
@@ -149,10 +132,6 @@ public class RunePouchMonitor {
 				return;
 			}
 			Map<Integer, Integer> contents = read(client);
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-			if (listener != null) {
-				listener.accept(SOURCE, contents);
-			}
 			syncer.submit(contents, false);
 		});
 	}

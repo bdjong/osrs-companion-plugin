@@ -54,7 +54,6 @@ public class PlankSackMonitor {
 
 	private boolean dirty;
 	private GameState previousGameState = GameState.UNKNOWN;
-	private volatile BiConsumer<String, Map<Integer, Integer>> snapshotListener;
 
 	@Inject
 	public PlankSackMonitor(
@@ -72,23 +71,9 @@ public class PlankSackMonitor {
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 	}
 
-	public void setSnapshotListener(BiConsumer<String, Map<Integer, Integer>> listener) {
-		this.snapshotListener = listener;
-	}
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
-	}
-
 	public void stop() {
 		syncer.stop();
 		dirty = false;
-	}
-
-	public void syncNow() {
-		syncer.invalidate();
-		dirty = true;
 	}
 
 	@Subscribe
@@ -121,10 +106,6 @@ public class PlankSackMonitor {
 			}
 			dirty = false;
 			Map<Integer, Integer> contents = contents(client::getVarbitValue);
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-			if (listener != null) {
-				listener.accept(SOURCE, contents);
-			}
 			syncer.submit(contents, false);
 		});
 	}
