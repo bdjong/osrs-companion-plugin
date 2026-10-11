@@ -37,7 +37,6 @@ public class SuppliesCheck {
 	private final OSRSCompanionConfig config;
 	private final BossGearManager bossGear;
 	private final FarmRunManager farmRun;
-	private final BossTripTracker trips;
 	private final SupplyCounter counter;
 
 	/** One supply in a result: its name and item, how many a trip takes, how many you have and how many trips that lasts. */
@@ -99,13 +98,11 @@ public class SuppliesCheck {
 	private Object lastRoute;
 
 	@Inject
-	public SuppliesCheck(Client client, OSRSCompanionConfig config, BossGearManager bossGear, FarmRunManager farmRun, BossTripTracker trips,
-		SupplyCounter counter) {
+	public SuppliesCheck(Client client, OSRSCompanionConfig config, BossGearManager bossGear, FarmRunManager farmRun, SupplyCounter counter) {
 		this.client = client;
 		this.config = config;
 		this.bossGear = bossGear;
 		this.farmRun = farmRun;
-		this.trips = trips;
 		this.counter = counter;
 	}
 
@@ -184,10 +181,8 @@ public class SuppliesCheck {
 	}
 
 	private Result checkBoss(BossGear set, Map<String, Long> have) {
-		List<Map<String, Long>> past = trips.trips(TripSupplies.bossKey(set.getBossName()));
-		if (past.isEmpty() && set.getBoss() != null) {
-			past = trips.trips(TripSupplies.bossKey(set.getBoss().replace('-', ' ')));
-		}
+		// What your last trips at this boss used, as the website worked them out from the game events.
+		List<Map<String, Long>> past = set.getTripSupplies();
 		Map<String, Double> need;
 		String source;
 		if (!past.isEmpty()) {
