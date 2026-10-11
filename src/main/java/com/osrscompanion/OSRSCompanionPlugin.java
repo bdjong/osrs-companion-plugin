@@ -292,7 +292,7 @@ public class OSRSCompanionPlugin extends Plugin {
 				potionStorageMonitor, runePouchMonitor, plankSackMonitor, storageItemMonitor, loadoutMonitor, lootMonitor,
 				collectionLogMonitor, questMonitor, achievementDiaryMonitor, varPump, houseLocationMonitor, farmingUnlocksMonitor,
 				kingdomMonitor, combatAchievementMonitor, killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
-				slayerRewardsMonitor, goalProgressTracker, farmRunManager, farmHarvestTracker, bankLayoutPrep,
+				slayerRewardsMonitor, farmRunManager, farmHarvestTracker, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
 				bossTripTracker, suppliesCheck, dailiesManager, liveActivityMonitor);
 		for (Object subscriber : subscribers) {
@@ -481,41 +481,8 @@ public class OSRSCompanionPlugin extends Plugin {
 	private void connectGoalProgress() {
 		roadmapManager.setRoadmapListener(goalProgressTracker::onServerRoadmap);
 		roadmapManager.setRoadmapSetListener(goalProgressTracker::retainRoadmaps);
-		playerSkillsMonitor.setUploadListener(goalProgressTracker::onSkillsUploaded);
-		lootMonitor.setDropListener(goalProgressTracker::onLootDrop);
-		lootMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.LOOT));
-		collectionLogMonitor.setObtainedListener(goalProgressTracker::onCollectionLogItemObtained);
-		collectionLogMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.COLLECTION_LOG));
-		questMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.QUESTS));
-		questMonitor.setStatesListener(goalProgressTracker::onQuestStates);
-		achievementDiaryMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.DIARIES));
-		achievementDiaryMonitor.setReadListener(goalProgressTracker::onDiaryRead);
-		combatAchievementMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.COMBAT_ACHIEVEMENTS));
-		combatAchievementMonitor.setCompletedListener(goalProgressTracker::onCombatTasksCompleted);
-		killCountMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.KILL_COUNTS));
-		timerMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.TIMERS));
-		timerMonitor.setTimersListener(goalProgressTracker::onFarmingTimers);
-		bankMemoryMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.BANK));
-		bankMemoryMonitor.setPayloadListener(goalProgressTracker::onBankPayload);
-		vaultMonitor.setSnapshotListener(goalProgressTracker::onContainerSnapshot);
-		bankMemoryMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
-		vaultMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
-		potionStorageMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
-		runePouchMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
-		plankSackMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
-		storageItemMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
-		storageItemMonitor.setSeedSupplier(goalProgressTracker::serverHeldFor);
-		bankMemoryMonitor.setSeedSupplier(goalProgressTracker::serverHeldFor);
 		storageItemMonitor.setEmptiedToDepositBoxListener(bankMemoryMonitor::onItemsBankedUnseen);
 		vaultMonitor.setCargoBankedListener(bankMemoryMonitor::onItemsBankedUnseen);
-		runePouchMonitor.setSnapshotListener(goalProgressTracker::onContainerSnapshot);
-		plankSackMonitor.setSnapshotListener(goalProgressTracker::onContainerSnapshot);
-		storageItemMonitor.setSnapshotListener(goalProgressTracker::onContainerSnapshot);
-		goalProgressTracker.setStorageSyncNow(() -> {
-			runePouchMonitor.syncNow();
-			plankSackMonitor.syncNow();
-			storageItemMonitor.syncNow();
-		});
 	}
 
 	private void addSidePanel() {
@@ -701,36 +668,8 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.setRoadmapListener(null);
 		roadmapManager.setRoadmapSetListener(null);
 		roadmapManager.setPanelListener(null);
-		lootMonitor.setDropListener(null);
-		lootMonitor.setSyncedListener(null);
-		collectionLogMonitor.setObtainedListener(null);
-		collectionLogMonitor.setSyncedListener(null);
-		questMonitor.setSyncedListener(null);
-		questMonitor.setStatesListener(null);
-		achievementDiaryMonitor.setSyncedListener(null);
-		achievementDiaryMonitor.setReadListener(null);
-		combatAchievementMonitor.setSyncedListener(null);
-		combatAchievementMonitor.setCompletedListener(null);
-		killCountMonitor.setSyncedListener(null);
-		timerMonitor.setSyncedListener(null);
-		timerMonitor.setTimersListener(null);
-		bankMemoryMonitor.setSyncedListener(null);
-		bankMemoryMonitor.setPayloadListener(null);
-		vaultMonitor.setSnapshotListener(null);
-		bankMemoryMonitor.setGoalItems(null);
-		vaultMonitor.setGoalItems(null);
-		potionStorageMonitor.setGoalItems(null);
-		runePouchMonitor.setGoalItems(null);
-		plankSackMonitor.setGoalItems(null);
-		storageItemMonitor.setGoalItems(null);
-		storageItemMonitor.setSeedSupplier(null);
-		bankMemoryMonitor.setSeedSupplier(null);
 		storageItemMonitor.setEmptiedToDepositBoxListener(null);
 		vaultMonitor.setCargoBankedListener(null);
-		runePouchMonitor.setSnapshotListener(null);
-		plankSackMonitor.setSnapshotListener(null);
-		storageItemMonitor.setSnapshotListener(null);
-		goalProgressTracker.setStorageSyncNow(null);
 		goalCompletionNotifier.clear();
 		goalProgressTracker.clear();
 		goalImageCache.clear();

@@ -73,11 +73,6 @@ public class PotionStorageMonitor {
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 	}
 
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
-	}
-
 	public void stop() {
 		syncer.stop();
 		potionStoreVarps = null;

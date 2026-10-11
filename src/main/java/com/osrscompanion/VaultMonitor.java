@@ -90,11 +90,6 @@ public class VaultMonitor {
 
 	/** Receives every container read (source, canonical item id to quantity),
 	 * before any sync gate, so goal progress moves even with sync disabled. */
-	private volatile BiConsumer<String, Map<Integer, Integer>> snapshotListener;
-
-	public void setSnapshotListener(BiConsumer<String, Map<Integer, Integer>> listener) {
-		this.snapshotListener = listener;
-	}
 
 	@Inject
 	public VaultMonitor(
@@ -112,11 +107,6 @@ public class VaultMonitor {
 				() -> SyncGuard.getPlayerUsername(client),
 				apiClient::sendBankSync);
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
-	}
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
 	}
 
 	public void stop() {
@@ -158,12 +148,8 @@ public class VaultMonitor {
 			if (emptied.isEmpty()) {
 				return;
 			}
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
 			for (String source : emptied.keySet()) {
 				lastRead.put(source, new LinkedHashMap<>());
-				if (listener != null) {
-					listener.accept(source, new LinkedHashMap<>());
-				}
 			}
 			Consumer<Map<Integer, Integer>> bankedListener = cargoBankedListener;
 			if (bankedListener != null) {
@@ -200,11 +186,6 @@ public class VaultMonitor {
 			ItemCollector.collectItems(container, itemManager, itemQuantities);
 			log.debug("Container {} ({}) read: {} distinct items", event.getContainerId(), source, itemQuantities.size());
 			lastRead.put(source, new LinkedHashMap<>(itemQuantities));
-
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-			if (listener != null) {
-				listener.accept(source, itemQuantities);
-			}
 
 			Map<String, Map<Integer, Integer>> bySource = new LinkedHashMap<>();
 			bySource.put(source, itemQuantities);
