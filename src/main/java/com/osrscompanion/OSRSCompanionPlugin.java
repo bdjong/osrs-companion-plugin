@@ -2,6 +2,7 @@ package com.osrscompanion;
 
 import com.google.inject.Provides;
 import com.osrscompanion.api.OSRSCompanionApiClient;
+import java.awt.image.BufferedImage;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -19,19 +20,30 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SpriteManager;
+import net.runelite.client.input.KeyManager;
+import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.banktags.BankTagsPlugin;
 import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
+import net.runelite.client.ui.ClientToolbar;
+import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.ImageUtil;
 import com.osrscompanion.runelite.farming.CompostTracker;
 import com.osrscompanion.runelite.farming.FarmingTracker;
 import com.osrscompanion.runelite.farming.FarmingWorld;
 import com.osrscompanion.runelite.farming.PaymentTracker;
 
 @Slf4j
+// Bank Tags: its public API (BankTagsService, LayoutManager, TagManager) lays out the bank for the boss gear and farm run.
+@PluginDependency(BankTagsPlugin.class)
 @PluginDescriptor(
 	name = "OSRS Companion",
-	description = "Syncs your game data (with an App Key) to the third-party OSRS Companion website: skills, bank, collection log, quests, diaries, loot, slayer, farming and more.",
-	tags = {"farming", "timetracking", "slayer", "sync", "bank", "collection log"}
+	description = "Syncs your game data (with an App Key) to the third-party OSRS Companion website and shows your roadmap goals, farm runs and slayer guide in game.",
+	tags = {"farming", "timetracking", "roadmap", "goals", "slayer", "sync"}
 )
 public class OSRSCompanionPlugin extends Plugin {
 	/** The plugin's own handlers' feature for {@link Guard}. */
@@ -128,19 +140,118 @@ public class OSRSCompanionPlugin extends Plugin {
 	private ScheduledExecutorService executorService;
 
 	@Inject
+	private ClientToolbar clientToolbar;
+
+	@Inject
+	private OverlayManager overlayManager;
+
+	@Inject
+	private RoadmapManager roadmapManager;
+
+	@Inject
+	private NextGoalOverlay nextGoalOverlay;
+
+	@Inject
+	private GoalProgressTracker goalProgressTracker;
+
+	@Inject
+	private GoalCompletionNotifier goalCompletionNotifier;
+
+	@Inject
+	private GoalCompletionOverlay goalCompletionOverlay;
+
+	@Inject
+	private GoalImageCache goalImageCache;
+
+	@Inject
+	private SpriteManager spriteManager;
+
+	@Inject
+	private GearProgressionManager gearProgressionManager;
+
+	@Inject
+	private GearProgressionOverlay gearProgressionOverlay;
+
+	@Inject
+	private GearNextOverlay gearNextOverlay;
+
+	@Inject
 	private SessionMonitor sessionMonitor;
+
+	@Inject
+	private FarmRunManager farmRunManager;
 
 	@Inject
 	private FarmHarvestTracker farmHarvestTracker;
 
 	@Inject
+	private FarmRunOverlay farmRunOverlay;
+
+	@Inject
+	private FarmRunSceneOverlay farmRunSceneOverlay;
+
+	@Inject
+	private FarmRunItemOverlay farmRunItemOverlay;
+
+	@Inject
+	private FarmRunWindow farmRunWindow;
+
+	@Inject
+	private BankLayoutPrep bankLayoutPrep;
+
+	@Inject
+	private SlayerHelperManager slayerHelperManager;
+
+	@Inject
+	private SlayerHelperOverlay slayerHelperOverlay;
+
+	@Inject
+	private SlayerDebugOverlay slayerDebugOverlay;
+
+	@Inject
+	private SlayerGuideMarkers slayerGuideMarkers;
+
+	@Inject
+	private SlayerGuideHouseOverlay slayerGuideHouseOverlay;
+
+	@Inject
+	private BossGearManager bossGearManager;
+
+	@Inject
+	private BossGearWindow bossGearWindow;
+
+	@Inject
+	private SlayerGearWindow slayerGearWindow;
+
+	@Inject
+	private RoadmapWindow roadmapWindow;
+
+	@Inject
 	private BossTripTracker bossTripTracker;
+
+	@Inject
+	private SuppliesCheck suppliesCheck;
+
+	@Inject
+	private SuppliesOverlay suppliesOverlay;
 
 	@Inject
 	private ClientThread clientThread;
 
 	@Inject
+	private MouseManager mouseManager;
+
+	@Inject
+	private KeyManager keyManager;
+
+	@Inject
 	private DailiesManager dailiesManager;
+
+	@Inject
+	private DailiesOverlay dailiesOverlay;
+
+	@Inject
+	private DailiesSceneOverlay dailiesSceneOverlay;
 
 	@Inject
 	private WebVersionWatcher webVersionWatcher;
@@ -151,6 +262,11 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private ChatMessageManager chatMessageManager;
 
+
+	private RoadmapPanel roadmapPanel;
+	private NavigationButton navButton;
+	private java.util.concurrent.ScheduledFuture<?> roadmapWaitingPoll;
+	private java.util.concurrent.ScheduledFuture<?> farmRouteReadyPoll;
 	private volatile ErrorReporter errorReporter;
 	/** Every object registered on the event bus at start, unregistered at stop. */
 	private java.util.List<Object> subscribers;
@@ -158,6 +274,8 @@ public class OSRSCompanionPlugin extends Plugin {
 	private volatile IncidentStore incidentStore;
 	/** A fatal error or freeze the last session persisted, reported once a player is logged in. */
 	private volatile PreviousIncident previousIncident;
+	/** A player was logged in since the last login screen: later LOGGED_IN events are region loads. */
+	private boolean sessionLoaded;
 	private ErrorLogAppender errorLogAppender;
 	private java.util.concurrent.ScheduledFuture<?> errorReportFlush;
 
@@ -166,6 +284,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		// Never throws: each subsystem starts on its own, so one failure leaves the others working.
 		log.debug("OSRS Companion started");
 		step("crash safety", this::startCrashSafety);
+		step("settings", this::migrateSettings);
 		// Uploads queue in the outbox and go out batched (first, so the monitors' first syncs use it).
 		step("outbox", () -> apiClient.startOutbox(GuardedExecutor.wrap(Guard.SYNC_FEATURE, executorService)));
 		step("error reports", this::startErrorReports);
@@ -180,21 +299,35 @@ public class OSRSCompanionPlugin extends Plugin {
 				potionStorageMonitor, runePouchMonitor, plankSackMonitor, storageItemMonitor, loadoutMonitor, lootMonitor,
 				collectionLogMonitor, questMonitor, achievementDiaryMonitor, houseLocationMonitor, farmingUnlocksMonitor,
 				kingdomMonitor, combatAchievementMonitor, killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
-				slayerRewardsMonitor, farmHarvestTracker, sessionMonitor, bossTripTracker, dailiesManager, liveActivityMonitor);
+				slayerRewardsMonitor, goalProgressTracker, farmRunManager, farmHarvestTracker, bankLayoutPrep,
+				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
+				bossTripTracker, suppliesCheck, dailiesManager, dailiesSceneOverlay, liveActivityMonitor);
 		for (Object subscriber : subscribers) {
 			if (subscriber != null) {
 				step("register " + subscriber.getClass().getSimpleName(), () -> eventBus.register(subscriber));
 			}
 		}
+		step("bank layout", bankLayoutPrep::startUp);
 		step("timers", timerMonitor::start);
 		step("play sessions", sessionMonitor::start);
 		step("loot", lootMonitor::start);
 		step("skills", playerSkillsMonitor::start);
-		step("storage links", this::connectStorage);
+		step("goal progress", this::connectGoalProgress);
+		step("roadmap", () -> {
+			roadmapManager.startPeriodicRefresh();
+			// On the roadmap's own thread (guarded there), never RuneLite's shared executor.
+			roadmapWaitingPoll = roadmapManager.executor().scheduleWithFixedDelay(roadmapManager::pollWhileWaiting,
+					RoadmapManager.WAITING_POLL_SECONDS, RoadmapManager.WAITING_POLL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+		});
 		// Live activity: every batch carries the status; the watcher below sends the heartbeat.
 		step("live activity", liveActivityMonitor::start);
 		// Website changes: the webVersion from batch answers or a small check every 30 s re-reads what changed.
 		step("web updates", webVersionWatcher::start);
+		// The last farm route ready again (all its patches grown), checked logged in or not.
+		step("farm route ready", () -> farmRouteReadyPoll = executorService.scheduleWithFixedDelay(
+				Guard.wrap(FarmRunManager.GUARD_FEATURE, farmRunManager::checkRouteReady), 30, 30, java.util.concurrent.TimeUnit.SECONDS));
+		step("side panel", this::addSidePanel);
+		step("overlays", this::addOverlays);
 	}
 
 	/** Breakers on, the freeze watchdog running, and a crash the last session could not report reported now. */
@@ -344,13 +477,157 @@ public class OSRSCompanionPlugin extends Plugin {
 		timerMonitor = new TimerMonitor(
 				client, config, apiClient, configManager, GuardedExecutor.wrap(TimerMonitor.GUARD_FEATURE, executorService),
 				farmingTracker, farmingWorld);
+		farmRunManager.setFarming(farmingWorld, farmingTracker, compostTracker);
 		farmHarvestTracker.setFarming(farmingWorld, farmingTracker, compostTracker);
 	}
 
-	/** Items emptied from a storage item into a deposit box, or from boat cargo into the bank, count as banked. */
-	private void connectStorage() {
+	/**
+	 * Local goal progress: monitors report what they upload, the tracker
+	 * layers it on the server's roadmap and asks for a re-read afterwards.
+	 */
+	private void connectGoalProgress() {
+		roadmapManager.setRoadmapListener(goalProgressTracker::onServerRoadmap);
+		roadmapManager.setRoadmapSetListener(goalProgressTracker::retainRoadmaps);
+		playerSkillsMonitor.setUploadListener(goalProgressTracker::onSkillsUploaded);
+		lootMonitor.setDropListener(goalProgressTracker::onLootDrop);
+		lootMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.LOOT));
+		collectionLogMonitor.setObtainedListener(goalProgressTracker::onCollectionLogItemObtained);
+		collectionLogMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.COLLECTION_LOG));
+		questMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.QUESTS));
+		questMonitor.setStatesListener(goalProgressTracker::onQuestStates);
+		achievementDiaryMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.DIARIES));
+		achievementDiaryMonitor.setReadListener(goalProgressTracker::onDiaryRead);
+		combatAchievementMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.COMBAT_ACHIEVEMENTS));
+		combatAchievementMonitor.setCompletedListener(goalProgressTracker::onCombatTasksCompleted);
+		killCountMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.KILL_COUNTS));
+		timerMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.TIMERS));
+		timerMonitor.setTimersListener(goalProgressTracker::onFarmingTimers);
+		bankMemoryMonitor.setSyncedListener(() -> goalProgressTracker.onSourceSynced(SyncSource.BANK));
+		bankMemoryMonitor.setPayloadListener(goalProgressTracker::onBankPayload);
+		vaultMonitor.setSnapshotListener(goalProgressTracker::onContainerSnapshot);
+		bankMemoryMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
+		vaultMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
+		potionStorageMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
+		runePouchMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
+		plankSackMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
+		storageItemMonitor.setGoalItems(goalProgressTracker::ownedGoalItemIds);
+		storageItemMonitor.setSeedSupplier(goalProgressTracker::serverHeldFor);
+		bankMemoryMonitor.setSeedSupplier(goalProgressTracker::serverHeldFor);
 		storageItemMonitor.setEmptiedToDepositBoxListener(bankMemoryMonitor::onItemsBankedUnseen);
 		vaultMonitor.setCargoBankedListener(bankMemoryMonitor::onItemsBankedUnseen);
+		runePouchMonitor.setSnapshotListener(goalProgressTracker::onContainerSnapshot);
+		plankSackMonitor.setSnapshotListener(goalProgressTracker::onContainerSnapshot);
+		storageItemMonitor.setSnapshotListener(goalProgressTracker::onContainerSnapshot);
+		goalProgressTracker.setStorageSyncNow(() -> {
+			runePouchMonitor.syncNow();
+			plankSackMonitor.syncNow();
+			storageItemMonitor.syncNow();
+		});
+	}
+
+	private void addSidePanel() {
+		// Side-panel roadmap tab.
+		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
+				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager,
+				slayerHelperManager, clientThread, dailiesManager);
+		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
+		navButton = NavigationButton.builder()
+				.tooltip("OSRS Companion Roadmaps")
+				.icon(icon)
+				.priority(7)
+				.panel(roadmapPanel)
+				.build();
+		clientToolbar.addNavigation(navButton);
+	}
+
+	private void addOverlays() {
+		// Next-goal game overlay (rendered only while showNextGoal is enabled), and the
+		// gear roadmap's next step below it (showGearProgress).
+		overlayManager.add(nextGoalOverlay);
+		overlayManager.add(gearNextOverlay);
+		// Roadmap progress drawn under the goal completion popup while it shows.
+		overlayManager.add(goalCompletionOverlay);
+
+		// Gear progression window: the side-panel button opens it, Escape closes it.
+		overlayManager.add(gearProgressionOverlay);
+		mouseManager.registerMouseListener(gearProgressionOverlay);
+		mouseManager.registerMouseWheelListener(gearProgressionOverlay);
+		keyManager.registerKeyListener(gearProgressionOverlay);
+
+		// Farm run: the window (side-panel button), the step box, scene pointers and item highlights.
+		overlayManager.add(farmRunWindow);
+		mouseManager.registerMouseListener(farmRunWindow);
+		mouseManager.registerMouseWheelListener(farmRunWindow);
+		keyManager.registerKeyListener(farmRunWindow);
+		overlayManager.add(farmRunOverlay);
+		overlayManager.add(farmRunSceneOverlay);
+		overlayManager.add(farmRunItemOverlay);
+
+		// Slayer helper: the guide's box (stats at the location); the arrow and map icon come from the markers.
+		overlayManager.add(slayerHelperOverlay);
+		// Slayer debug mode's box (developer's characters only; empty otherwise).
+		overlayManager.add(slayerDebugOverlay);
+		// In your house on the way: the jewellery box (portal, nexus...) the way there uses, outlined.
+		overlayManager.add(slayerGuideHouseOverlay);
+
+		// Boss gear: the window (side-panel button); the bank lays the set out while it is open.
+		overlayManager.add(bossGearWindow);
+		// Roadmap: the goal tree in its own window (side-panel tile).
+		overlayManager.add(roadmapWindow);
+		mouseManager.registerMouseListener(roadmapWindow);
+		mouseManager.registerMouseWheelListener(roadmapWindow);
+		keyManager.registerKeyListener(roadmapWindow);
+		mouseManager.registerMouseListener(bossGearWindow);
+		mouseManager.registerMouseWheelListener(bossGearWindow);
+		keyManager.registerKeyListener(bossGearWindow);
+		// Slayer gear: the DPS setups for the task (Slayer helper page tile); the picked one is what the bank lays out.
+		overlayManager.add(slayerGearWindow);
+		mouseManager.registerMouseListener(slayerGearWindow);
+		mouseManager.registerMouseWheelListener(slayerGearWindow);
+		keyManager.registerKeyListener(slayerGearWindow);
+		// Supplies check: beside the open bank.
+		overlayManager.add(suppliesOverlay);
+
+		// Dailies: the step box and the arrow / map mark of the guided run (started from the side panel).
+		overlayManager.add(dailiesOverlay);
+		overlayManager.add(dailiesSceneOverlay);
+	}
+
+	/** The roadmap, farm run, boss gear and slayer gear windows share the middle of the screen (and the bank): one at a time. */
+	private void toggleFarmRun() {
+		if (!farmRunManager.isOpen()) {
+			bossGearManager.close();
+			slayerHelperManager.closeGearWindow();
+			roadmapWindow.close();
+		}
+		farmRunManager.toggle();
+	}
+
+	private void toggleBossGear() {
+		if (!bossGearManager.isOpen()) {
+			farmRunManager.close();
+			slayerHelperManager.closeGearWindow();
+			roadmapWindow.close();
+		}
+		bossGearManager.toggle();
+	}
+
+	private void toggleSlayerGear() {
+		if (!slayerHelperManager.isGearOpen()) {
+			farmRunManager.close();
+			bossGearManager.close();
+			roadmapWindow.close();
+		}
+		slayerHelperManager.toggleGearWindow();
+	}
+
+	private void toggleRoadmap() {
+		if (!roadmapWindow.isOpen()) {
+			farmRunManager.close();
+			bossGearManager.close();
+			slayerHelperManager.closeGearWindow();
+		}
+		roadmapWindow.toggle();
 	}
 
 	@Override
@@ -366,13 +643,21 @@ public class OSRSCompanionPlugin extends Plugin {
 			subscribers = null;
 		}
 		step("farm harvests", farmHarvestTracker::stop);
+		step("bank layout", bankLayoutPrep::shutDown);
 		step("play sessions", sessionMonitor::stop);
 		step("boss trips", bossTripTracker::stop);
-		step("dailies", dailiesManager::clear);
-		step("storage links", () -> {
-			storageItemMonitor.setEmptiedToDepositBoxListener(null);
-			vaultMonitor.setCargoBankedListener(null);
+		step("supplies", () -> {
+			suppliesCheck.clear();
+			overlayManager.remove(suppliesOverlay);
 		});
+		step("dailies", () -> {
+			overlayManager.remove(dailiesOverlay);
+			overlayManager.remove(dailiesSceneOverlay);
+			clientThread.invoke(Guard.wrapCleanup(DailiesSceneOverlay.GUARD_FEATURE,
+					() -> step("dailies markers", dailiesSceneOverlay::clearPointers)));
+			dailiesManager.clear();
+		});
+		step("goal progress", this::disconnectGoalProgress);
 
 		step("stop timerMonitor", () -> timerMonitor.stop());
 		step("stop playerSkillsMonitor", () -> playerSkillsMonitor.stop());
@@ -399,6 +684,25 @@ public class OSRSCompanionPlugin extends Plugin {
 		// "Offline" for the player, queued before the outbox's last flush below.
 		step("live activity", liveActivityMonitor::stop);
 
+		step("side panel", () -> {
+			if (navButton != null) {
+				clientToolbar.removeNavigation(navButton);
+				navButton = null;
+			}
+			roadmapPanel = null;
+		});
+		step("overlays", this::removeOverlays);
+		step("polls", () -> {
+			if (roadmapWaitingPoll != null) {
+				roadmapWaitingPoll.cancel(false);
+				roadmapWaitingPoll = null;
+			}
+			if (farmRouteReadyPoll != null) {
+				farmRouteReadyPoll.cancel(false);
+				farmRouteReadyPoll = null;
+			}
+		});
+		step("roadmap", roadmapManager::clear);
 		step("web updates", webVersionWatcher::stop);
 		step("error reports", this::stopErrorReports);
 		// The monitors' stop() above queued their last uploads: send them now; nothing is retried after.
@@ -407,6 +711,91 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("executor jobs", GuardedExecutor::cancelAllPeriodic);
 		step("crash safety", this::stopCrashSafety);
 		log.debug("OSRS Companion stopped");
+	}
+
+	private void disconnectGoalProgress() {
+		roadmapManager.stopPeriodicRefresh();
+		roadmapManager.setRoadmapListener(null);
+		roadmapManager.setRoadmapSetListener(null);
+		roadmapManager.setPanelListener(null);
+		lootMonitor.setDropListener(null);
+		lootMonitor.setSyncedListener(null);
+		collectionLogMonitor.setObtainedListener(null);
+		collectionLogMonitor.setSyncedListener(null);
+		questMonitor.setSyncedListener(null);
+		questMonitor.setStatesListener(null);
+		achievementDiaryMonitor.setSyncedListener(null);
+		achievementDiaryMonitor.setReadListener(null);
+		combatAchievementMonitor.setSyncedListener(null);
+		combatAchievementMonitor.setCompletedListener(null);
+		killCountMonitor.setSyncedListener(null);
+		timerMonitor.setSyncedListener(null);
+		timerMonitor.setTimersListener(null);
+		bankMemoryMonitor.setSyncedListener(null);
+		bankMemoryMonitor.setPayloadListener(null);
+		vaultMonitor.setSnapshotListener(null);
+		bankMemoryMonitor.setGoalItems(null);
+		vaultMonitor.setGoalItems(null);
+		potionStorageMonitor.setGoalItems(null);
+		runePouchMonitor.setGoalItems(null);
+		plankSackMonitor.setGoalItems(null);
+		storageItemMonitor.setGoalItems(null);
+		storageItemMonitor.setSeedSupplier(null);
+		bankMemoryMonitor.setSeedSupplier(null);
+		storageItemMonitor.setEmptiedToDepositBoxListener(null);
+		vaultMonitor.setCargoBankedListener(null);
+		runePouchMonitor.setSnapshotListener(null);
+		plankSackMonitor.setSnapshotListener(null);
+		storageItemMonitor.setSnapshotListener(null);
+		goalProgressTracker.setStorageSyncNow(null);
+		goalCompletionNotifier.clear();
+		goalProgressTracker.clear();
+		goalImageCache.clear();
+	}
+
+	private void removeOverlays() {
+		overlayManager.remove(nextGoalOverlay);
+		overlayManager.remove(gearNextOverlay);
+		overlayManager.remove(goalCompletionOverlay);
+		overlayManager.remove(gearProgressionOverlay);
+		mouseManager.unregisterMouseListener(gearProgressionOverlay);
+		mouseManager.unregisterMouseWheelListener(gearProgressionOverlay);
+		keyManager.unregisterKeyListener(gearProgressionOverlay);
+		gearProgressionManager.clear();
+		overlayManager.remove(farmRunWindow);
+		mouseManager.unregisterMouseListener(farmRunWindow);
+		mouseManager.unregisterMouseWheelListener(farmRunWindow);
+		keyManager.unregisterKeyListener(farmRunWindow);
+		overlayManager.remove(farmRunOverlay);
+		overlayManager.remove(farmRunSceneOverlay);
+		overlayManager.remove(farmRunItemOverlay);
+		clientThread.invoke(Guard.wrapCleanup(FarmRunSceneOverlay.GUARD_FEATURE,
+				() -> step("farm run markers", farmRunSceneOverlay::clearPointers)));
+		overlayManager.remove(slayerHelperOverlay);
+		overlayManager.remove(slayerDebugOverlay);
+		overlayManager.remove(slayerGuideHouseOverlay);
+		// The open slayer session is stored and sent before it is forgotten.
+		clientThread.invoke(Guard.wrapCleanup(SlayerHelperManager.GUARD_FEATURE, () -> step("slayer helper", () -> {
+			slayerGuideMarkers.clear();
+			slayerGuideHouseOverlay.clear();
+			slayerHelperManager.shutDown();
+		})));
+		farmRunManager.clear();
+		overlayManager.remove(bossGearWindow);
+		roadmapWindow.close();
+		overlayManager.remove(roadmapWindow);
+		mouseManager.unregisterMouseListener(roadmapWindow);
+		mouseManager.unregisterMouseWheelListener(roadmapWindow);
+		keyManager.unregisterKeyListener(roadmapWindow);
+		mouseManager.unregisterMouseListener(bossGearWindow);
+		mouseManager.unregisterMouseWheelListener(bossGearWindow);
+		keyManager.unregisterKeyListener(bossGearWindow);
+		slayerHelperManager.closeGearWindow();
+		overlayManager.remove(slayerGearWindow);
+		mouseManager.unregisterMouseListener(slayerGearWindow);
+		mouseManager.unregisterMouseWheelListener(slayerGearWindow);
+		keyManager.unregisterKeyListener(slayerGearWindow);
+		bossGearManager.clear();
 	}
 
 	/**
@@ -511,8 +900,24 @@ public class OSRSCompanionPlugin extends Plugin {
 	}
 
 	private void gameStateChanged(GameStateChanged event) {
+		if (event.getGameState() == GameState.LOGIN_SCREEN) {
+			sessionLoaded = false;
+		}
 		if (event.getGameState() == GameState.LOGGED_IN) {
 			reportPreviousIncident();
+			// LOGGED_IN also follows every region load (LOADING): the roadmap loads only on a real login.
+			boolean login = !sessionLoaded;
+			sessionLoaded = true;
+			if (login) {
+				// Load the roadmap almost immediately so it shows right after login
+				// (a plain read, NOT a forced re-sync), then again once this session's
+				// login syncs have landed so completion/progress is fresh. On the
+				// roadmap's own thread, never RuneLite's shared executor.
+				roadmapManager.executor().schedule(this::loadRoadmapQuietly, 1, java.util.concurrent.TimeUnit.SECONDS);
+				roadmapManager.executor().schedule(this::loadRoadmapQuietly, 8, java.util.concurrent.TimeUnit.SECONDS);
+			}
+			executorService.schedule(Guard.wrap(FarmRunManager.GUARD_FEATURE, farmRunManager::refresh),
+					9, java.util.concurrent.TimeUnit.SECONDS);
 		} else if (event.getGameState() == GameState.LOGIN_SCREEN) {
 			webVersionWatcher.onLoggedOut();
 			// The monitors queue their logout uploads (some via the client thread / executor):
@@ -545,6 +950,14 @@ public class OSRSCompanionPlugin extends Plugin {
 		forceSyncAll();
 	}
 
+	/**
+	 * Reloads the roadmaps without forcing a data re-sync: the list and every roadmap, which
+	 * keeps the overlay and the roadmap window current.
+	 */
+	private void loadRoadmapQuietly() {
+		roadmapManager.refreshAllQuietly();
+	}
+
 	@Subscribe
 	public void onChatMessage(ChatMessage event) {
 		Guard.run(GUARD_FEATURE, () -> chatMessage(event));
@@ -557,6 +970,46 @@ public class OSRSCompanionPlugin extends Plugin {
 		String msg = event.getMessage();
 		if (msg != null && msg.contains(TEARS_CAVE_MESSAGE)) {
 			timerMonitor.onTearsOfGuthixCompleted();
+		}
+	}
+
+	/** Carries settings that were merged or renamed over to their new keys, once. */
+	private void migrateSettings() {
+		String group = OSRSCompanionConfig.CONFIG_GROUP;
+		String oldSound = configManager.getConfiguration(group, "goalCompleteSound");
+		if (oldSound != null) {
+			if (configManager.getConfiguration(group, OSRSCompanionConfig.GOAL_SOUND_KEY) == null) {
+				configManager.setConfiguration(group, OSRSCompanionConfig.GOAL_SOUND_KEY, !"OFF".equals(oldSound));
+			}
+			configManager.unsetConfiguration(group, "goalCompleteSound");
+		}
+		String herbs = configManager.getConfiguration(group, "farmingCapeForHerbs");
+		String force = configManager.getConfiguration(group, "forceFarmingCape");
+		if (herbs != null || force != null) {
+			if (configManager.getConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY) == null) {
+				// Force is the default now: only a switched-off reminder stays off.
+				FarmingCapeMode mode = "false".equals(herbs) && !"true".equals(force) ? FarmingCapeMode.OFF : FarmingCapeMode.FORCE;
+				configManager.setConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY, mode);
+			}
+			configManager.unsetConfiguration(group, "farmingCapeForHerbs");
+			configManager.unsetConfiguration(group, "forceFarmingCape");
+		}
+		// Once: Remind (what the first merge of the two cape settings gave) becomes the new default, Force.
+		if (configManager.getConfiguration(group, "farmingCapeForceDefault") == null) {
+			if ("REMIND".equals(configManager.getConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY))) {
+				configManager.setConfiguration(group, OSRSCompanionConfig.FARMING_CAPE_KEY, FarmingCapeMode.FORCE);
+			}
+			configManager.setConfiguration(group, "farmingCapeForceDefault", true);
+		}
+		String supplies = configManager.getConfiguration(group, "suppliesCheck");
+		if (supplies != null) {
+			boolean on = !"false".equals(supplies);
+			for (String key : new String[]{OSRSCompanionConfig.TRIP_PLANNER_BOSS_KEY, OSRSCompanionConfig.TRIP_PLANNER_FARM_KEY}) {
+				if (configManager.getConfiguration(group, key) == null) {
+					configManager.setConfiguration(group, key, on);
+				}
+			}
+			configManager.unsetConfiguration(group, "suppliesCheck");
 		}
 	}
 
