@@ -4,7 +4,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.osrscompanion.model.SlayerGuide;
-import com.osrscompanion.ui.UiKit;
 import org.junit.Test;
 
 /** Golden renders of the Slayer helper's guide and stats box (see {@link UiKit}). */

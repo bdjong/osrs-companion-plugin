@@ -1,4 +1,4 @@
-package com.osrscompanion.ui;
+package com.osrscompanion;
 
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -146,21 +146,66 @@ public final class UiKit {
 	 * thrown away: panels size their background from the frame before, as in the running client.
 	 */
 	public Rendered render(Overlay overlay, int w, int h) {
-		Graphics2D warm = canvas(new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB));
-		overlay.render(warm);
-		warm.dispose();
-		BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-		List<String> log = new ArrayList<>();
-		Graphics2D g = canvas(img);
-		RecordingGraphics rg = new RecordingGraphics(g, log, this::name);
-		Dimension d = overlay.render(rg);
-		log.add("=> " + (d == null ? "null" : d.width + "x" + d.height));
-		rg.dispose();
-		return new Rendered(log, img);
+		return guarded(() -> {
+			Graphics2D warm = canvas(new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB));
+			overlay.render(warm);
+			warm.dispose();
+			BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+			List<String> log = new ArrayList<>();
+			Graphics2D g = canvas(img);
+			RecordingGraphics rg = new RecordingGraphics(g, log, this::name);
+			Dimension d = overlay.render(rg);
+			log.add("=> " + (d == null ? "null" : d.width + "x" + d.height));
+			rg.dispose();
+			return new Rendered(log, img);
+		});
+	}
+
+	/**
+	 * Runs a render with the plugin's {@link Guard} watched: it swallows errors in rendering (the UI then
+	 * draws nothing), which must fail the test instead of being recorded as an empty golden.
+	 */
+	static <T> T guarded(java.util.function.Supplier<T> render) {
+		Guard guard = Guard.shared();
+		guard.resetBreakers();
+		List<Throwable> failures = new ArrayList<>();
+		guard.setListener(new Guard.Listener() {
+			@Override
+			public void onFailure(String feature, Throwable error) {
+				failures.add(error);
+			}
+
+			@Override
+			public void onFatal(String feature, Throwable error) {
+				failures.add(error);
+			}
+
+			@Override
+			public void onFreeze(String feature, long elapsedMs, StackTraceElement[] stack) {
+			}
+
+			@Override
+			public void onDisabled(String feature) {
+			}
+		});
+		try {
+			T result = render.get();
+			if (!failures.isEmpty()) {
+				throw new AssertionError("The UI failed while rendering: " + failures.get(0), failures.get(0));
+			}
+			return result;
+		} finally {
+			guard.setListener(null);
+			guard.resetBreakers();
+		}
 	}
 
 	/** Lays out and paints a Swing component at the given width (height 0: its preferred height). */
 	public Rendered render(JComponent component, int w, int h) {
+		return guarded(() -> renderSwing(component, w, h));
+	}
+
+	private Rendered renderSwing(JComponent component, int w, int h) {
 		component.setSize(w, Math.max(1, h > 0 ? h : component.getPreferredSize().height));
 		layout(component);
 		if (h <= 0) {

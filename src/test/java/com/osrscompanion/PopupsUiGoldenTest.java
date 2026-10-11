@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.osrscompanion.ui.UiKit;
 import java.awt.Rectangle;
 import java.util.Arrays;
 import net.runelite.api.Client;
