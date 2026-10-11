@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.CollectionLogSyncPayload;
@@ -37,6 +38,7 @@ import net.runelite.client.eventbus.Subscribe;
  * flow in real time. A final deduped sync runs on logout. No manual button, no
  * per-page clicking.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Slf4j
 @Singleton
 public class CollectionLogMonitor {
@@ -66,20 +68,6 @@ public class CollectionLogMonitor {
 	private boolean fullReadTriggeredThisSession;
 	private int tickScriptFired = -1;
 	private String lastSyncJson;
-
-	@Inject
-	public CollectionLogMonitor(
-			Client client,
-			ClientThread clientThread,
-			OSRSCompanionConfig config,
-			OSRSCompanionApiClient apiClient,
-			Gson gson) {
-		this.client = client;
-		this.clientThread = clientThread;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.gson = gson;
-	}
 
 	public void stop() {
 		resetSessionState();

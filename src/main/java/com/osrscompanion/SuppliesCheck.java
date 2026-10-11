@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import lombok.Getter;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
@@ -28,6 +29,7 @@ import net.runelite.client.eventbus.Subscribe;
  * Have = bank + what you carry, potions by doses and variants together. The results stay after the
  * bank closes, for the Boss gear window ("at your last bank visit").
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class SuppliesCheck {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -96,15 +98,6 @@ public class SuppliesCheck {
 	private boolean dirty;
 	private Object lastSet;
 	private Object lastRoute;
-
-	@Inject
-	public SuppliesCheck(Client client, OSRSCompanionConfig config, BossGearManager bossGear, FarmRunManager farmRun, SupplyCounter counter) {
-		this.client = client;
-		this.config = config;
-		this.bossGear = bossGear;
-		this.farmRun = farmRun;
-		this.counter = counter;
-	}
 
 	public void clear() {
 		boss = null;
