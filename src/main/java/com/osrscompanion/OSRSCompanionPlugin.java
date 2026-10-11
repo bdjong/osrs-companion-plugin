@@ -245,12 +245,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	private DailiesManager dailiesManager;
 
 	@Inject
-	private DailiesOverlay dailiesOverlay;
-
-	@Inject
-	private DailiesSceneOverlay dailiesSceneOverlay;
-
-	@Inject
 	private WebVersionWatcher webVersionWatcher;
 
 	@Inject
@@ -258,7 +252,6 @@ public class OSRSCompanionPlugin extends Plugin {
 
 	@Inject
 	private ChatMessageManager chatMessageManager;
-
 
 	private RoadmapPanel roadmapPanel;
 	private NavigationButton navButton;
@@ -298,7 +291,7 @@ public class OSRSCompanionPlugin extends Plugin {
 				kingdomMonitor, combatAchievementMonitor, killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
 				slayerRewardsMonitor, goalProgressTracker, farmRunManager, farmHarvestTracker, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
-				bossTripTracker, suppliesCheck, dailiesManager, dailiesSceneOverlay, liveActivityMonitor);
+				bossTripTracker, suppliesCheck, dailiesManager, liveActivityMonitor);
 		for (Object subscriber : subscribers) {
 			if (subscriber != null) {
 				step("register " + subscriber.getClass().getSimpleName(), () -> eventBus.register(subscriber));
@@ -526,7 +519,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		// Side-panel roadmap tab.
 		roadmapPanel = new RoadmapPanel(this::toggleRoadmap, gearProgressionManager::toggle, this::toggleFarmRun, this::toggleBossGear, this::toggleSlayerGear, itemManager,
 				spriteManager, goalImageCache, config, configManager, roadmapManager, farmRunManager, bossGearManager, gearProgressionManager,
-				slayerHelperManager, clientThread, dailiesManager);
+				slayerHelperManager, clientThread);
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "panel_icon.png");
 		navButton = NavigationButton.builder()
 				.tooltip("OSRS Companion Roadmaps")
@@ -583,9 +576,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		// Supplies check: beside the open bank.
 		overlayManager.add(suppliesOverlay);
 
-		// Dailies: the step box and the arrow / map mark of the guided run (started from the side panel).
-		overlayManager.add(dailiesOverlay);
-		overlayManager.add(dailiesSceneOverlay);
 	}
 
 	/** The roadmap, farm run, boss gear and slayer gear windows share the middle of the screen (and the bank): one at a time. */
@@ -645,13 +635,7 @@ public class OSRSCompanionPlugin extends Plugin {
 			suppliesCheck.clear();
 			overlayManager.remove(suppliesOverlay);
 		});
-		step("dailies", () -> {
-			overlayManager.remove(dailiesOverlay);
-			overlayManager.remove(dailiesSceneOverlay);
-			clientThread.invoke(Guard.wrapCleanup(DailiesSceneOverlay.GUARD_FEATURE,
-					() -> step("dailies markers", dailiesSceneOverlay::clearPointers)));
-			dailiesManager.clear();
-		});
+		step("dailies", dailiesManager::clear);
 		step("goal progress", this::disconnectGoalProgress);
 
 		step("stop timerMonitor", () -> timerMonitor.stop());

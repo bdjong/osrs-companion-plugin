@@ -14,7 +14,6 @@ import com.osrscompanion.model.HouseLocationSyncPayload;
 import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
 import com.osrscompanion.model.CombatAchievementsSyncPayload;
-import com.osrscompanion.model.Dailies;
 import com.osrscompanion.model.DeathSyncPayload;
 import com.osrscompanion.model.BossAreasResponse;
 import com.osrscompanion.model.BossGear;
@@ -731,12 +730,6 @@ public class OSRSCompanionApiClient
 		// Not merged: a body may be a single untick rather than the whole list.
 		postAsync(DAILIES_ENDPOINT, json, "dailies", false, true, null, false,
 			() -> log.debug("OSRS Companion dailies synced"));
-	}
-
-	/** Fetches the dailies guide: every daily with its state, the way there and the steps. */
-	public void getDailies(String playerUsername, RoadmapCallback<Dailies> callback)
-	{
-		getAsync(DAILIES_ENDPOINT + "?player=" + urlEncode(playerUsername), "dailies", Dailies.class, callback);
 	}
 
 	/**
