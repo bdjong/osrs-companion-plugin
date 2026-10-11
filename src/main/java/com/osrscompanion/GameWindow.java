@@ -10,8 +10,12 @@ import java.awt.Rectangle;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.client.input.KeyListener;
@@ -123,6 +127,45 @@ abstract class GameWindow extends Overlay implements MouseListener, MouseWheelLi
 		g.setColor(FRAME_LIGHT);
 		g.drawLine(x + 8, y + TITLE_HEIGHT + 1, x + w - 9, y + TITLE_HEIGHT + 1);
 		return new Rectangle(x, y, w, h);
+	}
+
+	/**
+	 * A switcher list: one 18 px row per option that fits, the active one in orange with its note in green, the
+	 * others in white with their note (if any) in grey (noteX from the right edge, 0: right-aligned); a click on another one closes the list and picks it. Its
+	 * areas go first, so a click inside the list never reaches what is drawn under it.
+	 */
+	<T> void switcher(Graphics2D g, Rectangle list, List<T> options, Predicate<T> active, Function<T, String> name,
+			Function<T, String> note, int noteX, int nameRoom, boolean hoverActive, String listTooltip, Consumer<T> pick, List<Hit> newHits) {
+		g.setFont(FontManager.getRunescapeFont());
+		box(g, list, BG, FRAME_DARK, BUTTON_INNER);
+		List<Hit> optionHits = new ArrayList<>();
+		int rowY = list.y + 3;
+		for (int i = 0; i < (list.height - 6) / 18; i++) {
+			T o = options.get(i);
+			boolean on = active.test(o);
+			Rectangle row = new Rectangle(list.x + 3, rowY, list.width - 6, 18);
+			Point m = mouse;
+			if ((hoverActive || !on) && m != null && row.contains(m)) {
+				g.setColor(TAB_ON);
+				g.fillRect(row.x, row.y, row.width, row.height);
+			}
+			text(g, truncate(name.apply(o), g.getFontMetrics(), row.width - nameRoom), row.x + 6, row.y + 13, on ? ORANGE : Color.WHITE);
+			String n = note.apply(o);
+			if (n != null) {
+				g.setFont(FontManager.getRunescapeSmallFont());
+				text(g, n, row.x + row.width - (noteX > 0 ? noteX : 6 + g.getFontMetrics().stringWidth(n)), row.y + 13, on ? GREEN : GREY);
+				g.setFont(FontManager.getRunescapeFont());
+			}
+			if (!on) {
+				optionHits.add(new Hit(row, () -> {
+					switcherOpen = false;
+					pick.accept(o);
+				}, null));
+			}
+			rowY += 18;
+		}
+		optionHits.add(new Hit(list, () -> { }, listTooltip));
+		newHits.addAll(0, optionHits);
 	}
 
 	/** The tooltip of the area under the mouse (not over the open switcher list); keeps this render's clickable areas. */

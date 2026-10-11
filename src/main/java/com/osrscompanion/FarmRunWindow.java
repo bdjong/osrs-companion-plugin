@@ -216,34 +216,8 @@ public class FarmRunWindow extends GameWindow {
 
 	private void renderSwitcher(Graphics2D g, Rectangle anchor, List<Hit> newHits) {
 		List<FarmRoute.RouteSummary> routes = manager.getRoutes();
-		g.setFont(FontManager.getRunescapeFont());
-		int rowH = 18;
-		Rectangle list = new Rectangle(anchor.x, anchor.y + anchor.height + 2, 220, routes.size() * rowH + 6);
-		box(g, list, BG, FRAME_DARK, BUTTON_INNER);
-		List<Hit> optionHits = new ArrayList<>();
-		int rowY = list.y + 3;
-		for (FarmRoute.RouteSummary r : routes) {
-			Rectangle row = new Rectangle(list.x + 3, rowY, list.width - 6, rowH);
-			Point m = mouse;
-			if (m != null && row.contains(m)) {
-				g.setColor(TAB_ON);
-				g.fillRect(row.x, row.y, row.width, row.height);
-			}
-			text(g, truncate(r.getName(), g.getFontMetrics(), row.width - 50), row.x + 6, row.y + 13, r.isActive() ? ORANGE : Color.WHITE);
-			if (r.isActive()) {
-				g.setFont(FontManager.getRunescapeSmallFont());
-				text(g, "active", row.x + row.width - 38, row.y + 13, GREEN);
-				g.setFont(FontManager.getRunescapeFont());
-			} else {
-				optionHits.add(new Hit(row, () -> {
-					switcherOpen = false;
-					manager.activate(r);
-				}, null));
-			}
-			rowY += rowH;
-		}
-		optionHits.add(new Hit(list, () -> { }, null));
-		newHits.addAll(0, optionHits);
+		switcher(g, new Rectangle(anchor.x, anchor.y + anchor.height + 2, 220, routes.size() * 18 + 6), routes, FarmRoute.RouteSummary::isActive,
+			FarmRoute.RouteSummary::getName, r -> r.isActive() ? "active" : null, 38, 50, true, null, manager::activate, newHits);
 	}
 
 	/** No route to show: why (loading, an error, none made yet), and a Refresh button to load it again. */
