@@ -6,7 +6,6 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.SoundEffectID;
@@ -27,7 +26,6 @@ import net.runelite.client.util.Text;
  * Popups queue so two quick completions show one after the other. Other features
  * (a finished farm run) show their own title and body the same way.
  */
-@Slf4j
 @Singleton
 public class GoalCompletionNotifier {
 	/** Fills the notification interface with a title and body; RuneLite's
@@ -171,7 +169,6 @@ public class GoalCompletionNotifier {
 		}
 		int parent = parentComponentFor(client.getTopLevelInterfaceId());
 		if (parent == -1) {
-			log.debug("No notification slot for top-level interface {}", client.getTopLevelInterfaceId());
 			queue.clear();
 			return;
 		}
@@ -179,7 +176,6 @@ public class GoalCompletionNotifier {
 			openNode = client.openInterface(parent, InterfaceID.NOTIFICATION_DISPLAY, WidgetModalMode.MODAL_CLICKTHROUGH);
 			client.runScript(NOTIFICATION_DISPLAY_INIT, popup.title, popup.body, -1);
 		} catch (RuntimeException e) {
-			log.debug("Goal popup could not be opened", e);
 			openNode = null;
 			return;
 		}
@@ -210,7 +206,6 @@ public class GoalCompletionNotifier {
 		try {
 			client.closeInterface(openNode, true);
 		} catch (RuntimeException e) {
-			log.debug("Goal popup was already closed");
 		}
 		openNode = null;
 	}

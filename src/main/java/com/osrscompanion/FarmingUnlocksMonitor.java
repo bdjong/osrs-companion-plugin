@@ -12,7 +12,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
@@ -40,7 +39,6 @@ import net.runelite.client.util.Text;
  * unlocks (auto-weed, Barbarian Farming, the Tithe Farm, the minigame teleport, the scroll
  * prayers) go through the data pump ({@link VarPump}).
  */
-@Slf4j
 @Singleton
 public class FarmingUnlocksMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -215,7 +213,6 @@ public class FarmingUnlocksMonitor {
 			pohFairyRing = hasRing;
 			pohPortals = portalList;
 			pohFeatures = featureList;
-			log.debug("House: fairy ring {}, portals {}, {} features", hasRing, portalList, featureList.size());
 			sync();
 		}
 	}
@@ -265,7 +262,6 @@ public class FarmingUnlocksMonitor {
 		List<String> list = new ArrayList<>(found);
 		if (!list.isEmpty() && !list.equals(pohNexus)) {
 			pohNexus = list;
-			log.debug("Portal Nexus: {}", list);
 			sync();
 		}
 	}
@@ -317,7 +313,6 @@ public class FarmingUnlocksMonitor {
 			return;
 		}
 		lastSyncJson = json;
-		log.debug("Syncing farming unlocks for {}: {}", player, json);
 		apiClient.sendFarmingUnlocks(json);
 	}
 }

@@ -95,10 +95,8 @@ public class PlayerSkillsMonitor {
 			GameState newState = event.getGameState();
 
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-				log.debug("Player logged in, scheduling skills sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
 				executorService.schedule(this::syncOnClientThread, LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-				log.debug("Player logged out, syncing skills");
 				lastSeenXp.clear();
 				xpDirty = false;
 				syncPlayerSkills();
@@ -138,15 +136,12 @@ public class PlayerSkillsMonitor {
 	 */
 	private void syncPlayerSkills() {
 		if (!SyncGuard.hasAppKey(config)) {
-			log.debug("Player skills sync skipped: no App Key configured");
 			return;
 		}
 		if (!config.syncSkills()) {
-			log.debug("Player skills sync skipped: Skills & XP sync is off");
 			return;
 		}
 		if (GameModeUtil.isSpecialGameMode(client)) {
-			log.debug("Player skills sync skipped: special game mode detected (Leagues, DMM, etc.)");
 			return;
 		}
 
@@ -175,8 +170,6 @@ public class PlayerSkillsMonitor {
 		// Account type (Group Ironman helmet on the website): varbit IRONMAN, sent only when it names an iron type.
 		Integer accountType = PlayerSkillsSyncPayload.accountTypeOf(client.getVarbitValue(VarbitID.IRONMAN));
 		PlayerSkillsSyncPayload payload = new PlayerSkillsSyncPayload(playerUsername, skills, totalLevel, combatLevel, accountType);
-		log.debug("Syncing {} skills for player: {} (Total Level: {}, Combat Level: {})",
-				skills.size(), playerUsername, totalLevel, combatLevel);
 		apiClient.sendPlayerSkillsSync(payload);
 	}
 }

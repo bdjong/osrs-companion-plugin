@@ -6,7 +6,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 
@@ -22,7 +21,6 @@ import net.runelite.api.GameState;
  * status goes out on its own (a batch, whose answer carries the webVersion too, so no version check is
  * needed then). Idle, that is one request per 15 s instead of the version check's one per 30 s.
  */
-@Slf4j
 @Singleton
 public class WebVersionWatcher {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -131,11 +129,9 @@ public class WebVersionWatcher {
 
 				@Override
 				public void onError(String message) {
-					log.debug("Web version check: {}", message);
 				}
 			});
 		} catch (RuntimeException e) {
-			log.debug("Web version check failed", e);
 		}
 	}
 
@@ -161,7 +157,6 @@ public class WebVersionWatcher {
 		try {
 			refresh.run();
 		} catch (RuntimeException e) {
-			log.debug("Refreshing the {} after a website change failed", what, e);
 		}
 	}
 }

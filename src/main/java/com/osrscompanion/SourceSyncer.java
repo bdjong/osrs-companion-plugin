@@ -17,7 +17,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Uploads bank-memory sources (bank, inventory and gear, vaults, cargo
@@ -42,7 +41,6 @@ import lombok.extern.slf4j.Slf4j;
  * enabled, app key, game mode, username) are supplied as functions so this
  * stays unit-testable.
  */
-@Slf4j
 final class SourceSyncer {
 	static final long DEFAULT_DEBOUNCE_SECONDS = 15;
 
@@ -131,7 +129,6 @@ final class SourceSyncer {
 		}
 		String playerUsername = username.get();
 		if (playerUsername == null) {
-			log.debug("{} sync skipped: could not get player username", label);
 			return;
 		}
 		boolean neverSent = false;
@@ -186,7 +183,6 @@ final class SourceSyncer {
 			cancelPending();
 		}
 		pendingDueMs = now + delayMs;
-		log.debug("{} change detected, debouncing sync for {}s", label, delayMs / 1000);
 		pendingSync = executor.schedule(() -> flush(false), delayMs, TimeUnit.MILLISECONDS);
 	}
 
@@ -207,8 +203,6 @@ final class SourceSyncer {
 		}
 		BankSyncPayload payload = new BankSyncPayload(pendingUsername, itemsBySource);
 		pendingBySource.clear();
-		log.debug("Syncing {} {} items ({}) for player: {}", payload.getTotalItemCount(), label,
-				String.join(",", itemsBySource.keySet()), pendingUsername);
 		send.accept(payload);
 		Runnable flush = priorityFlush;
 		if (urgent && flush != null) {

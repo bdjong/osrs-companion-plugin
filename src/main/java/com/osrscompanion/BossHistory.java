@@ -14,7 +14,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
@@ -37,7 +36,6 @@ import net.runelite.client.config.ConfigManager;
  * region it happened in (the session's kill_regions), so the website can report kills outside the known
  * lairs. Client thread only; the work per tick is a region lookup and a few field reads.
  */
-@Slf4j
 @Singleton
 public class BossHistory {
 	static final String GUARD_FEATURE = "boss-history";
@@ -175,7 +173,6 @@ public class BossHistory {
 		if (s != null) {
 			boolean inside = here != null && BossAreas.isLair(boss(), region, learned);
 			if (s.tick(inside, now)) {
-				log.debug("Boss history: in the lair of {} (trip {})", s.bossName, s.tripCount);
 				persist(true);
 			}
 			if (here != null && lastPoint != null && !inside
@@ -354,7 +351,6 @@ public class BossHistory {
 		session.player = SyncGuard.getPlayerUsername(client);
 		matcher.clear();
 		lastSentUpdate = -1;
-		log.debug("Boss history: session started at {}", b.name);
 	}
 
 	private void closeSession(String reason, long atMs) {
@@ -374,7 +370,6 @@ public class BossHistory {
 			saveUnsent();
 			sendUnsent();
 		}
-		log.debug("Boss history: session at {} closed ({}), {} kills", s.bossName, reason, s.kills);
 	}
 
 	/** Kills and fight times the matcher settled. */
@@ -447,11 +442,9 @@ public class BossHistory {
 			list.remove(0);
 		}
 		learned.put(b.key, list);
-		log.debug("Boss history: region {} is a lair of {}", r, b.name);
 		try {
 			configManager.setRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, LAIRS_KEY, gson.toJson(learned));
 		} catch (RuntimeException e) {
-			log.debug("Could not store the learned boss lairs", e);
 		}
 	}
 
@@ -535,7 +528,6 @@ public class BossHistory {
 			Map<String, List<Integer>> m = json == null ? null : gson.fromJson(json, new TypeToken<Map<String, List<Integer>>>() { }.getType());
 			learned = m == null ? new HashMap<>() : new LinkedHashMap<>(m);
 		} catch (RuntimeException e) {
-			log.debug("Dropping unreadable learned boss lairs", e);
 			learned = new HashMap<>();
 		}
 		unsent = new ArrayList<>();
@@ -551,7 +543,6 @@ public class BossHistory {
 				}
 			}
 		} catch (RuntimeException e) {
-			log.debug("Dropping unreadable unsent boss sessions", e);
 			configManager.unsetRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, UNSENT_KEY);
 		}
 		if (session == null) {
@@ -560,14 +551,12 @@ public class BossHistory {
 				String json = configManager.getRSProfileConfiguration(OSRSCompanionConfig.CONFIG_GROUP, SESSION_KEY);
 				stored = json == null ? null : gson.fromJson(json, BossSession.class);
 			} catch (RuntimeException e) {
-				log.debug("Dropping an unreadable boss session", e);
 			}
 			if (stored != null && stored.uuid != null && stored.isOpen() && BossAreas.byKey(stored.bossKey) != null) {
 				stored.resumed();
 				session = stored;
 				lastPersistedUpdate = stored.updatedMs;
 				lastSentUpdate = -1;
-				log.debug("Boss history: picked up the session at {} ({} kills)", stored.bossName, stored.kills);
 			}
 		}
 		sendUnsent();

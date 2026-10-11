@@ -106,7 +106,7 @@ public class RoadmapManager {
 		ScheduledThreadPoolExecutor ex = new ScheduledThreadPoolExecutor(1, r -> {
 			Thread t = new Thread(r, THREAD_NAME);
 			t.setDaemon(true);
-			t.setUncaughtExceptionHandler((th, e) -> log.debug("Roadmap thread failed", e));
+			t.setUncaughtExceptionHandler((th, e) -> log.warn("Roadmap thread failed", e));
 			return t;
 		});
 		ex.setKeepAliveTime(IDLE_SECONDS, TimeUnit.SECONDS);
@@ -163,7 +163,6 @@ public class RoadmapManager {
 		}
 		Integer selected = getSelectedRoadmapId();
 		if (selected == null || selected != roadmap.getCollectionId()) {
-			log.debug("Switching active roadmap to {}", roadmap.getTitle());
 			setSelectedRoadmapId(roadmap.getCollectionId());
 		}
 		setCurrentRoadmap(roadmap);
@@ -283,7 +282,6 @@ public class RoadmapManager {
 
 				@Override
 				public void onError(String message) {
-					log.debug("Roadmap {} refresh failed: {}", summary.getCollectionId(), message);
 					listCache.invalidate();
 					finish();
 				}
@@ -394,7 +392,6 @@ public class RoadmapManager {
 			return;
 		}
 		if (!scheduler.markInFlight()) {
-			log.debug("Quiet roadmap refresh skipped: one already in flight");
 			return;
 		}
 		notifyPanel();
@@ -416,7 +413,6 @@ public class RoadmapManager {
 			@Override
 			public void onError(String message) {
 				scheduler.clearInFlight();
-				log.debug("Quiet roadmap refresh failed: {}", message);
 				notifyPanel();
 			}
 		});

@@ -256,7 +256,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Override
 	protected void startUp() {
 		// Never throws: each subsystem starts on its own, so one failure leaves the others working.
-		log.debug("OSRS Companion started");
 		step("crash safety", this::startCrashSafety);
 		step("settings", this::migrateSettings);
 		// Uploads queue in the outbox and go out batched (first, so the monitors' first syncs use it).
@@ -512,7 +511,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		// Whatever periodic job a feature left behind (the shared executor is RuneLite's: only ours stop).
 		step("executor jobs", GuardedExecutor::cancelAllPeriodic);
 		step("crash safety", () -> Guard.shared().setOnDisabled(null));
-		log.debug("OSRS Companion stopped");
 	}
 
 	private void disconnectGoalProgress() {
@@ -648,7 +646,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		if (client.getGameState() != GameState.LOGGED_IN) {
 			return;
 		}
-		log.debug("OSRS Companion App Key entered while logged in; running full sync");
 		forceSyncAll();
 	}
 
