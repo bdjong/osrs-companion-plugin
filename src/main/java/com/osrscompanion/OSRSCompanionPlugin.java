@@ -205,7 +205,7 @@ public class OSRSCompanionPlugin extends Plugin {
 	private SlayerGearWindow slayerGearWindow;
 
 	@Inject
-	private BossTripTracker bossTripTracker;
+	private GameEvents gameEvents;
 
 	@Inject
 	private SuppliesCheck suppliesCheck;
@@ -256,7 +256,7 @@ public class OSRSCompanionPlugin extends Plugin {
 				killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
 				slayerRewardsMonitor, farmRunManager, farmHarvestTracker, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
-				bossTripTracker, suppliesCheck, liveActivityMonitor);
+				gameEvents, suppliesCheck, liveActivityMonitor);
 		for (Object subscriber : subscribers) {
 			if (subscriber != null) {
 				step("register " + subscriber.getClass().getSimpleName(), () -> eventBus.register(subscriber));
@@ -419,7 +419,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("farm harvests", farmHarvestTracker::stop);
 		step("bank layout", bankLayoutPrep::shutDown);
 		step("play sessions", sessionMonitor::stop);
-		step("boss trips", bossTripTracker::stop);
+		step("game events", gameEvents::stop);
 		step("supplies", () -> {
 			suppliesCheck.clear();
 			overlayManager.remove(suppliesOverlay);

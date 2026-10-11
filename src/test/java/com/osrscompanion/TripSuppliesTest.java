@@ -99,13 +99,4 @@ public class TripSuppliesTest {
 		assertEquals("barrows", TripSupplies.bossKey("Barrows chest"));
 	}
 
-	@Test
-	public void killCountMessagesNameTheBoss() {
-		assertEquals("Vorkath", BossTripTracker.killCountBoss("Your Vorkath kill count is: 152."));
-		assertEquals("Chambers of Xeric", BossTripTracker.killCountBoss("Your completed Chambers of Xeric count is: 12."));
-		assertEquals("Barrows chest", BossTripTracker.killCountBoss("Your Barrows chest count is: 300."));
-		assertNull(BossTripTracker.killCountBoss("Your Gnome Stronghold Agility lap count is: 5."));
-		assertNull(BossTripTracker.killCountBoss("Your subdued Wintertodt count is: 40."));
-		assertNull(BossTripTracker.killCountBoss("Fight duration: 1:23"));
-	}
 }
