@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import net.runelite.client.util.Text;
  * unlocks (auto-weed, Barbarian Farming, the Tithe Farm, the minigame teleport, the scroll
  * prayers) go through the data pump ({@link VarPump}).
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class FarmingUnlocksMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -74,16 +76,6 @@ public class FarmingUnlocksMonitor {
 	private boolean visitingFriend;
 	private int houseCheckTick = -1;
 	private int nexusReadTick = -1;
-
-	@Inject
-	public FarmingUnlocksMonitor(Client client, ClientThread clientThread, OSRSCompanionConfig config,
-			OSRSCompanionApiClient apiClient, Gson gson) {
-		this.client = client;
-		this.clientThread = clientThread;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.gson = gson;
-	}
 
 	public void stop() {
 		lastSyncJson = null;

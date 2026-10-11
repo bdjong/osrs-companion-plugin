@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.SlayerGuide;
 import java.awt.BasicStroke;
@@ -28,6 +29,7 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
  * way there is in the guide's box in the game). A running farm run
  * keeps the arrow. Client thread.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class SlayerGuideMarkers {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -45,16 +47,6 @@ public class SlayerGuideMarkers {
 	private String mapPointFor;
 	private WorldPoint arrowAt;
 	private BufferedImage icon;
-
-	@Inject
-	public SlayerGuideMarkers(Client client, SlayerHelperManager manager, FarmRunManager farmRun, WorldMapPointManager worldMap,
-		SpriteManager spriteManager) {
-		this.client = client;
-		this.manager = manager;
-		this.farmRun = farmRun;
-		this.worldMap = worldMap;
-		this.spriteManager = spriteManager;
-	}
 
 	@Subscribe
 	public void onGameTick(GameTick tick) {

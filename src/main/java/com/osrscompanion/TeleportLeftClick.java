@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.osrscompanion.model.FarmRoute;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ import net.runelite.client.util.Text;
  * the option the travel text names, else its teleport option. Shared by the farm run and the
  * Slayer helper; the caller decides when it applies. Client thread (from PostMenuSort).
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class TeleportLeftClick {
 	/** Capes with teleports a route uses: Max capes, Construction capes, Farming capes, Ardougne cloaks. */
@@ -45,11 +47,6 @@ public class TeleportLeftClick {
 	private final Map<Integer, String> names = new ConcurrentHashMap<>();
 	/** The last menu choice written to the log, so a hovered item is logged once, not every frame. */
 	private String lastLog;
-
-	@Inject
-	public TeleportLeftClick(Client client) {
-		this.client = client;
-	}
 
 	/**
 	 * Makes the travel's teleport the left click of the menu about to show. {@code where} names the

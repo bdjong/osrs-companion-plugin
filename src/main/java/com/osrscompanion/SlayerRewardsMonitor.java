@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.SlayerRewardsPayload;
@@ -35,6 +36,7 @@ import net.runelite.client.util.Text;
  * name text (type 4), spacer (type 3), status sprite (type 5), percent text
  * (type 4). Status is read from the sprite id, never from colours.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class SlayerRewardsMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -66,20 +68,6 @@ public class SlayerRewardsMonitor {
 	 */
 	private String lastContentKey;
 	private long lastScrapeSentMs;
-
-	@Inject
-	public SlayerRewardsMonitor(
-			Client client,
-			ClientThread clientThread,
-			OSRSCompanionConfig config,
-			OSRSCompanionApiClient apiClient,
-			Gson gson) {
-		this.client = client;
-		this.clientThread = clientThread;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.gson = gson;
-	}
 
 	public void stop() {
 		lastContentKey = null;

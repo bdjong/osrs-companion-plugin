@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import net.runelite.client.eventbus.Subscribe;
  * post-login replay ({@link DiarySyncTrigger}), a few ticks after a watched value changes, on walking into a
  * watched region (a visit), after 00:00 UTC (the dailies), and once at logout.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class VarPump {
 	static final String GUARD_FEATURE = "var-pump";
@@ -65,15 +67,6 @@ public class VarPump {
 	private long sessionStart;
 	private long sentDay = -1;
 	private String lastSentJson;
-
-	@Inject
-	public VarPump(Client client, ClientThread clientThread, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient, Gson gson) {
-		this.client = client;
-		this.clientThread = clientThread;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.gson = gson;
-	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {

@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import lombok.Getter;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -62,6 +63,7 @@ import net.runelite.client.util.Text;
  * <p>Game reads and every event run on the client thread; the panel and overlays only read the
  * volatile fields and {@link Stats}. The guide arrives on an OkHttp thread.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Slf4j
 @Singleton
 public class SlayerHelperManager {
@@ -261,23 +263,6 @@ public class SlayerHelperManager {
 	private boolean closeCompleted;
 	private long fetchAtMs;
 	private int retriesLeft;
-
-	@Inject
-	public SlayerHelperManager(Client client, ClientThread clientThread, OSRSCompanionConfig config, ConfigManager configManager,
-		OSRSCompanionApiClient apiClient, SlayerMonitor slayerMonitor, ItemManager itemManager, Gson gson, GoalCompletionNotifier popups,
-		TeleportLeftClick teleports, FarmRunManager farmRun) {
-		this.client = client;
-		this.clientThread = clientThread;
-		this.config = config;
-		this.configManager = configManager;
-		this.apiClient = apiClient;
-		this.slayerMonitor = slayerMonitor;
-		this.itemManager = itemManager;
-		this.gson = gson;
-		this.popups = popups;
-		this.teleports = teleports;
-		this.farmRun = farmRun;
-	}
 
 	// ---- The guide from the website ------------------------------------------------------
 

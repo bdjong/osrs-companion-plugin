@@ -1,5 +1,6 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -19,6 +20,7 @@ import net.runelite.client.game.ItemVariationMapping;
  * check, and remembers for each key the item that pictures it (the highest dose seen) and its name.
  * Client thread, except {@link #rep} which only reads what was counted.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class SupplyCounter {
 	private final Client client;
@@ -38,12 +40,6 @@ public class SupplyCounter {
 	}
 
 	private final Map<String, Rep> reps = new ConcurrentHashMap<>();
-
-	@Inject
-	public SupplyCounter(Client client, ItemManager itemManager) {
-		this.client = client;
-		this.itemManager = itemManager;
-	}
 
 	/** The key of an item (noted and placeholder versions count as the item). */
 	String key(int itemId) {
