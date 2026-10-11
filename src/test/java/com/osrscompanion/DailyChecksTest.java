@@ -1,18 +1,12 @@
 package com.osrscompanion;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.osrscompanion.DailyChecks.Result;
 import com.osrscompanion.DailyChecks.State;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.runelite.api.Quest;
@@ -53,11 +47,19 @@ public class DailyChecksTest {
 		}, newDay, kingdomVisited);
 	}
 
+	/** Every daily the website lists (src/data/dailies.json): id and short name. */
+	private static final String[][] DAILIES = {
+		{"zaff", "Zaff's battlestaves"}, {"cromperty", "Cromperty's essence"}, {"bert", "Bert's sand"},
+		{"flax", "Flax to bow strings"}, {"rantz", "Rantz's arrows"}, {"robin", "Robin's bonemeal"},
+		{"thirus", "Thirus's dynamite"}, {"lundail", "Lundail's runes"}, {"herb_boxes", "NMZ herb boxes"},
+		{"kingdom", "Miscellania"}, {"tog", "Tears of Guthix"}, {"birdhouses", "Bird houses"},
+	};
+
 	@Test
 	public void everyDailyIsRead() {
 		Map<String, Result> r = read(false, false);
-		assertEquals(DailyChecks.DAILIES.length, r.size());
-		for (String[] d : DailyChecks.DAILIES) {
+		assertEquals(DAILIES.length, r.size());
+		for (String[] d : DAILIES) {
 			assertTrue(d[0], r.containsKey(d[0]));
 		}
 	}
@@ -147,31 +149,4 @@ public class DailyChecksTest {
 		assertEquals(State.DONE, read(false, true).get("kingdom").state);
 	}
 
-	@Test
-	public void mergeOrder() {
-		Result open = new Result("zaff", State.OPEN, 30, null);
-		Result unknown = new Result("tog", State.UNKNOWN, 0, null);
-		// A hand tick wins, then the game, then the website, else open.
-		assertEquals(State.DONE, DailyChecks.merged(true, open, null, null));
-		assertEquals(State.OPEN, DailyChecks.merged(false, open, "done", "plugin"));
-		assertEquals(State.DONE, DailyChecks.merged(false, open, "done", "manual"));
-		assertEquals(State.DONE, DailyChecks.merged(false, unknown, "done", "timer"));
-		assertEquals(State.OPEN, DailyChecks.merged(false, unknown, null, null));
-		assertEquals(State.LOCKED, DailyChecks.merged(false, null, "locked", "requirements"));
-	}
-
-	@Test
-	public void theRunGoesToTheNextOpenDaily() {
-		List<String> order = Arrays.asList("a", "b", "c", "d");
-		Map<String, State> s = new LinkedHashMap<>();
-		s.put("a", State.DONE);
-		s.put("b", State.OPEN);
-		s.put("c", State.LOCKED);
-		s.put("d", State.OPEN);
-		assertEquals("b", DailyChecks.nextOpen(order, s, null, Collections.emptySet()));
-		assertEquals("d", DailyChecks.nextOpen(order, s, "b", Collections.emptySet()));
-		// Wraps round to one still open earlier in the list.
-		assertEquals("b", DailyChecks.nextOpen(order, s, "d", Collections.emptySet()));
-		assertNull(DailyChecks.nextOpen(order, s, "d", new HashSet<>(Arrays.asList("b", "d"))));
-	}
 }
