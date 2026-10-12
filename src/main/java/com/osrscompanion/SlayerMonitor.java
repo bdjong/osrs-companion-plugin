@@ -8,18 +8,10 @@
 package com.osrscompanion;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.SlayerSyncPayload;
-import com.osrscompanion.model.SlayerTaskEvent;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
@@ -30,11 +22,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Point;
 import net.runelite.api.Skill;
-import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.ScriptPostFired;
-import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.events.*;
 import net.runelite.api.gameval.DBTableID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
@@ -50,15 +38,9 @@ import net.runelite.client.eventbus.Subscribe;
  *
  * <p>State is read directly from the slayer varps/varbits (no dependency on
  * RuneLite's Slayer plugin being enabled), with task and area names resolved
- * client-side through the game-cache DB tables. Task outcomes are detected by
- * comparing consecutive snapshots: the streak counter is authoritative for
- * completion, the block list gaining the old task id is authoritative for
- * blocks, and the completion chat message is attached as a corroborating
- * label. The backend re-derives outcomes from the same signals, so the claim
- * sent here never decides anything alone.
- *
- * <p>Unsent transition events are persisted to RSProfile config so a crash or
- * failed POST loses nothing; {@code event_uuid} makes replays idempotent.
+ * client-side through the game-cache DB tables. Each read, each change of the task count and each
+ * completion chat line is also recorded as a game event ({@link GameEvents}): the website works out from
+ * them how each task ended (completed, skipped, blocked...) and the time spent on it.
  */
 @Slf4j
 @Singleton
@@ -73,25 +55,13 @@ public class SlayerMonitor {
 	 * batched by the outbox, so this can be short; a kill inside the window is sent when it closes.
 	 */
 	private static final long AMOUNT_SYNC_MIN_INTERVAL_MS = 10_000L;
-	/** How many ticks a completion chat line stays attachable to a transition. */
-	private static final int CHAT_ATTACH_WINDOW_TICKS = 10;
 	/**
-	 * Grace ticks between detecting a transition and finalizing its event. The
-	 * completion chat message can arrive a tick after the varp flips (observed
-	 * live: a real completion finalized with chat_matched=false), so the event
-	 * waits briefly for trailing chat before it is built and sent.
+	 * Ticks between a task ending and the website closing it: the completion chat message can arrive a tick
+	 * after the varp flips, so the website waits for this "slayer_fin" event.
 	 */
 	private static final int EVENT_FINALIZE_DELAY_TICKS = 3;
-	/**
-	 * Max gap between kills that still counts toward active grind time. Slow
-	 * tasks (on-task bosses, banking trips) have legitimate multi-minute gaps;
-	 * anything longer reads as a break and contributes nothing.
-	 */
-	private static final long ACTIVE_GAP_CAP_MS = 5 * 60_000L;
-	private static final String TIMING_CONFIG_KEY = "slayerTaskTiming";
 	/** SLAYER_TARGET value meaning "a boss task"; resolve via the sublist table. */
 	private static final int BOSS_TASK_SENTINEL = 98;
-	private static final String PENDING_EVENTS_CONFIG_KEY = "pendingSlayerEvents";
 	/**
 	 * The slayer task-offer dialog (Mortimer's 2-3 choices, each with a name,
 	 * an amount range and a modifier). It raises no WidgetLoaded event, being
@@ -130,52 +100,17 @@ public class SlayerMonitor {
 	private static final int SLAYER_REWARDS_TASKS_REDRAW_SCRIPT = 421;
 
 	// Loose on purpose: matches the known completion message variants ("You've
-	// completed X tasks in a row...", points and Wilderness forms). The backend
+	// completed X tasks in a row...", points and Wilderness forms). The website
 	// treats chat as corroboration, so a miss degrades gracefully.
 	static final java.util.regex.Pattern COMPLETION_CHAT_PATTERN =
 			java.util.regex.Pattern.compile("completed.{0,40}?\\d[\\d,]* tasks?",
 					java.util.regex.Pattern.CASE_INSENSITIVE);
 
-	private static final Set<Integer> WATCHED_VARPS = Set.of(
-			VarPlayerID.SLAYER_COUNT,
-			VarPlayerID.SLAYER_TARGET,
-			VarPlayerID.SLAYER_AREA,
-			VarPlayerID.SLAYER_COUNT_ORIGINAL,
-			VarPlayerID.SLAYER_REWARDS_UNLOCKS,
-			VarPlayerID.SLAYER_REWARDS_UNLOCKS1,
-			VarPlayerID.SLAYER_REWARDS_UNLOCKS2,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED);
-	/**
-	 * Each slayer master's own block list: one varbit per slot holding a task id (six slots and the
-	 * Lumbridge & Draynor elite diary slot; Mortimer two). Turael's list is shared with Spria and Aya.
-	 */
+	private static final Set<Integer> WATCHED_VARPS = Tables.idSet("slayerWatchedVarps");
+	/** Each slayer master's own block list: one varbit per slot holding a task id (tables.json). */
 	static final Map<String, int[]> MASTER_BLOCK_VARBITS = new LinkedHashMap<>();
 	static {
-		MASTER_BLOCK_VARBITS.put("Turael", new int[] {VarbitID.SLAYER_BLOCKED_TURAEL_1, VarbitID.SLAYER_BLOCKED_TURAEL_2,
-				VarbitID.SLAYER_BLOCKED_TURAEL_3, VarbitID.SLAYER_BLOCKED_TURAEL_4, VarbitID.SLAYER_BLOCKED_TURAEL_5,
-				VarbitID.SLAYER_BLOCKED_TURAEL_6, VarbitID.SLAYER_BLOCKED_TURAEL_DIARY});
-		MASTER_BLOCK_VARBITS.put("Mazchna", new int[] {VarbitID.SLAYER_BLOCKED_MAZCHNA_1, VarbitID.SLAYER_BLOCKED_MAZCHNA_2,
-				VarbitID.SLAYER_BLOCKED_MAZCHNA_3, VarbitID.SLAYER_BLOCKED_MAZCHNA_4, VarbitID.SLAYER_BLOCKED_MAZCHNA_5,
-				VarbitID.SLAYER_BLOCKED_MAZCHNA_6, VarbitID.SLAYER_BLOCKED_MAZCHNA_DIARY});
-		MASTER_BLOCK_VARBITS.put("Vannaka", new int[] {VarbitID.SLAYER_BLOCKED_VANNAKA_1, VarbitID.SLAYER_BLOCKED_VANNAKA_2,
-				VarbitID.SLAYER_BLOCKED_VANNAKA_3, VarbitID.SLAYER_BLOCKED_VANNAKA_4, VarbitID.SLAYER_BLOCKED_VANNAKA_5,
-				VarbitID.SLAYER_BLOCKED_VANNAKA_6, VarbitID.SLAYER_BLOCKED_VANNAKA_DIARY});
-		MASTER_BLOCK_VARBITS.put("Chaeldar", new int[] {VarbitID.SLAYER_BLOCKED_CHAELDAR_1, VarbitID.SLAYER_BLOCKED_CHAELDAR_2,
-				VarbitID.SLAYER_BLOCKED_CHAELDAR_3, VarbitID.SLAYER_BLOCKED_CHAELDAR_4, VarbitID.SLAYER_BLOCKED_CHAELDAR_5,
-				VarbitID.SLAYER_BLOCKED_CHAELDAR_6, VarbitID.SLAYER_BLOCKED_CHAELDAR_DIARY});
-		MASTER_BLOCK_VARBITS.put("Konar", new int[] {VarbitID.SLAYER_BLOCKED_KONAR_1, VarbitID.SLAYER_BLOCKED_KONAR_2,
-				VarbitID.SLAYER_BLOCKED_KONAR_3, VarbitID.SLAYER_BLOCKED_KONAR_4, VarbitID.SLAYER_BLOCKED_KONAR_5,
-				VarbitID.SLAYER_BLOCKED_KONAR_6, VarbitID.SLAYER_BLOCKED_KONAR_DIARY});
-		MASTER_BLOCK_VARBITS.put("Nieve", new int[] {VarbitID.SLAYER_BLOCKED_NIEVE_1, VarbitID.SLAYER_BLOCKED_NIEVE_2,
-				VarbitID.SLAYER_BLOCKED_NIEVE_3, VarbitID.SLAYER_BLOCKED_NIEVE_4, VarbitID.SLAYER_BLOCKED_NIEVE_5,
-				VarbitID.SLAYER_BLOCKED_NIEVE_6, VarbitID.SLAYER_BLOCKED_NIEVE_DIARY});
-		MASTER_BLOCK_VARBITS.put("Duradel", new int[] {VarbitID.SLAYER_BLOCKED_DURADEL_1, VarbitID.SLAYER_BLOCKED_DURADEL_2,
-				VarbitID.SLAYER_BLOCKED_DURADEL_3, VarbitID.SLAYER_BLOCKED_DURADEL_4, VarbitID.SLAYER_BLOCKED_DURADEL_5,
-				VarbitID.SLAYER_BLOCKED_DURADEL_6, VarbitID.SLAYER_BLOCKED_DURADEL_DIARY});
-		MASTER_BLOCK_VARBITS.put("Krystilia", new int[] {VarbitID.SLAYER_BLOCKED_KRYSTILIA_1, VarbitID.SLAYER_BLOCKED_KRYSTILIA_2,
-				VarbitID.SLAYER_BLOCKED_KRYSTILIA_3, VarbitID.SLAYER_BLOCKED_KRYSTILIA_4, VarbitID.SLAYER_BLOCKED_KRYSTILIA_5,
-				VarbitID.SLAYER_BLOCKED_KRYSTILIA_6, VarbitID.SLAYER_BLOCKED_KRYSTILIA_DIARY});
-		MASTER_BLOCK_VARBITS.put("Mortimer", new int[] {VarbitID.SLAYER_BLOCKED_MORTIMER_1, VarbitID.SLAYER_BLOCKED_MORTIMER_2});
+		Tables.map("slayerMasterBlockVarbits").forEach((master, ids) -> MASTER_BLOCK_VARBITS.put(master, Tables.ids(ids)));
 	}
 
 	private static final Set<Integer> WATCHED_VARBITS = watchedVarbits();
@@ -196,22 +131,7 @@ public class SlayerMonitor {
 	}
 
 	// Ordered block list varps: the shared 15 slots (1 + 12 + 2 diary).
-	private static final int[] BLOCK_LIST_VARPS = {
-			VarPlayerID.SLAYER_REWARDS_BLOCKED,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_2,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_3,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_4,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_5,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_6,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_7,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_8,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_9,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_10,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_11,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_12,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_13,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_DIARY_1,
-			VarPlayerID.SLAYER_REWARDS_BLOCKED_DIARY_2};
+	private static final int[] BLOCK_LIST_VARPS = Tables.ids(Tables.list("slayerBlockListVarps"));
 
 	/** Snapshot of the slayer varp/varbit state at one read. */
 	static class Snapshot {
@@ -234,29 +154,6 @@ public class SlayerMonitor {
 
 		boolean hasTask() {
 			return amountRemaining > 0 && (taskId != null && taskId != 0);
-		}
-
-		/**
-		 * Blocked task ids, decoded from the raw block varps. Each varp packs
-		 * up to four ids as bytes (verified live: one varp held Blue dragons /
-		 * Cave horrors / Spiritual creatures / Metal dragons as 25|80|89|127).
-		 * The raw values still go to the server unchanged; this decode exists
-		 * only for the membership check in transition detection.
-		 */
-		java.util.Set<Integer> decodedBlockIds() {
-			java.util.Set<Integer> ids = new java.util.HashSet<>();
-			for (int raw : blockList) {
-				for (int shift = 0; shift <= 24; shift += 8) {
-					int id = (raw >> shift) & 0xFF;
-					if (id != 0) {
-						ids.add(id);
-					}
-				}
-			}
-			for (List<Integer> list : blockedByMaster.values()) {
-				ids.addAll(list);
-			}
-			return ids;
 		}
 
 		/**
@@ -299,35 +196,7 @@ public class SlayerMonitor {
 	private final ScheduledExecutorService executorService;
 	private final Gson gson;
 	private final ConfigManager configManager;
-
-	/** A detected transition waiting out the chat grace window. */
-	private static class PendingTransition {
-		final Snapshot before;
-		final Snapshot after;
-		final boolean blockListGained;
-		final String assignedAt;
-		final int detectedTick;
-		// Timing captured at stage time, so a new assignment arriving during
-		// the grace window can't wipe it before the event is built.
-		final long firstKillMs;
-		final long lastKillMs;
-		final long activeMs;
-		final long pendingZeroMs;
-
-		PendingTransition(Snapshot before, Snapshot after, boolean blockListGained,
-				String assignedAt, int detectedTick,
-				long firstKillMs, long lastKillMs, long activeMs, long pendingZeroMs) {
-			this.before = before;
-			this.after = after;
-			this.blockListGained = blockListGained;
-			this.assignedAt = assignedAt;
-			this.detectedTick = detectedTick;
-			this.firstKillMs = firstKillMs;
-			this.lastKillMs = lastKillMs;
-			this.activeMs = activeMs;
-			this.pendingZeroMs = pendingZeroMs;
-		}
-	}
+	private final GameEvents gameEvents;
 
 	private GameState previousGameState = GameState.UNKNOWN;
 	private boolean checkPending;
@@ -345,100 +214,10 @@ public class SlayerMonitor {
 	private String offersCapturedAt;
 	private boolean storedTaskDirty;
 	private Snapshot previous;
-	private String currentTaskAssignedAt;
-	private String lastCompletionChatText;
-	private int lastCompletionChatTick = -1;
-	private PendingTransition draft;
-	private final List<SlayerTaskEvent> pendingEvents = new ArrayList<>();
-
-	/**
-	 * Active-time tracking for the current task, fed by SLAYER_COUNT
-	 * decrements ("first monster kill to last", with AFK gaps capped out).
-	 * Persisted per profile so a task spanning sessions keeps its timing.
-	 */
-	private int lastCountSeen = -1;
-	private long firstKillMs;
-	private long lastKillMs;
-	private long activeMs;
-	/** Candidate final-kill moment: count hit 0, outcome not yet known. */
-	private long pendingZeroMs;
-
-	private void recordKill(long nowMs) {
-		if (previous != null && previous.hasTask()) {
-			timingTaskKey = taskKey(previous);
-		}
-		if (firstKillMs == 0) {
-			firstKillMs = nowMs;
-		} else if (nowMs - lastKillMs <= ACTIVE_GAP_CAP_MS) {
-			activeMs += nowMs - lastKillMs;
-		}
-		lastKillMs = nowMs;
-		persistTiming();
-	}
-
-	private void resetTiming() {
-		timingTaskKey = 0;
-		firstKillMs = 0;
-		lastKillMs = 0;
-		activeMs = 0;
-		pendingZeroMs = 0;
-		configManager.unsetRSProfileConfiguration("osrscompanion", TIMING_CONFIG_KEY);
-	}
-
-	private long timingTaskKey;
-
-	/** Identity key for timing ownership: task id + boss sublist id. */
-	private static long taskKey(Snapshot s) {
-		long task = s.taskId == null ? 0 : s.taskId;
-		long boss = s.bossTaskId == null ? 0 : s.bossTaskId;
-		return (task << 32) | boss;
-	}
-
-	private void persistTiming() {
-		Map<String, Long> stored = new LinkedHashMap<>();
-		stored.put("task", timingTaskKey);
-		stored.put("first", firstKillMs);
-		stored.put("last", lastKillMs);
-		stored.put("active", activeMs);
-		configManager.setRSProfileConfiguration("osrscompanion", TIMING_CONFIG_KEY, gson.toJson(stored));
-	}
-
-	/**
-	 * Restores persisted timing, but only when it belongs to the task the
-	 * session actually has: the task can change while the plugin is not
-	 * running (finished or skipped on another client), and stale timing must
-	 * not attach to the new assignment.
-	 */
-	private void restoreTiming(Snapshot now) {
-		String stored = configManager.getRSProfileConfiguration("osrscompanion", TIMING_CONFIG_KEY);
-		if (stored == null || stored.isEmpty()) {
-			return;
-		}
-		try {
-			Map<String, Double> parsed = gson.fromJson(
-					stored, new TypeToken<Map<String, Double>>() { }.getType());
-			if (parsed == null) {
-				return;
-			}
-			long storedKey = parsed.getOrDefault("task", 0.0).longValue();
-			if (!now.hasTask() || storedKey != taskKey(now)) {
-				log.debug("Discarding slayer timing for a different task");
-				resetTiming();
-				return;
-			}
-			timingTaskKey = storedKey;
-			firstKillMs = parsed.getOrDefault("first", 0.0).longValue();
-			lastKillMs = parsed.getOrDefault("last", 0.0).longValue();
-			activeMs = parsed.getOrDefault("active", 0.0).longValue();
-		} catch (RuntimeException e) {
-			log.warn("Discarding unparseable slayer timing state", e);
-			resetTiming();
-		}
-	}
-
-	private static String isoOrNull(long epochMs) {
-		return epochMs == 0 ? null : Instant.ofEpochMilli(epochMs).toString();
-	}
+	/** The tick to send "slayer_fin" at (a task ended), or -1. */
+	private int finalizeAt = -1;
+	/** A task was closed since the last sync: the next read syncs (the website gets the new state with it). */
+	private boolean closed;
 
 	@Inject
 	public SlayerMonitor(
@@ -448,7 +227,8 @@ public class SlayerMonitor {
 			OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executorService,
 			Gson gson,
-			ConfigManager configManager) {
+			ConfigManager configManager,
+			GameEvents gameEvents) {
 		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
@@ -457,6 +237,7 @@ public class SlayerMonitor {
 		this.executorService = executorService;
 		this.gson = gson;
 		this.configManager = configManager;
+		this.gameEvents = gameEvents;
 	}
 
 	public void stop() {
@@ -467,22 +248,13 @@ public class SlayerMonitor {
 		lastAmountSyncMs = 0;
 		lastSyncedAmount = -1;
 		previous = null;
-		currentTaskAssignedAt = null;
-		lastCompletionChatText = null;
-		lastCompletionChatTick = -1;
-		draft = null;
+		finalizeAt = -1;
+		closed = false;
 		// Drop the in-memory capture but keep the persisted copy: the stored
 		// task is only readable while the rewards screen is open, so the last
 		// capture is restored on the next login.
 		storedTask = null;
 		storedTaskDirty = false;
-		// Zero in-memory timing but keep the persisted copy: a task spanning a
-		// client restart restores it on the next login.
-		lastCountSeen = -1;
-		firstKillMs = 0;
-		lastKillMs = 0;
-		activeMs = 0;
-		pendingZeroMs = 0;
 	}
 
 	/** Re-reads and re-pushes slayer state; clears the dedup cache. */
@@ -501,7 +273,6 @@ public class SlayerMonitor {
 				// Slayer varps and DB tables settle shortly after login.
 				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 					previous = null; // don't fabricate a transition across sessions
-					restorePendingEvents();
 					readAndSync(true);
 				}), LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
@@ -519,8 +290,7 @@ public class SlayerMonitor {
 			}
 			String message = net.runelite.client.util.Text.removeTags(event.getMessage());
 			if (COMPLETION_CHAT_PATTERN.matcher(message).find()) {
-				lastCompletionChatText = message;
-				lastCompletionChatTick = client.getTickCount();
+				gameEvents.add("slayer_chat", "text", message);
 				checkPending = true;
 			}
 		});
@@ -552,7 +322,6 @@ public class SlayerMonitor {
 		if (client.getVarpValue(VarPlayerID.IF1) != client.getVarpValue(VarPlayerID.SLAYER_COUNT)
 				|| client.getVarpValue(VarPlayerID.IF2)
 						!= client.getVarpValue(VarPlayerID.SLAYER_TARGET)) {
-			log.debug("Skipping stored-task capture: IF varps serve another interface");
 			return;
 		}
 		int amount = client.getVarpValue(VarPlayerID.IF4);
@@ -582,7 +351,6 @@ public class SlayerMonitor {
 		configManager.setRSProfileConfiguration(
 				"osrscompanion", STORED_TASK_CONFIG_KEY, gson.toJson(capture));
 		checkPending = true;
-		log.debug("Captured stored slayer task: {} x {}", capture.amount, capture.taskName);
 	}
 
 	/**
@@ -601,34 +369,14 @@ public class SlayerMonitor {
 	public void onVarbitChanged(VarbitChanged event) {
 		Guard.run(GUARD_FEATURE, () -> {
 			if (event.getVarpId() == VarPlayerID.SLAYER_COUNT) {
-				trackKillMoment(event.getValue());
+				// Kills (the count going down), for the time spent on the task.
+				gameEvents.add("slayer_count", "v", event.getValue());
 			}
 			if (WATCHED_VARPS.contains(event.getVarpId())
 					|| WATCHED_VARBITS.contains(event.getVarbitId())) {
 				checkPending = true;
 			}
 		});
-	}
-
-	/**
-	 * Feeds active-time tracking from SLAYER_COUNT changes. A decrement to a
-	 * positive value is kills landing; a drop to exactly 0 is either the final
-	 * kill or a cancel, so it is held as a candidate until the transition's
-	 * outcome is known. Increments (assignment, extend) only move the
-	 * reference value.
-	 */
-	private void trackKillMoment(int newValue) {
-		int prev = lastCountSeen;
-		lastCountSeen = newValue;
-		if (prev <= 0 || newValue >= prev) {
-			return;
-		}
-		long nowMs = System.currentTimeMillis();
-		if (newValue == 0) {
-			pendingZeroMs = nowMs;
-		} else {
-			recordKill(nowMs);
-		}
 	}
 
 	@Subscribe
@@ -639,9 +387,10 @@ public class SlayerMonitor {
 				lastOfferScanTick = client.getTickCount();
 				scanForTaskOffers();
 			}
-			if (draft != null
-					&& client.getTickCount() - draft.detectedTick >= EVENT_FINALIZE_DELAY_TICKS) {
-				finalizeDraft();
+			if (finalizeAt >= 0 && client.getTickCount() >= finalizeAt) {
+				finalizeAt = -1;
+				closed = true;
+				gameEvents.add("slayer_fin");
 				readAndSync(false);
 				return;
 			}
@@ -670,44 +419,41 @@ public class SlayerMonitor {
 			return;
 		}
 
-		if (force) {
-			// Logout/force flush: don't leave a transition waiting on chat.
-			finalizeDraft();
-		}
-
 		Snapshot now = readSnapshot();
-		if (previous == null) {
-			// First read of the session: adopt persisted timing only if it
-			// belongs to this task, and the last stored-task capture unless a
-			// live capture already replaced it.
-			restoreTiming(now);
-			if (storedTask == null) {
-				restoreStoredTask();
-			}
+		// First read of the session: the last stored-task capture unless a live capture already replaced it.
+		if (previous == null && storedTask == null) {
+			restoreStoredTask();
 		}
-		detectTransition(previous, now);
+		// For the website (task outcomes and times). first: the first read of a session (no transition from
+		// the one before); force: logout or a forced sync (a task that ended is closed at once).
+		gameEvents.add("slayer", "first", previous == null, "force", force, "task", now.taskId, "boss", now.bossTaskId,
+				"area", now.areaId, "master", now.masterId, "name", now.taskName, "left", now.amountRemaining,
+				"orig", now.amountOriginal, "pts", now.points, "st", now.streak, "wst", now.wildernessStreak,
+				"blk", now.blockList, "bm", now.blockedByMaster);
+		// A forced read closes a task that ended at once; a second task ending closes the first.
+		closed |= force && finalizeAt >= 0;
+		if (previous != null && previous.hasTask() && (!now.hasTask() || !now.sameTask(previous))) {
+			closed |= finalizeAt >= 0;
+			finalizeAt = client.getTickCount() + EVENT_FINALIZE_DELAY_TICKS;
+		}
 		boolean taskChanged = previous == null
 				|| previous.hasTask() != now.hasTask()
 				|| (now.hasTask() && !now.sameTask(previous));
-		if (taskChanged && now.hasTask()) {
-			currentTaskAssignedAt = Instant.now().toString();
-		}
 		// A kill on the task (its count went down): sent at once, outside the amount window.
 		boolean killed = !taskChanged && previous != null && now.hasTask() && now.amountRemaining < previous.amountRemaining;
 		previous = now;
-
-		if (draft != null && !force) {
-			// A transition is waiting out the chat grace window; the finalize
-			// pass in onGameTick sends everything together in a moment.
-			return;
-		}
-		if (force) {
-			finalizeDraft();
+		if (finalizeAt >= 0) {
+			if (!force) {
+				// The task's end is still open; the sync goes with its closing in a moment.
+				return;
+			}
+			closed = true;
+			finalizeAt = -1;
 		}
 
 		boolean amountWindowOpen =
 				System.currentTimeMillis() - lastAmountSyncMs >= AMOUNT_SYNC_MIN_INTERVAL_MS;
-		if (!force && !taskChanged && !killed && pendingEvents.isEmpty() && !amountWindowOpen
+		if (!force && !taskChanged && !killed && !closed && !amountWindowOpen
 				&& !storedTaskDirty) {
 			// A kill inside the window: look again on a later tick, so it goes up once the window
 			// closes instead of waiting for the next kill.
@@ -720,17 +466,15 @@ public class SlayerMonitor {
 		SlayerSyncPayload payload = buildPayload(playerUsername, now);
 		storedTaskDirty = false;
 		String json = payload.toJson(gson);
-		if (json.equals(lastSyncJson)) {
-			log.debug("Slayer state unchanged, skipping sync");
+		if (json.equals(lastSyncJson) && !closed) {
 			return;
 		}
-		lastSyncJson = json;
+		lastSyncJson = closed ? null : json;
+		closed = false;
 		lastAmountSyncMs = System.currentTimeMillis();
 		lastSyncedAmount = now.amountRemaining;
 
-		List<SlayerTaskEvent> sent = new ArrayList<>(pendingEvents);
-		log.debug("Syncing slayer state ({} events) for player: {}", sent.size(), playerUsername);
-		apiClient.sendSlayerSync(payload, () -> onEventsAcknowledged(sent), killed);
+		apiClient.sendSlayerSync(payload, killed);
 	}
 
 	private Snapshot readSnapshot() {
@@ -776,141 +520,6 @@ public class SlayerMonitor {
 			s.taskName = resolveTaskName(s.taskId, s.bossTaskId);
 		}
 		return s;
-	}
-
-	/** Detects a task ending/changing between snapshots and stages a draft event. */
-	private void detectTransition(Snapshot before, Snapshot now) {
-		if (before == null || !before.hasTask()) {
-			return;
-		}
-		boolean ended = !now.hasTask() || !now.sameTask(before);
-		if (!ended) {
-			return;
-		}
-		if (draft != null) {
-			// A second transition before the first finalized (fast skip chain);
-			// close the first with whatever chat state exists now.
-			finalizeDraft();
-		}
-
-		// Membership is checked on the byte-decoded ids, and as a before/after
-		// delta so stray non-block bytes in these varps can't false-positive.
-		boolean blockListGained = before.taskId != null
-				&& !before.decodedBlockIds().contains(before.taskId)
-				&& now.decodedBlockIds().contains(before.taskId);
-		draft = new PendingTransition(
-				before, now, blockListGained, currentTaskAssignedAt, client.getTickCount(),
-				firstKillMs, lastKillMs, activeMs, pendingZeroMs);
-		resetTiming();
-		currentTaskAssignedAt = null;
-		log.debug("Slayer task transition staged: {}", before.taskName);
-	}
-
-	/** Builds and queues the event for the staged transition, if any. */
-	private void finalizeDraft() {
-		if (draft == null) {
-			return;
-		}
-		Snapshot before = draft.before;
-		Snapshot after = draft.after;
-		// The window spans both directions around the detection tick: chat can
-		// precede the varp flip or trail it by a tick or two (observed live: a
-		// real completion's message landed after detection and was missed).
-		boolean chatRecent = lastCompletionChatTick != -1
-				&& Math.abs(lastCompletionChatTick - draft.detectedTick) <= CHAT_ATTACH_WINDOW_TICKS;
-
-		// The count reaching 0 is only evidence of a last kill once a charge has
-		// been ruled out: a cancel clears the same varp to 0.
-		boolean countedDownToZero = draft.pendingZeroMs > 0;
-
-		String outcome = claimOutcome(
-				before.streak, after.streak,
-				before.wildernessStreak, after.wildernessStreak,
-				before.points, after.points,
-				chatRecent, draft.blockListGained, countedDownToZero);
-		// A completed task by definition reached 0; the before-snapshot can lag
-		// the final kill (observed live: a completion closed with 1 remaining).
-		int amountAtEnd = "completed".equals(outcome) ? 0 : before.amountRemaining;
-
-		// The drop to 0 was the final kill only if the task completed; on a
-		// cancel it is just the varp clearing and contributes nothing.
-		long lastKill = draft.lastKillMs;
-		long active = draft.activeMs;
-		if ("completed".equals(outcome) && draft.pendingZeroMs > 0) {
-			if (lastKill > 0 && draft.pendingZeroMs - lastKill <= ACTIVE_GAP_CAP_MS) {
-				active += draft.pendingZeroMs - lastKill;
-			}
-			lastKill = draft.pendingZeroMs;
-		}
-		long first = draft.firstKillMs;
-
-		SlayerTaskEvent taskEvent = new SlayerTaskEvent(
-				UUID.randomUUID().toString(),
-				outcome,
-				before.taskId,
-				before.taskName,
-				before.bossTaskId,
-				before.areaId,
-				before.masterId,
-				before.amountOriginal,
-				amountAtEnd,
-				before.streak,
-				after.streak,
-				before.wildernessStreak,
-				after.wildernessStreak,
-				before.points,
-				after.points,
-				countedDownToZero,
-				chatRecent,
-				chatRecent ? lastCompletionChatText : null,
-				draft.blockListGained,
-				draft.assignedAt,
-				Instant.now().toString(),
-				isoOrNull(first),
-				isoOrNull(lastKill),
-				first == 0 ? null : active / 1000);
-		pendingEvents.add(taskEvent);
-		persistPendingEvents();
-		lastCompletionChatTick = -1;
-		lastCompletionChatText = null;
-		draft = null;
-		log.debug("Slayer task transition: {} -> {}", taskEvent.getTaskName(), outcome);
-	}
-
-	/**
-	 * This client's outcome claim, mirroring the backend decision table: streak
-	 * advance (either counter) or a completion chat line means completed; the
-	 * block list gaining the task means blocked; a points drop with neither is
-	 * a skip. Point AMOUNTS never classify (Mortimer's skip costs the classic
-	 * block price), the backend checks them against per-master costs.
-	 *
-	 * <p>Once a charge is ruled out, the SIGN still carries: a gain can only be
-	 * an award, and an observed countdown to 0 with nothing charged can only be
-	 * a last kill. Mortimer needs both. It keeps its own streak, which no varbit
-	 * exposes, and its tasks pay only their offer modifier, so one offered
-	 * without a modifier completes with no points movement at all.
-	 */
-	static String claimOutcome(
-			int streakBefore, int streakAfter,
-			int wildStreakBefore, int wildStreakAfter,
-			int pointsBefore, int pointsAfter,
-			boolean chatMatched, boolean blockListGained, boolean countedDownToZero) {
-		if (streakAfter > streakBefore || wildStreakAfter > wildStreakBefore || chatMatched) {
-			return "completed";
-		}
-		if (blockListGained) {
-			return "blocked";
-		}
-		if (streakAfter == 0 && streakBefore > 0) {
-			return "reset";
-		}
-		if (pointsAfter < pointsBefore) {
-			return "skipped";
-		}
-		if (pointsAfter > pointsBefore || countedDownToZero) {
-			return "completed";
-		}
-		return "unknown";
 	}
 
 	private static final String TASK_SIZE_CONFIG_KEY = "slayerTaskSize";
@@ -1019,7 +628,6 @@ public class SlayerMonitor {
 			return (String) client.getDBTableField(
 					taskDbRow, DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0)[0];
 		} catch (RuntimeException e) {
-			log.debug("Slayer task name resolution failed for task {}", taskId, e);
 			return null;
 		}
 	}
@@ -1137,8 +745,6 @@ public class SlayerMonitor {
 		pendingOfferRows = modifierCount(offers) < offers.size() ? rows : null;
 		offersCapturedMs = System.currentTimeMillis();
 		offersCapturedAt = Instant.now().toString();
-		log.debug("Captured {} slayer task offers, {} with a modifier",
-				offers.size(), modifierCount(offers));
 		readAndSync(true);
 	}
 
@@ -1299,11 +905,8 @@ public class SlayerMonitor {
 				buildExtra(s),
 				s.slayerLevel,
 				s.slayerXp,
-				isoOrNull(firstKillMs),
-				isoOrNull(lastKillMs),
-				firstKillMs == 0 ? null : activeMs / 1000,
 				Instant.now().toString());
-		return new SlayerSyncPayload(playerUsername, state, new ArrayList<>(pendingEvents));
+		return new SlayerSyncPayload(playerUsername, state);
 	}
 
 	/** Assembles the state extra map: stored task, each master's block list and any recent task offers. */
@@ -1353,51 +956,7 @@ public class SlayerMonitor {
 				storedTask = parsed;
 			}
 		} catch (RuntimeException e) {
-			log.debug("Discarding unparseable stored-task capture", e);
 			configManager.unsetRSProfileConfiguration("osrscompanion", STORED_TASK_CONFIG_KEY);
-		}
-	}
-
-	/** Drops acknowledged events from the queue and re-persists the remainder. */
-	private void onEventsAcknowledged(List<SlayerTaskEvent> sent) {
-		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
-			pendingEvents.removeIf(e -> sent.stream()
-					.anyMatch(a -> a.getEventUuid().equals(e.getEventUuid())));
-			persistPendingEvents();
-		});
-	}
-
-	private void persistPendingEvents() {
-		if (pendingEvents.isEmpty()) {
-			configManager.unsetRSProfileConfiguration("osrscompanion", PENDING_EVENTS_CONFIG_KEY);
-		} else {
-			configManager.setRSProfileConfiguration(
-					"osrscompanion", PENDING_EVENTS_CONFIG_KEY, gson.toJson(pendingEvents));
-		}
-	}
-
-	/** Reloads events that were queued but never acknowledged (crash, failed POST). */
-	private void restorePendingEvents() {
-		String stored =
-				configManager.getRSProfileConfiguration("osrscompanion", PENDING_EVENTS_CONFIG_KEY);
-		if (stored == null || stored.isEmpty()) {
-			return;
-		}
-		try {
-			List<SlayerTaskEvent> restored = gson.fromJson(
-					stored, new TypeToken<List<SlayerTaskEvent>>() { }.getType());
-			if (restored != null) {
-				for (SlayerTaskEvent e : restored) {
-					boolean alreadyQueued = pendingEvents.stream()
-							.anyMatch(p -> p.getEventUuid().equals(e.getEventUuid()));
-					if (!alreadyQueued) {
-						pendingEvents.add(e);
-					}
-				}
-			}
-		} catch (RuntimeException e) {
-			log.warn("Discarding unparseable pending slayer events", e);
-			configManager.unsetRSProfileConfiguration("osrscompanion", PENDING_EVENTS_CONFIG_KEY);
 		}
 	}
 }

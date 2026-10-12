@@ -1,0 +1,30 @@
+fill rect(0,0,150,120) #463d329c
+draw rect(0,0,149,119) #383028da w=1
+draw rect(1,1,147,117) #54493cda w=1
+text 'Slayer: Abyssal demons' 5,21 RuneScape/0/16 #000000ff
+text 'Slayer: Abyssal demons' 4,20 RuneScape/0/16 #f28c28ff
+text 'Left' 5,37 RuneScape/0/16 #000000ff
+text 'Left' 4,36 RuneScape/0/16 #a5a5a5ff
+text '143 / 180' 93,37 RuneScape/0/16 #000000ff
+text '143 / 180' 92,36 RuneScape/0/16 #ffffffff
+text 'Time here' 5,53 RuneScape/0/16 #000000ff
+text 'Time here' 4,52 RuneScape/0/16 #a5a5a5ff
+text '19:59' 115,53 RuneScape/0/16 #000000ff
+text '19:59' 114,52 RuneScape/0/16 #ffffffff
+text 'TTK' 5,69 RuneScape/0/16 #000000ff
+text 'TTK' 4,68 RuneScape/0/16 #a5a5a5ff
+text '-' 141,69 RuneScape/0/16 #000000ff
+text '-' 140,68 RuneScape/0/16 #ffffffff
+text 'Time per kill' 5,85 RuneScape/0/16 #000000ff
+text 'Time per kill' 4,84 RuneScape/0/16 #a5a5a5ff
+text '32.4s' 115,85 RuneScape/0/16 #000000ff
+text '32.4s' 114,84 RuneScape/0/16 #ffffffff
+text 'Kills/h' 5,101 RuneScape/0/16 #000000ff
+text 'Kills/h' 4,100 RuneScape/0/16 #a5a5a5ff
+text '111' 129,101 RuneScape/0/16 #000000ff
+text '111' 128,100 RuneScape/0/16 #ffffffff
+text 'Est. left' 5,117 RuneScape/0/16 #000000ff
+text 'Est. left' 4,116 RuneScape/0/16 #a5a5a5ff
+text '1:17:15' 109,117 RuneScape/0/16 #000000ff
+text '1:17:15' 108,116 RuneScape/0/16 #ffffffff
+=> 150x120

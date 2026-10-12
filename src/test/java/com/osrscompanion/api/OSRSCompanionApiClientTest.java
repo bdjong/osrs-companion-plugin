@@ -4,9 +4,8 @@ import com.google.gson.Gson;
 import com.osrscompanion.OSRSCompanionConfig;
 import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.PlayerSkillsSyncPayload;
-import com.osrscompanion.model.TimerSyncItem;
-import com.osrscompanion.model.TimersSyncPayload;
-import java.time.Instant;
+import com.osrscompanion.model.Roadmap;
+import com.osrscompanion.model.RoadmapList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,25 +39,8 @@ public class OSRSCompanionApiClientTest {
 	@Test
 	public void testSendWithEmptyAppKeyDoesNotThrow() {
 		OSRSCompanionApiClient client = new OSRSCompanionApiClient(emptyKeyConfig(), new Gson(), new OkHttpClient());
-		TimerSyncItem item = new TimerSyncItem("bird house", "fossil island", "bird house",
-				Instant.ofEpochSecond(1700000000L), true, "TestPlayer", null, null, null, 0);
-		client.sendTimersSync(Collections.singletonList(item));
+		client.sendTimeTracking("{\"player_username\":\"TestPlayer\",\"profile\":{}}", "TestPlayer");
 		// Should not throw; with empty key it returns early
-	}
-
-	@Test
-	public void testPayloadStructure() {
-		TimerSyncItem item = new TimerSyncItem("tree", "farming guild", "Oak tree", Instant.ofEpochSecond(1700000000L),
-				true, "TestPlayer", null, null, null, 0);
-		String json = TimersSyncPayload.toJson(Collections.singletonList(item));
-		assertNotNull(json);
-		assertTrue(json.contains("\"timers\""));
-		assertTrue(json.contains("\"timer_type\":\"tree\""));
-		assertTrue(json.contains("\"region\":\"farming guild\""));
-		assertTrue(json.contains("\"entity\":\"oak tree\""));
-		assertTrue(json.contains("\"completed_at\""));
-		assertTrue(json.contains("\"notifications_enabled\":true"));
-		assertTrue(json.contains("\"player_username\":\"TestPlayer\""));
 	}
 
 	@Test
@@ -105,6 +87,44 @@ public class OSRSCompanionApiClientTest {
 	}
 
 	@Test
+	public void testGetRoadmapsWithEmptyKeyCallsOnError() {
+		OSRSCompanionApiClient client = new OSRSCompanionApiClient(emptyKeyConfig(), new Gson(), new OkHttpClient());
+		AtomicReference<String> error = new AtomicReference<>();
+		AtomicBoolean success = new AtomicBoolean(false);
+		client.getRoadmaps("TestPlayer", new OSRSCompanionApiClient.RoadmapCallback<RoadmapList>() {
+			@Override
+			public void onSuccess(RoadmapList result) {
+				success.set(true);
+			}
+
+			@Override
+			public void onError(String message) {
+				error.set(message);
+			}
+		});
+		// No key => synchronous onError, no network call.
+		assertFalse(success.get());
+		assertNotNull(error.get());
+	}
+
+	@Test
+	public void testRecomputeRoadmapWithEmptyKeyCallsOnError() {
+		OSRSCompanionApiClient client = new OSRSCompanionApiClient(emptyKeyConfig(), new Gson(), new OkHttpClient());
+		AtomicReference<String> error = new AtomicReference<>();
+		client.recomputeRoadmap(1, "TestPlayer", new OSRSCompanionApiClient.RoadmapCallback<Roadmap>() {
+			@Override
+			public void onSuccess(Roadmap result) {
+			}
+
+			@Override
+			public void onError(String message) {
+				error.set(message);
+			}
+		});
+		assertEquals("No OSRS Companion App Key configured", error.get());
+	}
+
+	@Test
 	public void testIsDuplicateReturnsFalseWhenPreviousNull() {
 		/* First-ever send for a syncType always goes out. */
 		assertFalse(OSRSCompanionApiClient.isDuplicate(null, "{\"timers\":[]}"));
@@ -128,10 +148,9 @@ public class OSRSCompanionApiClientTest {
 	public void testDuplicateSendWithEmptyAppKeyDoesNotThrow() {
 		/* The dedupe guard runs after the app-key guard, so the empty-key path is unaffected. */
 		OSRSCompanionApiClient client = new OSRSCompanionApiClient(emptyKeyConfig(), new Gson(), new OkHttpClient());
-		TimerSyncItem item = new TimerSyncItem("bird house", "fossil island", "bird house",
-				Instant.ofEpochSecond(1700000000L), true, "TestPlayer", null, null, null, 0);
-		client.sendTimersSync(Collections.singletonList(item));
-		client.sendTimersSync(Collections.singletonList(item));
+		String json = "{\"player_username\":\"TestPlayer\",\"profile\":{}}";
+		client.sendTimeTracking(json, "TestPlayer");
+		client.sendTimeTracking(json, "TestPlayer");
 		// Should not throw; with empty key both return early before the dedupe check
 	}
 
@@ -160,9 +179,9 @@ public class OSRSCompanionApiClientTest {
 		CountDownLatch done = new CountDownLatch(1);
 		OSRSCompanionApiClient client = new OSRSCompanionApiClient(config, new Gson(), recordingClient(sent, done));
 
-		client.getWebVersion("Zezima", new OSRSCompanionApiClient.RoadmapCallback<Integer>() {
+		client.getRoadmaps("Zezima", new OSRSCompanionApiClient.RoadmapCallback<RoadmapList>() {
 			@Override
-			public void onSuccess(Integer result) {
+			public void onSuccess(RoadmapList result) {
 			}
 
 			@Override

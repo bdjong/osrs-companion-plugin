@@ -1,7 +1,6 @@
 package com.osrscompanion;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Supplier;
 
 /**

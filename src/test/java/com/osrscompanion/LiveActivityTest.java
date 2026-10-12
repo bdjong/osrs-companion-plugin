@@ -40,20 +40,16 @@ public class LiveActivityTest {
 		s.minigame = null;
 		LiveActivity.Choice boss = LiveActivity.choose(s);
 		assertEquals(LiveActivity.Kind.BOSS, boss.kind);
-		assertEquals("Vorkath", boss.detail);
 		s.boss = null;
 		LiveActivity.Choice slayer = LiveActivity.choose(s);
 		assertEquals(LiveActivity.Kind.SLAYER, slayer.kind);
-		assertEquals("Blue dragons · 12 left", slayer.detail);
-		assertEquals("Blue dragons", slayer.subject);
+		assertEquals("blue dragons", slayer.subject);
 		s.slaying = false;
 		LiveActivity.Choice farm = LiveActivity.choose(s);
 		assertEquals(LiveActivity.Kind.FARM_RUN, farm.kind);
-		assertEquals("Herb run · 3/9 patches", farm.detail);
 		s.farmRoute = null;
 		LiveActivity.Choice combat = LiveActivity.choose(s);
 		assertEquals(LiveActivity.Kind.COMBAT, combat.kind);
-		assertEquals("Blue dragon", combat.detail);
 		s.combatNpc = null;
 		assertEquals(LiveActivity.Kind.SKILLING, LiveActivity.choose(s).kind);
 		s.skill = null;
@@ -83,7 +79,6 @@ public class LiveActivityTest {
 		s.slayerLeft = 11;
 		LiveActivity.Choice after = LiveActivity.choose(s);
 		assertEquals(before, after.key());
-		assertEquals("Blue dragons · 11 left", after.detail);
 	}
 
 	@Test
@@ -172,13 +167,6 @@ public class LiveActivityTest {
 	}
 
 	@Test
-	public void capitalize() {
-		assertEquals("Abyssal demons", LiveActivity.capitalize("abyssal demons"));
-		assertEquals("Fishing", LiveActivity.capitalize("FISHING"));
-		assertEquals("Fishing", LiveActivity.capitalize("Fishing"));
-	}
-
-	@Test
 	public void magicDetail() {
 		LiveActivity.Signals s = new LiveActivity.Signals();
 		s.skill = "magic";
@@ -187,15 +175,12 @@ public class LiveActivityTest {
 		LiveActivity.Choice c = LiveActivity.choose(s);
 		assertEquals(LiveActivity.Kind.SKILLING, c.kind);
 		assertEquals("High Level Alchemy", c.subject);
-		assertEquals("High alching Rune platebody · 37 alchs", c.detail);
-		assertEquals("Rune platebody.png", c.icon);
+		assertEquals(37, c.parts.get("alchs"));
 
 		// A teleport: Magic stays the subject (one stretch on the website), the place is the detail.
 		s.teleport = MagicSpells.fromMenu("Cast", "Varrock Teleport", false);
 		c = LiveActivity.choose(s);
 		assertEquals("skilling|Magic", c.key());
-		assertEquals("Teleported to Varrock", c.detail);
-		assertEquals("Varrock Teleport.png", c.icon);
 		s.teleport = MagicSpells.fromMenu("Cast", "Camelot Teleport", false);
 		assertEquals("skilling|Magic", LiveActivity.choose(s).key());
 
@@ -206,8 +191,6 @@ public class LiveActivityTest {
 		c = LiveActivity.choose(s);
 		assertEquals(LiveActivity.Kind.COMBAT, c.kind);
 		assertEquals("Hill Giant", c.subject);
-		assertEquals("Training Magic on Hill Giant · Fire Strike", c.detail);
-		assertEquals("Fire Strike.png", c.icon);
 	}
 
 	@Test
@@ -216,19 +199,18 @@ public class LiveActivityTest {
 		s.skill = "fishing";
 		s.skillItem = "Raw shark";
 		LiveActivity.Choice c = LiveActivity.choose(s);
-		assertEquals("skilling|Fishing", c.key());
-		assertEquals("Fishing · Raw shark", c.detail);
-		assertEquals("Raw shark.png", c.icon);
+		assertEquals("skilling|fishing", c.key());
+		assertEquals("Raw shark", c.parts.get("item"));
 
 		s = new LiveActivity.Signals();
 		s.slayerTask = "abyssal demons";
 		s.slaying = true;
 		s.slayerNpc = "Abyssal demon";
-		assertEquals("Abyssal demon.png", LiveActivity.choose(s).icon);
+		assertEquals("Abyssal demon", LiveActivity.choose(s).parts.get("npc"));
 		s = new LiveActivity.Signals();
 		s.farmRoute = "Herb run";
 		s.farmItem = "Ranarr weed";
-		assertEquals("Ranarr weed.png", LiveActivity.choose(s).icon);
+		assertEquals("Ranarr weed", LiveActivity.choose(s).parts.get("item"));
 	}
 
 	@Test

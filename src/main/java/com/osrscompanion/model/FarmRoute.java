@@ -1,22 +1,22 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * The active farm route as returned by GET /api/runelite/farm-route/: the stops in run
  * order, each with the way there and the patches to farm, plus the loadout.
  */
 public class FarmRoute {
+	@Getter
 	@SerializedName("id")
 	private int id;
 
 	@SerializedName("name")
 	private String name;
 
+	@Getter
 	@SerializedName("summary")
 	private Summary summary;
 
@@ -33,27 +33,22 @@ public class FarmRoute {
 	private List<String> runes;
 
 	/** The spellbook to be on ("Normal") when the route casts teleports, else null. */
+	@Getter
 	@SerializedName("spellbook")
 	private String spellbook;
 
 	/** How many things changed since the route was saved (new unlocks etc.); 0 = nothing to review. */
+	@Getter
 	@SerializedName("review_changes")
 	private int reviewChanges;
 
 	/** The run is ready (website lib/timers.ts routeReady): no crop of it still growing or diseased, at least one ready; compost bins, empty, dead and never-checked patches do not count. */
+	@Getter
 	@SerializedName("ready")
 	private boolean ready;
 
-	public int getId() {
-		return id;
-	}
-
 	public String getName() {
 		return name == null ? "Farm run" : name;
-	}
-
-	public Summary getSummary() {
-		return summary;
 	}
 
 	public List<Stop> getStops() {
@@ -70,18 +65,6 @@ public class FarmRoute {
 
 	public List<String> getRunes() {
 		return runes == null ? Collections.emptyList() : runes;
-	}
-
-	public String getSpellbook() {
-		return spellbook;
-	}
-
-	public int getReviewChanges() {
-		return reviewChanges;
-	}
-
-	public boolean isReady() {
-		return ready;
 	}
 
 	/**
@@ -132,87 +115,61 @@ public class FarmRoute {
 	}
 
 	public static class Summary {
+		@Getter
 		@SerializedName("patches")
 		private int patches;
 
+		@Getter
 		@SerializedName("xp")
 		private int xp;
 
+		@Getter
 		@SerializedName("activeSec")
 		private int activeSec;
 
+		/** Estimated profit of every patch (GE prices). */
+		@Getter
 		@SerializedName("gp")
 		private int gp;
 
-		public int getPatches() {
-			return patches;
-		}
-
-		public int getXp() {
-			return xp;
-		}
-
-		public int getActiveSec() {
-			return activeSec;
-		}
-
-		/** Estimated profit of every patch (GE prices). */
-		public int getGp() {
-			return gp;
-		}
 	}
 
 	public static class Stop {
+		@Getter
 		@SerializedName("key")
 		private String key;
 
 		@SerializedName("name")
 		private String name;
 
+		@Getter
 		@SerializedName("x")
 		private int x;
 
+		@Getter
 		@SerializedName("y")
 		private int y;
 
+		@Getter
 		@SerializedName("plane")
 		private int plane;
 
 		@SerializedName("travel")
 		private Travel travel;
 
+		@Getter
 		@SerializedName("note")
 		private String note;
 
 		@SerializedName("patches")
 		private List<Patch> patches;
 
-		public String getKey() {
-			return key;
-		}
-
 		public String getName() {
 			return name == null ? "" : name;
 		}
 
-		public int getX() {
-			return x;
-		}
-
-		public int getY() {
-			return y;
-		}
-
-		public int getPlane() {
-			return plane;
-		}
-
 		public Travel getTravel() {
 			return travel == null ? new Travel() : travel;
-		}
-
-		public String getNote() {
-			return note;
 		}
 
 		public List<Patch> getPatches() {
@@ -230,17 +187,21 @@ public class FarmRoute {
 		@SerializedName("items")
 		private List<Integer> items;
 
+		@Getter
 		@SerializedName("spell")
 		private boolean spell;
 
+		@Getter
 		@SerializedName("walk")
 		private boolean walk;
 
 		/** A minigame (Grouping) teleport: they share a 20-minute cooldown. */
+		@Getter
 		@SerializedName("minigame")
 		private boolean minigame;
 
 		/** For a minigame teleport: the way there while it is on cooldown; null when there is none. */
+		@Getter
 		@SerializedName("fallback")
 		private Travel fallback;
 
@@ -256,24 +217,10 @@ public class FarmRoute {
 			return items == null ? Collections.emptyList() : items;
 		}
 
-		public boolean isSpell() {
-			return spell;
-		}
-
-		public boolean isWalk() {
-			return walk;
-		}
-
-		public boolean isMinigame() {
-			return minigame;
-		}
-
-		public Travel getFallback() {
-			return fallback;
-		}
 	}
 
 	public static class Patch {
+		@Getter
 		@SerializedName("key")
 		private String key;
 
@@ -283,24 +230,31 @@ public class FarmRoute {
 		@SerializedName("name")
 		private String name;
 
+		@Getter
 		@SerializedName("region")
 		private String region;
 
+		@Getter
 		@SerializedName("varbit")
 		private int varbit;
 
+		@Getter
 		@SerializedName("impl")
 		private String impl;
 
+		@Getter
 		@SerializedName("crop")
 		private String crop;
 
+		@Getter
 		@SerializedName("seed")
 		private Integer seed;
 
+		@Getter
 		@SerializedName("seed_name")
 		private String seedName;
 
+		@Getter
 		@SerializedName("seed_qty")
 		private int seedQty;
 
@@ -310,6 +264,7 @@ public class FarmRoute {
 		@SerializedName("ready")
 		private String ready;
 
+		@Getter
 		@SerializedName("note")
 		private String note;
 
@@ -318,16 +273,14 @@ public class FarmRoute {
 		private Boolean compost;
 
 		/** Estimated profit of the crop (GE prices). */
+		@Getter
 		@SerializedName("gp")
 		private int gp;
 
 		/** What the crop gives (the herb, the fruit...); null for trees and from an older website. */
+		@Getter
 		@SerializedName("produce")
 		private Integer produce;
-
-		public String getKey() {
-			return key;
-		}
 
 		public String getType() {
 			return type == null ? "Patch" : type;
@@ -335,34 +288,6 @@ public class FarmRoute {
 
 		public String getName() {
 			return name == null ? "" : name;
-		}
-
-		public String getRegion() {
-			return region;
-		}
-
-		public int getVarbit() {
-			return varbit;
-		}
-
-		public String getImpl() {
-			return impl;
-		}
-
-		public String getCrop() {
-			return crop;
-		}
-
-		public Integer getSeed() {
-			return seed;
-		}
-
-		public String getSeedName() {
-			return seedName;
-		}
-
-		public int getSeedQty() {
-			return seedQty;
 		}
 
 		public List<Stack> getProtect() {
@@ -374,36 +299,29 @@ public class FarmRoute {
 			return ready == null ? "unknown" : ready;
 		}
 
-		public String getNote() {
-			return note;
-		}
-
 		public boolean takesCompost() {
 			return compost != null ? compost : impl == null || !impl.contains("COMPOST");
 		}
 
-		public int getGp() {
-			return gp;
-		}
-
-		public Integer getProduce() {
-			return produce;
-		}
 	}
 
 	public static class Stack {
+		@Getter
 		@SerializedName("item")
 		private int item;
 
+		@Getter
 		@SerializedName("qty")
 		private int qty = 1;
 
 		@SerializedName("name")
 		private String name;
 
+		@Getter
 		@SerializedName("why")
 		private String why;
 
+		@Getter
 		@SerializedName("slot")
 		private String slot;
 
@@ -411,24 +329,8 @@ public class FarmRoute {
 		@SerializedName("where")
 		private Map<String, Integer> where;
 
-		public int getItem() {
-			return item;
-		}
-
-		public int getQty() {
-			return qty;
-		}
-
 		public String getName() {
 			return name == null ? "Item" : name;
-		}
-
-		public String getWhy() {
-			return why;
-		}
-
-		public String getSlot() {
-			return slot;
 		}
 
 		public Map<String, Integer> getWhere() {
@@ -458,25 +360,19 @@ public class FarmRoute {
 	}
 
 	public static class RouteSummary {
+		@Getter
 		@SerializedName("id")
 		private int id;
 
 		@SerializedName("name")
 		private String name;
 
+		@Getter
 		@SerializedName("active")
 		private boolean active;
 
-		public int getId() {
-			return id;
-		}
-
 		public String getName() {
 			return name == null ? "Route" : name;
-		}
-
-		public boolean isActive() {
-			return active;
 		}
 
 		@Override
@@ -487,15 +383,12 @@ public class FarmRoute {
 
 	/** GET /api/runelite/farm-route/ and the activate call: the active route (or null) and every route. */
 	public static class Response {
+		@Getter
 		@SerializedName("route")
 		private FarmRoute route;
 
 		@SerializedName("routes")
 		private List<RouteSummary> routes;
-
-		public FarmRoute getRoute() {
-			return route;
-		}
 
 		public List<RouteSummary> getRoutes() {
 			return routes == null ? Collections.emptyList() : routes;

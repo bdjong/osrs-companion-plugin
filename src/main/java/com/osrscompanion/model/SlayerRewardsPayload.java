@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.List;
 
@@ -11,9 +12,11 @@ import java.util.List;
  */
 public class SlayerRewardsPayload {
 	public static class Row {
+		@Getter
 		private final String name;
 		private final Integer amount_min;
 		private final Integer amount_max;
+		@Getter
 		private final double percent;
 		private final int status_sprite;
 
@@ -26,17 +29,11 @@ public class SlayerRewardsPayload {
 			this.status_sprite = statusSprite;
 		}
 
-		public String getName() {
-			return name;
-		}
-
-		public double getPercent() {
-			return percent;
-		}
 	}
 
 	private final String player_username;
 	private final Integer master_id;
+	@Getter
 	private final List<Row> rows;
 	private final String captured_at;
 
@@ -50,10 +47,6 @@ public class SlayerRewardsPayload {
 
 	public String getPlayerUsername() {
 		return player_username;
-	}
-
-	public List<Row> getRows() {
-		return rows;
 	}
 
 	public String toJson(Gson gson) {

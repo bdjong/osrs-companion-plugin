@@ -1,0 +1,287 @@
+fillRect 10,10,745,483 #3e3529ff
+drawRect 11,11,742,480 #0e0c08ff w=3
+drawRect 13,13,738,476 #5d5240ff w=1
+text 'Farm Run' 354,31 RuneScape Bold/1/16 #000000ff
+text 'Farm Run' 353,30 RuneScape Bold/1/16 #ff981fff
+fillRect 727,16,20,18 #3e3529ff
+drawRect 727,16,19,17 #14110cff w=1
+drawRect 728,17,17,15 #6a5c48ff w=1
+line 733,21-741,29 #c8a24aff w=2
+line 741,21-733,29 #c8a24aff w=2
+line 18,38-746,38 #14110cff w=1
+line 18,39-746,39 #5d5240ff w=1
+text 'Route: ' 23,55 RuneScape Small/0/16 #000000ff
+text 'Route: ' 22,54 RuneScape Small/0/16 #c9b98fff
+text 'Herbs + trees' 58,55 RuneScape/0/16 #000000ff
+text 'Herbs + trees' 57,54 RuneScape/0/16 #ffffffff
+text '  READY' 135,55 RuneScape/0/16 #000000ff
+text '  READY' 134,54 RuneScape/0/16 #0dc10dff
+fillRect 183,41,62,17 #3e3529ff
+drawRect 183,41,61,16 #14110cff w=1
+drawRect 184,42,59,14 #6a5c48ff w=1
+text 'Switch' 199,56 RuneScape Small/0/16 #000000ff
+text 'Switch' 198,55 RuneScape Small/0/16 #ff981fff
+fillRect 623,40,120,20 #3e3529ff
+drawRect 623,40,119,19 #14110cff w=1
+drawRect 624,41,117,17 #6a5c48ff w=1
+text 'Start run' 661,55 RuneScape Small/0/16 #000000ff
+text 'Start run' 660,54 RuneScape Small/0/16 #ff981fff
+fillRect 18,66,298,250 #2e2820ff
+drawRect 18,66,297,249 #14110cff w=1
+drawRect 19,67,295,247 #4a4134ff w=1
+text 'Stops' 29,85 RuneScape Bold/1/16 #000000ff
+text 'Stops' 28,84 RuneScape Bold/1/16 #ff981fff
+text 'ready  ' 167,84 RuneScape Small/0/16 #000000ff
+text 'ready  ' 166,83 RuneScape Small/0/16 #0dc10dff
+text 'growing  ' 202,84 RuneScape Small/0/16 #000000ff
+text 'growing  ' 201,83 RuneScape Small/0/16 #9a9080ff
+text 'not checked' 247,84 RuneScape Small/0/16 #000000ff
+text 'not checked' 246,83 RuneScape Small/0/16 #c9b98fff
+fillRect 22,92,290,46 #5a4d3aff clip(22,92,290,220)
+drawRect 22,92,289,45 #ff981fff w=1 clip(22,92,290,220)
+text '1.' 29,109 RuneScape/0/16 #000000ff clip(22,92,290,220)
+text '1.' 28,108 RuneScape/0/16 #ffffffff clip(22,92,290,220)
+text 'Falador (south of the city)' 43,109 RuneScape/0/16 #000000ff clip(22,92,290,220)
+text 'Falador (south of the city)' 42,108 RuneScape/0/16 #ffffffff clip(22,92,290,220)
+image item:5295 240,96 20x18 #ffffffff clip(22,92,290,220)
+fillRect 241,116,19,4 #000000ff clip(22,92,290,220)
+fillRect 242,117,17,2 #c9b98fff clip(22,92,290,220)
+image item:5100 262,96 20x18 #c9b98fff clip(22,92,290,220)
+fillRect 263,116,19,4 #000000ff clip(22,92,290,220)
+fillRect 264,117,17,2 #c9b98fff clip(22,92,290,220)
+image item:22879 284,96 20x18 #c9b98fff clip(22,92,290,220)
+fillRect 285,116,19,4 #000000ff clip(22,92,290,220)
+fillRect 286,117,17,2 #c9b98fff clip(22,92,290,220)
+image item:13128 42,114 20x18 #c9b98fff clip(22,92,290,220)
+text 'Explorer's ring 4' 65,130 RuneScape Small/0/16 #000000ff clip(22,92,290,220)
+text 'Explorer's ring 4' 64,129 RuneScape Small/0/16 #c9b98fff clip(22,92,290,220)
+text '2.' 29,157 RuneScape/0/16 #000000ff clip(22,92,290,220)
+text '2.' 28,156 RuneScape/0/16 #ffffffff clip(22,92,290,220)
+text 'Tree Gnome Stronghold' 45,157 RuneScape/0/16 #000000ff clip(22,92,290,220)
+text 'Tree Gnome Stronghold' 44,156 RuneScape/0/16 #ffffffff clip(22,92,290,220)
+image item:5374 284,144 20x18 #ffffffff clip(22,92,290,220)
+fillRect 285,164,19,4 #000000ff clip(22,92,290,220)
+fillRect 286,165,17,2 #c9b98fff clip(22,92,290,220)
+text 'Spirit tree' 45,178 RuneScape Small/0/16 #000000ff clip(22,92,290,220)
+text 'Spirit tree' 44,177 RuneScape Small/0/16 #c9b98fff clip(22,92,290,220)
+text '3.' 29,205 RuneScape/0/16 #000000ff clip(22,92,290,220)
+text '3.' 28,204 RuneScape/0/16 #ffffffff clip(22,92,290,220)
+text 'Farming Guild' 44,205 RuneScape/0/16 #000000ff clip(22,92,290,220)
+text 'Farming Guild' 43,204 RuneScape/0/16 #ffffffff clip(22,92,290,220)
+image item:5304 262,192 20x18 #ffffffff clip(22,92,290,220)
+fillRect 263,212,19,4 #000000ff clip(22,92,290,220)
+fillRect 264,213,17,2 #c9b98fff clip(22,92,290,220)
+fillRect 285,212,19,4 #000000ff clip(22,92,290,220)
+fillRect 286,213,17,2 #c9b98fff clip(22,92,290,220)
+image item:9810 42,210 20x18 #c9b98fff clip(22,92,290,220)
+text 'Farming cape' 65,226 RuneScape Small/0/16 #000000ff clip(22,92,290,220)
+text 'Farming cape' 64,225 RuneScape Small/0/16 #c9b98fff clip(22,92,290,220)
+fillRect 18,322,298,161 #2e2820ff
+drawRect 18,322,297,160 #14110cff w=1
+drawRect 19,323,295,158 #4a4134ff w=1
+text 'This run' 29,341 RuneScape Bold/1/16 #000000ff
+text 'This run' 28,340 RuneScape Bold/1/16 #ff981fff
+text 'Patches' 31,361 RuneScape/0/16 #000000ff
+text 'Patches' 30,360 RuneScape/0/16 #c9b98fff
+text '6' 297,361 RuneScape/0/16 #000000ff
+text '6' 296,360 RuneScape/0/16 #ffffffff
+text 'Ready' 31,378 RuneScape/0/16 #000000ff
+text 'Ready' 30,377 RuneScape/0/16 #c9b98fff
+text '0' 297,378 RuneScape/0/16 #000000ff
+text '0' 296,377 RuneScape/0/16 #ffffffff
+text 'Run time' 31,395 RuneScape/0/16 #000000ff
+text 'Run time' 30,394 RuneScape/0/16 #c9b98fff
+text '~9 min' 264,395 RuneScape/0/16 #000000ff
+text '~9 min' 263,394 RuneScape/0/16 #ffffffff
+text 'Next run' 31,412 RuneScape/0/16 #000000ff
+text 'Next run' 30,411 RuneScape/0/16 #c9b98fff
+text 'not known yet' 227,412 RuneScape/0/16 #000000ff
+text 'not known yet' 226,411 RuneScape/0/16 #9a9080ff
+text 'Farming XP' 31,429 RuneScape/0/16 #000000ff
+text 'Farming XP' 30,428 RuneScape/0/16 #c9b98fff
+text '~24.5K' 262,429 RuneScape/0/16 #000000ff
+text '~24.5K' 261,428 RuneScape/0/16 #ffffffff
+text 'Profit' 31,446 RuneScape/0/16 #000000ff
+text 'Profit' 30,445 RuneScape/0/16 #c9b98fff
+text '~180K gp' 248,446 RuneScape/0/16 #000000ff
+text '~180K gp' 247,445 RuneScape/0/16 #0dc10dff
+fillRect 324,66,423,254 #2e2820ff
+drawRect 324,66,422,253 #14110cff w=1
+drawRect 325,67,420,251 #4a4134ff w=1
+text 'Bring' 335,85 RuneScape Bold/1/16 #000000ff
+text 'Bring' 334,84 RuneScape Bold/1/16 #ff981fff
+text '1 / 4 carried' 680,84 RuneScape Small/0/16 #000000ff
+text '1 / 4 carried' 679,83 RuneScape Small/0/16 #c9b98fff
+fillRect 364,122,27,27 #2b251cff
+drawRect 364,122,26,26 #13100bff w=1
+drawRect 365,123,24,24 #3f3629ff w=1
+fillRect 334,152,27,27 #2b251cff
+drawRect 334,152,26,26 #13100bff w=1
+drawRect 335,153,24,24 #3f3629ff w=1
+fillRect 364,152,27,27 #2b251cff
+drawRect 364,152,26,26 #13100bff w=1
+drawRect 365,153,24,24 #3f3629ff w=1
+fillRect 394,152,27,27 #2b251cff
+drawRect 394,152,26,26 #13100bff w=1
+drawRect 395,153,24,24 #3f3629ff w=1
+fillRect 334,182,27,27 #2b251cff
+drawRect 334,182,26,26 #13100bff w=1
+drawRect 335,183,24,24 #3f3629ff w=1
+fillRect 364,182,27,27 #2b251cff
+drawRect 364,182,26,26 #13100bff w=1
+drawRect 365,183,24,24 #3f3629ff w=1
+fillRect 394,182,27,27 #2b251cff
+drawRect 394,182,26,26 #13100bff w=1
+drawRect 395,183,24,24 #3f3629ff w=1
+fillRect 364,212,27,27 #2b251cff
+drawRect 364,212,26,26 #13100bff w=1
+drawRect 365,213,24,24 #3f3629ff w=1
+fillRect 334,242,27,27 #2b251cff
+drawRect 334,242,26,26 #13100bff w=1
+drawRect 335,243,24,24 #3f3629ff w=1
+fillRect 364,242,27,27 #2b251cff
+drawRect 364,242,26,26 #13100bff w=1
+drawRect 365,243,24,24 #3f3629ff w=1
+fillRect 394,242,27,27 #2b251cff
+drawRect 394,242,26,26 #13100bff w=1
+drawRect 395,243,24,24 #3f3629ff w=1
+image item:13128 395,243 25x25 #3f3629ff
+drawRect 394,242,26,26 #ff3d3dff w=1
+fillRect 438,92,27,27 #2b251cff
+drawRect 438,92,26,26 #13100bff w=1
+drawRect 439,93,24,24 #3f3629ff w=1
+image item:5341 439,93 25x25 #3f3629ff
+drawRect 438,92,26,26 #0dc10dff w=1
+fillRect 468,92,27,27 #2b251cff
+drawRect 468,92,26,26 #13100bff w=1
+drawRect 469,93,24,24 #3f3629ff w=1
+image item:952 469,93 25x25 #3f3629ff
+drawRect 468,92,26,26 #ff981fff w=1
+text 'L' 488,117 RuneScape Small/0/16 #000000ff
+text 'L' 487,116 RuneScape Small/0/16 #ff981fff
+fillRect 498,92,27,27 #2b251cff
+drawRect 498,92,26,26 #13100bff w=1
+drawRect 499,93,24,24 #3f3629ff w=1
+image item:5295x2s 499,93 25x25 #3f3629ff
+drawRect 498,92,26,26 #ff3d3dff w=1
+fillRect 528,92,27,27 #2b251cff
+drawRect 528,92,26,26 #13100bff w=1
+drawRect 529,93,24,24 #3f3629ff w=1
+image item:21483 529,93 25x25 #3f3629ff
+drawRect 528,92,26,26 #ff3d3dff w=1
+fillRect 438,122,27,27 #2b251cff
+drawRect 438,122,26,26 #13100bff w=1
+drawRect 439,123,24,24 #3f3629ff w=1
+fillRect 468,122,27,27 #2b251cff
+drawRect 468,122,26,26 #13100bff w=1
+drawRect 469,123,24,24 #3f3629ff w=1
+fillRect 498,122,27,27 #2b251cff
+drawRect 498,122,26,26 #13100bff w=1
+drawRect 499,123,24,24 #3f3629ff w=1
+fillRect 528,122,27,27 #2b251cff
+drawRect 528,122,26,26 #13100bff w=1
+drawRect 529,123,24,24 #3f3629ff w=1
+fillRect 438,152,27,27 #2b251cff
+drawRect 438,152,26,26 #13100bff w=1
+drawRect 439,153,24,24 #3f3629ff w=1
+fillRect 468,152,27,27 #2b251cff
+drawRect 468,152,26,26 #13100bff w=1
+drawRect 469,153,24,24 #3f3629ff w=1
+fillRect 498,152,27,27 #2b251cff
+drawRect 498,152,26,26 #13100bff w=1
+drawRect 499,153,24,24 #3f3629ff w=1
+fillRect 528,152,27,27 #2b251cff
+drawRect 528,152,26,26 #13100bff w=1
+drawRect 529,153,24,24 #3f3629ff w=1
+fillRect 438,182,27,27 #2b251cff
+drawRect 438,182,26,26 #13100bff w=1
+drawRect 439,183,24,24 #3f3629ff w=1
+fillRect 468,182,27,27 #2b251cff
+drawRect 468,182,26,26 #13100bff w=1
+drawRect 469,183,24,24 #3f3629ff w=1
+fillRect 498,182,27,27 #2b251cff
+drawRect 498,182,26,26 #13100bff w=1
+drawRect 499,183,24,24 #3f3629ff w=1
+fillRect 528,182,27,27 #2b251cff
+drawRect 528,182,26,26 #13100bff w=1
+drawRect 529,183,24,24 #3f3629ff w=1
+fillRect 438,212,27,27 #2b251cff
+drawRect 438,212,26,26 #13100bff w=1
+drawRect 439,213,24,24 #3f3629ff w=1
+fillRect 468,212,27,27 #2b251cff
+drawRect 468,212,26,26 #13100bff w=1
+drawRect 469,213,24,24 #3f3629ff w=1
+fillRect 498,212,27,27 #2b251cff
+drawRect 498,212,26,26 #13100bff w=1
+drawRect 499,213,24,24 #3f3629ff w=1
+fillRect 528,212,27,27 #2b251cff
+drawRect 528,212,26,26 #13100bff w=1
+drawRect 529,213,24,24 #3f3629ff w=1
+fillRect 438,242,27,27 #2b251cff
+drawRect 438,242,26,26 #13100bff w=1
+drawRect 439,243,24,24 #3f3629ff w=1
+fillRect 468,242,27,27 #2b251cff
+drawRect 468,242,26,26 #13100bff w=1
+drawRect 469,243,24,24 #3f3629ff w=1
+fillRect 498,242,27,27 #2b251cff
+drawRect 498,242,26,26 #13100bff w=1
+drawRect 499,243,24,24 #3f3629ff w=1
+fillRect 528,242,27,27 #2b251cff
+drawRect 528,242,26,26 #13100bff w=1
+drawRect 529,243,24,24 #3f3629ff w=1
+fillRect 438,272,27,27 #2b251cff
+drawRect 438,272,26,26 #13100bff w=1
+drawRect 439,273,24,24 #3f3629ff w=1
+fillRect 468,272,27,27 #2b251cff
+drawRect 468,272,26,26 #13100bff w=1
+drawRect 469,273,24,24 #3f3629ff w=1
+fillRect 498,272,27,27 #2b251cff
+drawRect 498,272,26,26 #13100bff w=1
+drawRect 499,273,24,24 #3f3629ff w=1
+fillRect 528,272,27,27 #2b251cff
+drawRect 528,272,26,26 #13100bff w=1
+drawRect 529,273,24,24 #3f3629ff w=1
+text 'Carried  ' 335,315 RuneScape Small/0/16 #000000ff
+text 'Carried  ' 334,314 RuneScape Small/0/16 #0dc10dff
+text 'Stored: ' 379,315 RuneScape Small/0/16 #000000ff
+text 'Stored: ' 378,314 RuneScape Small/0/16 #ff981fff
+text 'B bank  V seed vault  S seed box  L tool leprechaun  ' 419,315 RuneScape Small/0/16 #000000ff
+text 'B bank  V seed vault  S seed box  L tool leprechaun  ' 418,314 RuneScape Small/0/16 #c9b98fff
+text 'Missing' 680,315 RuneScape Small/0/16 #000000ff
+text 'Missing' 679,314 RuneScape Small/0/16 #ff3d3dff
+text 'Spellbook: standard' 565,119 RuneScape Small/0/16 #000000ff
+text 'Spellbook: standard' 564,118 RuneScape Small/0/16 #0dc10dff
+fillRect 324,326,423,157 #2e2820ff
+drawRect 324,326,422,156 #14110cff w=1
+drawRect 325,327,420,154 #4a4134ff w=1
+text 'Stop 1 - Falador (south of the city)' 335,345 RuneScape Bold/1/16 #000000ff
+text 'Stop 1 - Falador (south of the city)' 334,344 RuneScape Bold/1/16 #ff981fff
+text 'Use Explorer's ring 4: Operate it and choose' 335,361 RuneScape/0/16 #000000ff
+text 'Use Explorer's ring 4: Operate it and choose' 334,360 RuneScape/0/16 #22d3eeff
+text 'Teleport; lands next to the cabbage patch.' 335,376 RuneScape/0/16 #000000ff
+text 'Teleport; lands next to the cabbage patch.' 334,375 RuneScape/0/16 #22d3eeff
+text 'Herb: Ranarr - not checked' 335,391 RuneScape/0/16 #000000ff
+text 'Herb: Ranarr - not checked' 334,390 RuneScape/0/16 #9a9080ff
+text '  Harvest, then rake and compost.' 339,406 RuneScape Small/0/16 #000000ff
+text '  Harvest, then rake and compost.' 338,405 RuneScape Small/0/16 #9a9080ff
+text '  Plant Ranarr seed.' 339,419 RuneScape Small/0/16 #000000ff
+text '  Plant Ranarr seed.' 338,418 RuneScape Small/0/16 #9a9080ff
+text 'Flower: Limpwurt - not checked' 335,432 RuneScape/0/16 #000000ff
+text 'Flower: Limpwurt - not checked' 334,431 RuneScape/0/16 #9a9080ff
+text '  Harvest, then rake and compost.' 339,447 RuneScape Small/0/16 #000000ff
+text '  Harvest, then rake and compost.' 338,446 RuneScape Small/0/16 #9a9080ff
+text '  Plant Limpwurt seed.' 339,460 RuneScape Small/0/16 #000000ff
+text '  Plant Limpwurt seed.' 338,459 RuneScape Small/0/16 #9a9080ff
+text 'Allotment: Snape grass - not checked' 335,473 RuneScape/0/16 #000000ff
+text 'Allotment: Snape grass - not checked' 334,472 RuneScape/0/16 #9a9080ff
+fillRect 617,336,120,20 #3e3529ff
+drawRect 617,336,119,19 #14110cff w=1
+drawRect 618,337,117,17 #6a5c48ff w=1
+text 'Start run' 655,351 RuneScape Small/0/16 #000000ff
+text 'Start run' 654,350 RuneScape Small/0/16 #ff981fff
+fillRect 617,453,120,20 #3e3529ff
+drawRect 617,453,119,19 #14110cff w=1
+drawRect 618,454,117,17 #6a5c48ff w=1
+text 'Refresh' 658,468 RuneScape Small/0/16 #000000ff
+text 'Refresh' 657,467 RuneScape Small/0/16 #ff981fff
+=> 745x483

@@ -2,12 +2,8 @@ package com.osrscompanion;
 
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Supplier;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.BiConsumer;
 import java.util.function.IntUnaryOperator;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -16,10 +12,7 @@ import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
 import net.runelite.api.EnumID;
 import net.runelite.api.GameState;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.gameval.VarbitID;
+import net.runelite.api.events.*;
 import net.runelite.client.eventbus.Subscribe;
 
 /**
@@ -37,21 +30,14 @@ public class RunePouchMonitor {
 
 	static final String SOURCE = "rune_pouch";
 
-	private static final int[] TYPE_VARBITS = {
-		VarbitID.RUNE_POUCH_TYPE_1, VarbitID.RUNE_POUCH_TYPE_2, VarbitID.RUNE_POUCH_TYPE_3,
-		VarbitID.RUNE_POUCH_TYPE_4, VarbitID.RUNE_POUCH_TYPE_5, VarbitID.RUNE_POUCH_TYPE_6,
-	};
-	private static final int[] QUANTITY_VARBITS = {
-		VarbitID.RUNE_POUCH_QUANTITY_1, VarbitID.RUNE_POUCH_QUANTITY_2, VarbitID.RUNE_POUCH_QUANTITY_3,
-		VarbitID.RUNE_POUCH_QUANTITY_4, VarbitID.RUNE_POUCH_QUANTITY_5, VarbitID.RUNE_POUCH_QUANTITY_6,
-	};
+	private static final int[] TYPE_VARBITS = Tables.ids(Tables.list("runePouchTypes"));
+	private static final int[] QUANTITY_VARBITS = Tables.ids(Tables.list("runePouchQuantities"));
 
 	private final Client client;
 	private final SourceSyncer syncer;
 
 	private boolean dirty;
 	private GameState previousGameState = GameState.UNKNOWN;
-	private volatile BiConsumer<String, Map<Integer, Integer>> snapshotListener;
 
 	@Inject
 	public RunePouchMonitor(
@@ -69,25 +55,9 @@ public class RunePouchMonitor {
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 	}
 
-	/** Receives every read (source, item id to quantity), before any sync gate. */
-	public void setSnapshotListener(BiConsumer<String, Map<Integer, Integer>> listener) {
-		this.snapshotListener = listener;
-	}
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
-	}
-
 	public void stop() {
 		syncer.stop();
 		dirty = false;
-	}
-
-	/** Upload the current contents right away (an owned-item goal just completed). */
-	public void syncNow() {
-		syncer.invalidate();
-		dirty = true;
 	}
 
 	@Subscribe
@@ -149,10 +119,6 @@ public class RunePouchMonitor {
 				return;
 			}
 			Map<Integer, Integer> contents = read(client);
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-			if (listener != null) {
-				listener.accept(SOURCE, contents);
-			}
 			syncer.submit(contents, false);
 		});
 	}

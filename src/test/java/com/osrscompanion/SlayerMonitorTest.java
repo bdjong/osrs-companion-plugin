@@ -34,106 +34,18 @@ public class SlayerMonitorTest {
 		assertFalse(config.syncSlayer());
 	}
 
-	@Test
-	public void testStreakAdvanceIsCompleted() {
-		assertEquals("completed",
-				SlayerMonitor.claimOutcome(39, 40, 3, 3, 470, 500, false, false, false));
-	}
 
-	@Test
-	public void testWildernessStreakAdvanceIsCompleted() {
-		assertEquals("completed",
-				SlayerMonitor.claimOutcome(39, 39, 3, 4, 470, 500, false, false, false));
-	}
 
-	@Test
-	public void testChatAloneIsCompleted() {
-		assertEquals("completed",
-				SlayerMonitor.claimOutcome(39, 39, 3, 3, 500, 500, true, false, false));
-	}
 
-	@Test
-	public void testBlockListGainIsBlockedRegardlessOfPointCost() {
-		// -120 (Mortimer block) and -100 (classic block) both classify by
-		// membership, not amount.
-		assertEquals("blocked",
-				SlayerMonitor.claimOutcome(39, 39, 3, 3, 520, 400, false, true, false));
-		assertEquals("blocked",
-				SlayerMonitor.claimOutcome(39, 39, 3, 3, 500, 400, false, true, false));
-	}
 
-	@Test
-	public void testMortimerHundredPointDropWithoutBlockIsSkip() {
-		// The collision case: -100 is Mortimer's SKIP cost. Without block-list
-		// membership it must never classify as blocked.
-		assertEquals("skipped",
-				SlayerMonitor.claimOutcome(39, 39, 3, 3, 500, 400, false, false, false));
-	}
 
-	@Test
-	public void testClassicSkipIsSkipped() {
-		assertEquals("skipped",
-				SlayerMonitor.claimOutcome(39, 39, 3, 3, 500, 470, false, false, false));
-	}
 
-	@Test
-	public void testStreakResetIsReset() {
-		assertEquals("reset",
-				SlayerMonitor.claimOutcome(39, 0, 3, 3, 500, 500, false, false, false));
-	}
 
-	@Test
-	public void testNoSignalsIsUnknown() {
-		assertEquals("unknown",
-				SlayerMonitor.claimOutcome(39, 39, 3, 3, 500, 500, false, false, false));
-	}
 
-	@Test
-	public void testMortimerPointsAwardWithFlatStreakIsCompleted() {
-		// Mortimer keeps its own streak, which no varbit exposes, and its chat
-		// line does not match the completion pattern. The +15 modifier award is
-		// the only signal, and nothing but a completion pays.
-		assertEquals("completed",
-				SlayerMonitor.claimOutcome(121, 121, 0, 0, 291, 306, false, false, false));
-	}
 
-	@Test
-	public void testMortimerUnpaidTaskCompletesOnCountdownToZero() {
-		// A Mortimer task offered without a points modifier awards nothing, so
-		// the observed countdown to 0 is all that separates it from a cancel.
-		assertEquals("completed",
-				SlayerMonitor.claimOutcome(121, 121, 0, 0, 306, 306, false, false, true));
-	}
 
-	@Test
-	public void testCountdownToZeroNeverOutranksACharge() {
-		// A cancel clears the same varp to 0: the charge has to win, or every
-		// skip and block would read as a completion.
-		assertEquals("skipped",
-				SlayerMonitor.claimOutcome(121, 121, 0, 0, 406, 306, false, false, true));
-		assertEquals("blocked",
-				SlayerMonitor.claimOutcome(121, 121, 0, 0, 426, 306, false, true, true));
-	}
 
-	@Test
-	public void testBlockListDecodesPackedBytes() {
-		// Live-captured varp values: 424696191 packs Blue dragons (25), Cave
-		// horrors (80), Spiritual creatures (89), Metal dragons (127), which
-		// matched the four blocked rows in the rewards-interface scrape.
-		SlayerMonitor.Snapshot s = new SlayerMonitor.Snapshot();
-		s.blockList = java.util.List.of(0, 0, 4784128, 0, 424696191);
-		java.util.Set<Integer> ids = s.decodedBlockIds();
-		assertTrue(ids.containsAll(java.util.List.of(25, 80, 89, 127, 73)));
-		assertFalse(ids.contains(0));
-	}
 
-	@Test
-	public void testStreakAdvanceWinsOverBlockFlag() {
-		// If both fire in one coalesced window, completion (authoritative
-		// streak) outranks the block corroboration.
-		assertEquals("completed",
-				SlayerMonitor.claimOutcome(39, 40, 3, 3, 500, 400, false, true, false));
-	}
 
 	@Test
 	public void testHasStoredTaskRegularTask() {

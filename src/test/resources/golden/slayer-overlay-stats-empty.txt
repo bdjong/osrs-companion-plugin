@@ -1,0 +1,10 @@
+fill rect(0,0,150,40) #463d329c
+draw rect(0,0,149,39) #383028da w=1
+draw rect(1,1,147,37) #54493cda w=1
+text 'Slayer: Slayer task' 5,21 RuneScape/0/16 #000000ff
+text 'Slayer: Slayer task' 4,20 RuneScape/0/16 #f28c28ff
+text 'Left' 5,37 RuneScape/0/16 #000000ff
+text 'Left' 4,36 RuneScape/0/16 #a5a5a5ff
+text '12' 133,37 RuneScape/0/16 #000000ff
+text '12' 132,36 RuneScape/0/16 #ffffffff
+=> 150x40

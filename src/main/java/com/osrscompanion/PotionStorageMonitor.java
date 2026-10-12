@@ -3,15 +3,8 @@ package com.osrscompanion;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.BankSyncPayload;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -20,12 +13,7 @@ import net.runelite.api.EnumComposition;
 import net.runelite.api.EnumID;
 import net.runelite.api.ScriptID;
 import net.runelite.api.GameState;
-import net.runelite.api.events.ClientTick;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.events.WidgetClosed;
-import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarPlayerID;
@@ -71,11 +59,6 @@ public class PotionStorageMonitor {
 				() -> SyncGuard.getPlayerUsername(client),
 				apiClient::sendBankSync);
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
-	}
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
 	}
 
 	public void stop() {

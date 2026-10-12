@@ -2,26 +2,16 @@ package com.osrscompanion;
 
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.*;
 import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 
@@ -32,7 +22,6 @@ import net.runelite.client.game.ItemManager;
  * with a per-source key. Every read is also handed to the goal tracker so
  * owned-item goals do not count a deposit as a loss.
  */
-@Slf4j
 @Singleton
 public class VaultMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -41,23 +30,10 @@ public class VaultMonitor {
 	/** Container id to bank-sync source. Each container is its own source:
 	 * the backend replaces a whole source per upload and the plugin can only
 	 * snapshot a container it has seen, so two containers must not share one. */
-	private static final Map<Integer, String> VAULT_SOURCES;
+	private static final Map<Integer, String> VAULT_SOURCES = new HashMap<>();
 
 	static {
-		Map<Integer, String> m = new HashMap<>();
-		m.put(InventoryID.SEED_VAULT, "seed_vault");
-		m.put(InventoryID.LOOTING_BAG, "looting_bag");
-		m.put(InventoryID.SAILING_BOAT_1_CARGOHOLD, "boat_cargo_hold_1");
-		m.put(InventoryID.SAILING_BOAT_2_CARGOHOLD, "boat_cargo_hold_2");
-		m.put(InventoryID.SAILING_BOAT_3_CARGOHOLD, "boat_cargo_hold_3");
-		m.put(InventoryID.SAILING_BOAT_4_CARGOHOLD, "boat_cargo_hold_4");
-		m.put(InventoryID.SAILING_BOAT_5_CARGOHOLD, "boat_cargo_hold_5");
-		m.put(InventoryID.SAILING_TRAWLING_NET, "trawling_net");
-		m.put(InventoryID.SEED_BOX, "seed_box");
-		m.put(InventoryID.TACKLE_BOX, "tackle_box");
-		m.put(InventoryID.FORESTRY_KIT, "forestry_kit");
-		m.put(InventoryID.HUNTSMANS_KIT, "huntsmans_kit");
-		VAULT_SOURCES = Collections.unmodifiableMap(m);
+		Tables.map("vaultSources").forEach((source, id) -> VAULT_SOURCES.put(Tables.id(id), source));
 	}
 
 	/** Set on container ids the client reports for interface-owned inventories (a boat's hold arrives as 965 | 0x8000). */
@@ -90,11 +66,6 @@ public class VaultMonitor {
 
 	/** Receives every container read (source, canonical item id to quantity),
 	 * before any sync gate, so goal progress moves even with sync disabled. */
-	private volatile BiConsumer<String, Map<Integer, Integer>> snapshotListener;
-
-	public void setSnapshotListener(BiConsumer<String, Map<Integer, Integer>> listener) {
-		this.snapshotListener = listener;
-	}
 
 	@Inject
 	public VaultMonitor(
@@ -112,11 +83,6 @@ public class VaultMonitor {
 				() -> SyncGuard.getPlayerUsername(client),
 				apiClient::sendBankSync);
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
-	}
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
 	}
 
 	public void stop() {
@@ -154,16 +120,11 @@ public class VaultMonitor {
 				e.getValue().forEach((id, qty) -> banked.merge(id, qty, Integer::sum));
 				emptied.put(e.getKey(), new LinkedHashMap<>());
 			}
-			log.debug("Bank-cargo: current hold {} -> banking {} from {}", current, banked, emptied.keySet());
 			if (emptied.isEmpty()) {
 				return;
 			}
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
 			for (String source : emptied.keySet()) {
 				lastRead.put(source, new LinkedHashMap<>());
-				if (listener != null) {
-					listener.accept(source, new LinkedHashMap<>());
-				}
 			}
 			Consumer<Map<Integer, Integer>> bankedListener = cargoBankedListener;
 			if (bankedListener != null) {
@@ -198,13 +159,7 @@ public class VaultMonitor {
 
 			Map<Integer, Integer> itemQuantities = new LinkedHashMap<>();
 			ItemCollector.collectItems(container, itemManager, itemQuantities);
-			log.debug("Container {} ({}) read: {} distinct items", event.getContainerId(), source, itemQuantities.size());
 			lastRead.put(source, new LinkedHashMap<>(itemQuantities));
-
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-			if (listener != null) {
-				listener.accept(source, itemQuantities);
-			}
 
 			Map<String, Map<Integer, Integer>> bySource = new LinkedHashMap<>();
 			bySource.put(source, itemQuantities);

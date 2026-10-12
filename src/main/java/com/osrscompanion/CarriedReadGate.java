@@ -72,7 +72,4 @@ final class CarriedReadGate {
 		return inGame(state, playerLoaded) && containerPresent && interfaceOpen;
 	}
 
-	boolean bothArrived() {
-		return invArrived && wornArrived;
-	}
 }

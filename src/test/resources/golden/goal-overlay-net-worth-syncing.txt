@@ -1,0 +1,19 @@
+fill rect(0,0,169,105) #463d329c
+draw rect(0,0,168,104) #383028da w=1
+draw rect(1,1,166,102) #54493cda w=1
+text 'Current Goal' 5,21 RuneScape/0/16 #000000ff
+text 'Current Goal' 4,20 RuneScape/0/16 #f28c28ff
+image img:1x4:ecbb4b55 4,20 #f28c28ff
+image wiki:coins 4,24 #f28c28ff
+text 'Reach 50M net worth' 43,41 RuneScape/0/16 #000000ff
+text 'Reach 50M net worth' 42,40 RuneScape/0/16 #ffffffff
+fillRound 4,56,161,6,6,6 #0000006e
+fillRound 4,56,100,6,6,6 #2563ebff
+text '31M / 50M' 5,80 RuneScape/0/16 #000000ff
+text '31M / 50M' 4,79 RuneScape/0/16 #c6c6c6ff
+text '62%' 139,80 RuneScape/0/16 #000000ff
+text '62%' 138,79 RuneScape/0/16 #c6c6c6ff
+image img:1x4:ecbb4b55 4,81 #c6c6c6ff
+text 'Syncing with server...' 5,102 RuneScape/0/16 #000000ff
+text 'Syncing with server...' 4,101 RuneScape/0/16 #a5a5a5ff
+=> 169x105

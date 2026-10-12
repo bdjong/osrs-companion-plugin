@@ -1,8 +1,8 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Payload for syncing bank/vault items to the OSRS Companion API.
@@ -12,6 +12,7 @@ import java.util.Map;
  */
 public class BankSyncPayload {
 	private final String player_username;
+	@Getter
 	private final Map<String, List<BankItem>> items;
 
 	public BankSyncPayload(String playerUsername, Map<String, List<BankItem>> items) {
@@ -21,10 +22,6 @@ public class BankSyncPayload {
 
 	public String getPlayerUsername() {
 		return player_username;
-	}
-
-	public Map<String, List<BankItem>> getItems() {
-		return items;
 	}
 
 	public int getTotalItemCount() {
@@ -40,6 +37,7 @@ public class BankSyncPayload {
 	 */
 	public static class BankItem {
 		private final int item_id;
+		@Getter
 		private final int quantity;
 
 		public BankItem(int itemId, int quantity) {
@@ -51,8 +49,5 @@ public class BankSyncPayload {
 			return item_id;
 		}
 
-		public int getQuantity() {
-			return quantity;
-		}
 	}
 }

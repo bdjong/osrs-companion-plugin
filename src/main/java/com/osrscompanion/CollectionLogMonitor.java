@@ -1,25 +1,17 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.CollectionLogSyncPayload;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.BiConsumer;
-import java.util.TreeMap;
+import java.util.*;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.MenuAction;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.ScriptPreFired;
-import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.eventbus.Subscribe;
@@ -38,6 +30,7 @@ import net.runelite.client.eventbus.Subscribe;
  * flow in real time. A final deduped sync runs on logout. No manual button, no
  * per-page clicking.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Slf4j
 @Singleton
 public class CollectionLogMonitor {
@@ -67,41 +60,6 @@ public class CollectionLogMonitor {
 	private boolean fullReadTriggeredThisSession;
 	private int tickScriptFired = -1;
 	private String lastSyncJson;
-
-	@Inject
-	public CollectionLogMonitor(
-			Client client,
-			ClientThread clientThread,
-			OSRSCompanionConfig config,
-			OSRSCompanionApiClient apiClient,
-			Gson gson) {
-		this.client = client;
-		this.clientThread = clientThread;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.gson = gson;
-	}
-
-	/** Invoked after each upload so roadmap progress can be re-read; set by the plugin. */
-	private volatile Runnable syncedListener;
-
-	public void setSyncedListener(Runnable listener) {
-		this.syncedListener = listener;
-	}
-
-	private void notifySynced() {
-		Runnable listener = syncedListener;
-		if (listener != null) {
-			listener.run();
-		}
-	}
-
-	/** Receives (item id, quantity) for newly obtained collection log items; set by the plugin. */
-	private volatile BiConsumer<Integer, Integer> obtainedListener;
-
-	public void setObtainedListener(BiConsumer<Integer, Integer> listener) {
-		this.obtainedListener = listener;
-	}
 
 	public void stop() {
 		resetSessionState();
@@ -191,11 +149,7 @@ public class CollectionLogMonitor {
 			}
 			int itemId = (Integer) args[1];
 			int quantity = args.length > 2 && args[2] instanceof Integer ? (Integer) args[2] : 0;
-			Integer previous = obtainedQuantityByItemId.put(itemId, quantity);
-			BiConsumer<Integer, Integer> listener = obtainedListener;
-			if (listener != null && quantity > 0 && (previous == null || quantity > previous)) {
-				listener.accept(itemId, quantity);
-			}
+			obtainedQuantityByItemId.put(itemId, quantity);
 			tickScriptFired = client.getTickCount();
 		});
 	}
@@ -243,13 +197,10 @@ public class CollectionLogMonitor {
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {
-			log.debug("Collection log unchanged, skipping sync");
 			return;
 		}
 		lastSyncJson = json;
-		log.debug("Syncing {} collection log items for player: {}", sortedIds.size(), playerUsername);
 		apiClient.sendCollectionLogSync(payload);
-		notifySynced();
 	}
 
 	private void resetSessionState() {

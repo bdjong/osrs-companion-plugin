@@ -1,16 +1,12 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import com.osrscompanion.model.BossGear;
+import com.osrscompanion.model.FarmRoute;
+import com.osrscompanion.model.SlayerGuide;
+import java.util.*;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -25,12 +21,7 @@ import net.runelite.api.NPC;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.api.events.MenuOptionClicked;
-import net.runelite.api.events.StatChanged;
+import net.runelite.api.events.*;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.VarbitID;
@@ -54,6 +45,7 @@ import net.runelite.client.eventbus.Subscribe;
  *       nothing more: the website then shows you as offline after its timeout.</li>
  * </ul>
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Slf4j
 @Singleton
 public class LiveActivityMonitor {
@@ -104,9 +96,9 @@ public class LiveActivityMonitor {
 			b.put("state", state);
 			b.put("activity", choice.kind.wire);
 			b.put("subject", choice.subject);
-			b.put("detail", choice.detail);
-			b.put("icon", choice.icon);
 			b.put("npc_id", choice.npcId);
+			// The website writes the text and picture from these.
+			b.put("parts", choice.parts);
 			b.put("since", since);
 			b.put("world", world);
 			b.put("area", area);
@@ -120,7 +112,9 @@ public class LiveActivityMonitor {
 	private final OSRSCompanionConfig config;
 	private final OSRSCompanionApiClient apiClient;
 	private final Gson gson;
-	private final SlayerMonitor slayerMonitor;
+	private final SlayerHelperManager slayerHelper;
+	private final FarmRunManager farmRun;
+	private final BossGearManager bossGear;
 
 	// Read by the outbox and the watcher (other threads).
 	private volatile Status current;
@@ -143,6 +137,8 @@ public class LiveActivityMonitor {
 	private long bossAtMs;
 	private String activityKey;
 	private long activitySinceMs;
+	private List<BossGear.CatalogBoss> catalogSeen;
+	private Set<String> catalogBosses = Collections.emptySet();
 	// Magic: the last "Cast" / "Break" click, the cast confirmed by Magic XP and the last teleport.
 	private MagicSpells.Cast pendingCast;
 	private int pendingCastTick;
@@ -158,6 +154,8 @@ public class LiveActivityMonitor {
 	private int gainedItem = -1;
 	private int gainedTick = -1;
 	private final Map<String, String> skillItem = new HashMap<>();
+	private FarmRoute farmItemRoute;
+	private String farmItem;
 
 	// Sending (client thread, the outbox's and the watcher's).
 	private String lastSentKey;
@@ -166,16 +164,6 @@ public class LiveActivityMonitor {
 	private long lastChangeSentMs;
 	/** The player a status was sent for this login; an offline status goes out for them at logout. */
 	private String sentFor;
-
-	@Inject
-	public LiveActivityMonitor(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient, Gson gson,
-			SlayerMonitor slayerMonitor) {
-		this.client = client;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.gson = gson;
-		this.slayerMonitor = slayerMonitor;
-	}
 
 	/** Every outbox batch carries the current status from now on. */
 	public void start() {
@@ -306,6 +294,7 @@ public class LiveActivityMonitor {
 		readRaid(s, region);
 		readTarget(s, local, now, region);
 		readSlayer(s);
+		readFarmRun(s);
 		s.skill = LiveActivity.skillingSkill(lastSkillingXpMs, now);
 		readMagic(s, now);
 		s.bankOpen = client.getWidget(InterfaceID.Bankmain.UNIVERSE) != null;
@@ -318,7 +307,7 @@ public class LiveActivityMonitor {
 			activitySinceMs = choice.kind == LiveActivity.Kind.IDLE && idle.lastActiveMs() > 0 ? idle.lastActiveMs() : now;
 		}
 		String state = s.idle ? "idle" : "online";
-		String area = s.raid != null ? s.raid : s.minigame != null ? s.minigame : null;
+		String area = s.raid != null ? s.raid : s.minigame != null ? s.minigame : areaName(at, region);
 		Status status = new Status(player, state, choice, activitySinceMs, client.getWorld(), area, region);
 		current = status;
 		sharing = config.shareLiveActivity() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client);
@@ -440,7 +429,7 @@ public class LiveActivityMonitor {
 			combatNpc = name;
 			combatNpcId = id;
 			combatAtMs = now;
-			if (LiveActivity.isBoss(name, Collections.emptySet())) {
+			if (LiveActivity.isBoss(name, catalogBosses())) {
 				bossNpc = name;
 				bossNpcId = id;
 				bossAtMs = now;
@@ -470,25 +459,70 @@ public class LiveActivityMonitor {
 	}
 
 	private void readSlayer(LiveActivity.Signals s) {
-		int remaining = client.getVarpValue(VarPlayerID.SLAYER_COUNT);
-		int taskId = client.getVarpValue(VarPlayerID.SLAYER_TARGET);
-		if (taskId == 0 || remaining <= 0) {
+		SlayerHelperManager.Task task = slayerHelper.getTask();
+		if (task == null || task.remaining <= 0) {
 			return;
 		}
-		int bossId = client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID);
-		String task = slayerMonitor.taskName(taskId, bossId == 0 ? null : bossId);
-		if (task == null) {
-			return;
-		}
-		s.slayerTask = task;
-		s.slayerLeft = remaining;
-		boolean onTarget = s.combatNpc != null && (bossId == 0 && SlayerBosses.isBoss(task, s.combatNpc)
-				|| SlayerMonsters.matches(s.combatNpc, null, task));
-		s.slaying = onTarget;
+		s.slayerTask = task.displayName();
+		s.slayerLeft = task.remaining;
+		boolean onTarget = s.combatNpc != null && slayerHelper.isTaskTarget(s.combatNpc);
+		s.slaying = slayerHelper.getHere() != null || onTarget;
 		if (onTarget) {
 			s.slayerNpc = s.combatNpc;
 			s.slayerNpcId = s.combatNpcId;
 		}
+	}
+
+	private void readFarmRun(LiveActivity.Signals s) {
+		FarmRoute route = farmRun.isRunning() ? farmRun.getRoute() : null;
+		if (route == null) {
+			return;
+		}
+		s.farmRoute = LiveActivity.notBlank(route.getName()) ? route.getName() : "Farm run";
+		int[] progress = farmRun.progress();
+		s.farmDone = progress[0];
+		s.farmTotal = progress[1];
+		if (route != farmItemRoute) {
+			farmItemRoute = route;
+			Integer item = route.pictureItem();
+			farmItem = item == null ? null : itemName(item);
+		}
+		s.farmItem = farmItem;
+	}
+
+	/** The area's name from the slayer guide's locations; null when unknown (the website names the region). */
+	private String areaName(WorldPoint at, int region) {
+		if (at == null) {
+			return null;
+		}
+		SlayerGuide.Location here = slayerHelper.getHere();
+		if (here != null && LiveActivity.notBlank(here.getName())) {
+			return here.getName();
+		}
+		for (SlayerGuide.Location l : slayerHelper.guideLocations()) {
+			if (l != null && LiveActivity.notBlank(l.getName()) && l.contains(at.getX(), at.getY(), at.getPlane(), region)) {
+				return l.getName();
+			}
+		}
+		return null;
+	}
+
+	/** The boss gear catalog's boss names (lower case), rebuilt when the catalog changes. */
+	private Set<String> catalogBosses() {
+		List<BossGear.CatalogBoss> catalog = bossGear.getCatalog();
+		if (catalog != catalogSeen) {
+			catalogSeen = catalog;
+			Set<String> names = new HashSet<>();
+			if (catalog != null) {
+				for (BossGear.CatalogBoss b : catalog) {
+					if (b != null && b.getName() != null) {
+						names.add(b.getName().trim().toLowerCase(Locale.ROOT));
+					}
+				}
+			}
+			catalogBosses = names;
+		}
+		return catalogBosses;
 	}
 
 	// ---- Sending ----------------------------------------------------------------------------------
@@ -591,6 +625,8 @@ public class LiveActivityMonitor {
 		lastInventory = null;
 		gainedItem = -1;
 		skillItem.clear();
+		farmItemRoute = null;
+		farmItem = null;
 		activityKey = null;
 		sharing = false;
 		synchronized (this) {

@@ -1,0 +1,13 @@
+fill rect(0,0,187,73) #463d329c
+draw rect(0,0,186,72) #383028da w=1
+draw rect(1,1,184,70) #54493cda w=1
+text 'Farming - Current Goal' 5,21 RuneScape/0/16 #000000ff
+text 'Farming - Current Goal' 4,20 RuneScape/0/16 #f28c28ff
+image img:1x4:ecbb4b55 4,20 #f28c28ff
+text 'Wait for the magic tree to grow' 5,41 RuneScape/0/16 #000000ff
+text 'Wait for the magic tree to grow' 4,40 RuneScape/0/16 #ffffffff
+fillRound 4,44,179,6,6,6 #0000006e
+fillRound 4,44,143,6,6,6 #2563ebff
+text '80% grown' 5,68 RuneScape/0/16 #000000ff
+text '80% grown' 4,67 RuneScape/0/16 #c6c6c6ff
+=> 187x73

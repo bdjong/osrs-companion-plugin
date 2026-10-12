@@ -1,8 +1,7 @@
 package com.osrscompanion.model;
 
 import com.google.gson.Gson;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Payload for syncing collection log data to the OSRS Companion API.
@@ -55,10 +54,6 @@ public class CollectionLogSyncPayload {
 
 	public int getItemCount() {
 		return collection_log_item_count;
-	}
-
-	public Map<Integer, Integer> getCollectionLogQuantities() {
-		return collection_log_quantities;
 	}
 
 	public String toJson(Gson gson) {

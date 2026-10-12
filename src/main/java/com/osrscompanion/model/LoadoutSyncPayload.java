@@ -1,5 +1,6 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
 import java.util.List;
 
@@ -20,10 +21,6 @@ public class LoadoutSyncPayload {
 		return player_username;
 	}
 
-	public List<LoadoutSet> getLoadoutSets() {
-		return loadout_sets;
-	}
-
 	public String toJson(Gson gson) {
 		return gson.toJson(this);
 	}
@@ -32,8 +29,11 @@ public class LoadoutSyncPayload {
 	 * Represents a loadout set (active gear or inventory setup).
 	 */
 	public static class LoadoutSet {
+		@Getter
 		private final String name;
+		@Getter
 		private final String type;
+		@Getter
 		private final String category;
 		private final List<EquipmentItem> equipment_items;
 		private final List<InventoryItem> inventory_items;
@@ -45,18 +45,6 @@ public class LoadoutSyncPayload {
 			this.category = category;
 			this.equipment_items = equipmentItems;
 			this.inventory_items = inventoryItems;
-		}
-
-		public String getName() {
-			return name;
-		}
-
-		public String getType() {
-			return type;
-		}
-
-		public String getCategory() {
-			return category;
 		}
 
 		public List<EquipmentItem> getEquipmentItems() {
@@ -73,6 +61,7 @@ public class LoadoutSyncPayload {
 	 */
 	public static class EquipmentItem {
 		private final int item_id;
+		@Getter
 		private final String slot;
 
 		public EquipmentItem(int itemId, String slot) {
@@ -84,9 +73,6 @@ public class LoadoutSyncPayload {
 			return item_id;
 		}
 
-		public String getSlot() {
-			return slot;
-		}
 	}
 
 	/**

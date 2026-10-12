@@ -1,9 +1,6 @@
 package com.osrscompanion;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,11 +47,6 @@ final class GuardedExecutor implements ScheduledExecutorService {
 			f.cancel(false);
 		}
 		PERIODIC.clear();
-	}
-
-	static int periodicCount() {
-		PERIODIC.removeIf(Future::isDone);
-		return PERIODIC.size();
 	}
 
 	private Runnable guard(Runnable task) {

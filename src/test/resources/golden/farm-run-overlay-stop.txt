@@ -1,0 +1,38 @@
+fill rect(0,0,220,236) #463d329c
+draw rect(0,0,219,235) #383028da w=1
+draw rect(1,1,217,233) #54493cda w=1
+text 'Farm run - stop 1/3' 5,21 RuneScape/0/16 #000000ff
+text 'Farm run - stop 1/3' 4,20 RuneScape/0/16 #f28c28ff
+text '1/6 done' 166,21 RuneScape/0/16 #000000ff
+text '1/6 done' 165,20 RuneScape/0/16 #a5a5a5ff
+text 'Falador (south of the city)' 5,37 RuneScape/0/16 #000000ff
+text 'Falador (south of the city)' 4,36 RuneScape/0/16 #ffffffff
+image item:13128 4,36 #ffffffff
+text 'Use Explorer's ring 4' 47,53 RuneScape/0/16 #000000ff
+text 'Use Explorer's ring 4' 46,52 RuneScape/0/16 #00ffffff
+text 'Operate it and choose Teleport;' 5,85 RuneScape/0/16 #000000ff
+text 'Operate it and choose Teleport;' 4,84 RuneScape/0/16 #a5a5a5ff
+text 'lands next to the cabbage patch.' 5,101 RuneScape/0/16 #000000ff
+text 'lands next to the cabbage patch.' 4,100 RuneScape/0/16 #a5a5a5ff
+image img:1x4:ecbb4b55 4,100 #a5a5a5ff
+text 'Herb: Ranarr' 5,121 RuneScape/0/16 #000000ff
+text 'Herb: Ranarr' 4,120 RuneScape/0/16 #0dc10dff
+text 'done' 189,121 RuneScape/0/16 #000000ff
+text 'done' 188,120 RuneScape/0/16 #0dc10dff
+text '  No compost yet: use your' 5,137 RuneScape/0/16 #000000ff
+text '  No compost yet: use your' 4,136 RuneScape/0/16 #f97316ff
+text '  Ultracompost on the patch.' 5,153 RuneScape/0/16 #000000ff
+text '  Ultracompost on the patch.' 4,152 RuneScape/0/16 #f97316ff
+text 'Flower: Limpwurt' 5,169 RuneScape/0/16 #000000ff
+text 'Flower: Limpwurt' 4,168 RuneScape/0/16 #a5a5a5ff
+text 'not ready' 162,169 RuneScape/0/16 #000000ff
+text 'not ready' 161,168 RuneScape/0/16 #a5a5a5ff
+text 'Allotment: Snape grass' 5,185 RuneScape/0/16 #000000ff
+text 'Allotment: Snape grass' 4,184 RuneScape/0/16 #ffe04aff
+text '  Harvest, then rake and compost.' 5,201 RuneScape/0/16 #000000ff
+text '  Harvest, then rake and compost.' 4,200 RuneScape/0/16 #a5a5a5ff
+text '  Plant 3 x Snape grass seed.' 5,217 RuneScape/0/16 #000000ff
+text '  Plant 3 x Snape grass seed.' 4,216 RuneScape/0/16 #a5a5a5ff
+text '  Pay 10 x Sweetcorn to protect it.' 5,233 RuneScape/0/16 #000000ff
+text '  Pay 10 x Sweetcorn to protect it.' 4,232 RuneScape/0/16 #a5a5a5ff
+=> 220x236

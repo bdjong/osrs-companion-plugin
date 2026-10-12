@@ -16,6 +16,10 @@ public class TestOSRSCompanionConfig implements OSRSCompanionConfig {
 	private boolean syncHouseLocation = true;
 	private boolean syncKingdom = true;
 	private boolean syncDeaths = true;
+	private boolean showNextGoal = true;
+	private boolean showGoalProgress = true;
+	private boolean showGoalPopup = true;
+	private boolean goalCompleteSound = true;
 
 	@Override
 	public String osrsCompanionAppKey() {
@@ -57,6 +61,11 @@ public class TestOSRSCompanionConfig implements OSRSCompanionConfig {
 		return syncKillCounts;
 	}
 
+	@Override
+	public boolean showNextGoal() {
+		return showNextGoal;
+	}
+
 	public void setOsrsCompanionAppKey(String key) {
 		this.osrsCompanionAppKey = key;
 	}
@@ -87,6 +96,10 @@ public class TestOSRSCompanionConfig implements OSRSCompanionConfig {
 
 	public void setSyncKillCounts(boolean value) {
 		this.syncKillCounts = value;
+	}
+
+	public void setShowNextGoal(boolean value) {
+		this.showNextGoal = value;
 	}
 
 	@Override
@@ -125,4 +138,30 @@ public class TestOSRSCompanionConfig implements OSRSCompanionConfig {
 		this.syncDeaths = syncDeaths;
 	}
 
+	@Override
+	public boolean showGoalProgress() {
+		return showGoalProgress;
+	}
+
+	public void setShowGoalProgress(boolean value) {
+		this.showGoalProgress = value;
+	}
+
+	@Override
+	public boolean showGoalPopup() {
+		return showGoalPopup;
+	}
+
+	public void setShowGoalPopup(boolean value) {
+		this.showGoalPopup = value;
+	}
+
+	@Override
+	public boolean goalCompleteSound() {
+		return goalCompleteSound;
+	}
+
+	public void setGoalCompleteSound(boolean value) {
+		this.goalCompleteSound = value;
+	}
 }

@@ -1,7 +1,7 @@
 package com.osrscompanion;
 
 /**
- * Pure decision logic for <em>when</em> {@link AchievementDiaryMonitor} may read diary state.
+ * Pure decision logic for <em>when</em> {@link VarPump} may read the game values.
  *
  * <p>The client's varplayer array is not reset atomically on login / world-hop /
  * account-switch: the server replays the varp block over several ticks after

@@ -6,10 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.LoadoutSyncPayload;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -20,8 +17,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.*;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.callback.ClientThread;
@@ -45,17 +41,7 @@ public class LoadoutMonitor {
 	private static final Map<Integer, String> EQUIPMENT_SLOT_MAP = new HashMap<>();
 
 	static {
-		EQUIPMENT_SLOT_MAP.put(0, "head");
-		EQUIPMENT_SLOT_MAP.put(1, "cape");
-		EQUIPMENT_SLOT_MAP.put(2, "neck");
-		EQUIPMENT_SLOT_MAP.put(3, "weapon");
-		EQUIPMENT_SLOT_MAP.put(4, "body");
-		EQUIPMENT_SLOT_MAP.put(5, "shield");
-		EQUIPMENT_SLOT_MAP.put(7, "legs");
-		EQUIPMENT_SLOT_MAP.put(9, "hands");
-		EQUIPMENT_SLOT_MAP.put(10, "feet");
-		EQUIPMENT_SLOT_MAP.put(12, "ring");
-		EQUIPMENT_SLOT_MAP.put(13, "ammo");
+		Tables.map("loadoutSlots").forEach((slot, key) -> EQUIPMENT_SLOT_MAP.put(Integer.parseInt(slot), key.getAsString()));
 	}
 
 	private final Client client;
@@ -123,11 +109,9 @@ public class LoadoutMonitor {
 			GameState newState = event.getGameState();
 
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-				log.debug("Player logged in, scheduling loadout sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
 				executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncLoadouts),
 						LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-				log.debug("Player logged out, syncing loadouts immediately");
 				syncLoadouts();
 			}
 
@@ -150,7 +134,6 @@ public class LoadoutMonitor {
 			if (debounceFuture != null) {
 				debounceFuture.cancel(false);
 			}
-			log.debug("Equipment/inventory changed, scheduling loadout sync in {}s", EQUIPMENT_CHANGE_DEBOUNCE_SECONDS);
 			debounceFuture = executorService.schedule(() -> Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncLoadouts),
 					EQUIPMENT_CHANGE_DEBOUNCE_SECONDS, TimeUnit.SECONDS);
 		});
@@ -162,14 +145,12 @@ public class LoadoutMonitor {
 	 */
 	private void syncLoadouts() {
 		if (!SyncGuard.hasAppKey(config)) {
-			log.debug("Loadout sync skipped: no App Key configured");
 			return;
 		}
 		if (!config.syncLoadouts()) {
 			return;
 		}
 		if (GameModeUtil.isSpecialGameMode(client)) {
-			log.debug("Loadout sync skipped: special game mode detected");
 			return;
 		}
 
@@ -192,12 +173,10 @@ public class LoadoutMonitor {
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {
-			log.debug("Loadout contents unchanged, skipping sync");
 			return;
 		}
 
 		lastSyncJson = json;
-		log.debug("Syncing {} loadout sets for player: {}", loadoutSets.size(), playerUsername);
 		apiClient.sendLoadoutSync(payload);
 	}
 
@@ -280,7 +259,6 @@ public class LoadoutMonitor {
 				return false;
 			}
 
-			log.debug("Found {} Inventory Setups (V3 format)", v3Keys.size());
 			Map<String, String> sectionMap = loadSectionMap();
 
 			for (String fullKey : v3Keys) {
@@ -296,12 +274,10 @@ public class LoadoutMonitor {
 						setups.add(loadoutSet);
 					}
 				} catch (Exception e) {
-					log.debug("Failed to parse V3 setup key {}: {}", configKey, e.getMessage());
 				}
 			}
 			return true;
 		} catch (Exception e) {
-			log.debug("V3 Inventory Setups read failed: {}", e.getMessage());
 			return false;
 		}
 	}
@@ -320,7 +296,6 @@ public class LoadoutMonitor {
 
 		try {
 			JsonArray setupsArray = gson.fromJson(setupsJson, JsonArray.class);
-			log.debug("Found {} Inventory Setups (legacy format)", setupsArray.size());
 			for (JsonElement element : setupsArray) {
 				JsonObject setup = element.getAsJsonObject();
 				LoadoutSyncPayload.LoadoutSet loadoutSet = parseLegacySetup(setup);
@@ -355,7 +330,6 @@ public class LoadoutMonitor {
 				}
 			}
 		} catch (Exception e) {
-			log.debug("Failed to load Inventory Setups sections: {}", e.getMessage());
 		}
 		return sectionMap;
 	}

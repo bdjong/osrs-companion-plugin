@@ -9,34 +9,27 @@ import com.osrscompanion.Guard;
 import com.osrscompanion.OSRSCompanionConfig;
 import com.osrscompanion.PluginVersion;
 import com.osrscompanion.SyncGuard;
-import com.osrscompanion.model.AchievementDiariesSyncPayload;
-import com.osrscompanion.model.HouseLocationSyncPayload;
 import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
-import com.osrscompanion.model.CombatAchievementsSyncPayload;
-import com.osrscompanion.model.Dailies;
-import com.osrscompanion.model.DeathSyncPayload;
-import com.osrscompanion.model.BossAreasResponse;
+import com.osrscompanion.model.BossGear;
+import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.KillCountsSyncPayload;
-import com.osrscompanion.model.KingdomSyncPayload;
 import com.osrscompanion.model.LoadoutSyncPayload;
 import com.osrscompanion.model.LootDropPayload;
 import com.osrscompanion.model.LootSyncPayload;
 import com.osrscompanion.model.SlayerCatalogPayload;
+import com.osrscompanion.model.SlayerGuide;
 import com.osrscompanion.model.SlayerRewardsPayload;
 import com.osrscompanion.model.SlayerSyncPayload;
 import com.osrscompanion.model.PlayerSkillsSyncPayload;
 import com.osrscompanion.model.QuestsSyncPayload;
-import com.osrscompanion.model.TimerSyncItem;
-import com.osrscompanion.model.TimersSyncPayload;
+import com.osrscompanion.model.Roadmap;
+import com.osrscompanion.model.RoadmapList;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -71,26 +64,18 @@ public class OSRSCompanionApiClient
 	static final String VERSION_HEADER = "X-OSRSCompanion-Plugin-Version";
 	private static final Interceptor VERSION_INTERCEPTOR = chain -> chain.proceed(
 		chain.request().newBuilder().header(VERSION_HEADER, PLUGIN_VERSION).build());
-	private static final String TIMERS_ENDPOINT = "/api/runelite/timers/";
+	private static final String TIME_TRACKING_ENDPOINT = "/api/runelite/time-tracking/";
 	private static final String SKILLS_ENDPOINT = "/api/runelite/skills/";
 	private static final String BANK_ENDPOINT = "/api/runelite/bank/";
 	private static final String COLLECTION_LOG_ENDPOINT = "/api/runelite/collection-log/";
 	private static final String QUESTS_ENDPOINT = "/api/runelite/quests/";
-	private static final String ACHIEVEMENT_DIARIES_ENDPOINT = "/api/runelite/achievement-diaries/";
-	private static final String HOUSE_LOCATION_ENDPOINT = "/api/runelite/house-location/";
 	private static final String FARMING_UNLOCKS_ENDPOINT = "/api/runelite/farming-unlocks/";
-	private static final String FARM_HARVESTS_ENDPOINT = "/api/runelite/farm-harvests/";
-	private static final String FARM_RUNS_ENDPOINT = "/api/runelite/farm-runs/";
-	private static final String BOSS_TRIPS_ENDPOINT = "/api/runelite/boss-trips/";
-	private static final String COMBAT_ACHIEVEMENTS_ENDPOINT = "/api/runelite/combat-achievements/";
-	private static final String DEATHS_ENDPOINT = "/api/runelite/deaths/";
+	private static final String FARM_RUN_ENDPOINT = "/api/runelite/farm-run/";
 	private static final String KILL_COUNTS_ENDPOINT = "/api/runelite/kill-counts/";
-	private static final String KINGDOM_ENDPOINT = "/api/runelite/kingdom/";
 	private static final String LOADOUT_ENDPOINT = "/api/runelite/loadouts/";
 	private static final String LOOT_ENDPOINT = "/api/runelite/loot/";
 	private static final String LOOT_DROP_ENDPOINT = "/api/runelite/loot/drop/";
 	private static final String ROADMAPS_ENDPOINT = "/api/runelite/roadmaps/";
-	private static final String GEAR_ENDPOINT = "/api/runelite/gear/";
 	private static final String FARM_ROUTE_ENDPOINT = "/api/runelite/farm-route/";
 	private static final String BOSS_GEAR_ENDPOINT = "/api/runelite/boss-gear/";
 	private static final String SESSION_ENDPOINT = "/api/runelite/session/";
@@ -98,16 +83,13 @@ public class OSRSCompanionApiClient
 	private static final String SLAYER_CATALOG_ENDPOINT = "/api/runelite/slayer/catalog/";
 	private static final String SLAYER_CATALOG_STATUS_ENDPOINT = "/api/runelite/slayer/catalog/status/";
 	private static final String SLAYER_REWARDS_ENDPOINT = "/api/runelite/slayer/rewards/";
-	private static final String DAILIES_ENDPOINT = "/api/runelite/dailies/";
 	private static final String SLAYER_GUIDE_ENDPOINT = "/api/runelite/slayer/guide/";
 	private static final String SLAYER_GEAR_ENDPOINT = "/api/runelite/slayer/gear/";
 	private static final String SLAYER_SESSIONS_ENDPOINT = "/api/runelite/slayer/sessions/";
-	private static final String BOSS_SESSIONS_ENDPOINT = "/api/runelite/boss-sessions/";
-	private static final String BOSS_AREAS_ENDPOINT = "/api/runelite/boss-areas/";
+	private static final String VARS_ENDPOINT = "/api/runelite/vars/";
+	private static final String EVENTS_ENDPOINT = "/api/runelite/events/";
 	static final String BATCH_ENDPOINT = "/api/runelite/batch";
 	static final String VERSION_ENDPOINT = "/api/runelite/version";
-	static final String ERRORS_ENDPOINT = "/api/runelite/errors";
-	static final String ERRORS_LABEL = "errors";
 	/** Live activity status (online, activity, world, area): its own upload, and riding along with every batch. */
 	static final String ACTIVITY_ENDPOINT = "/api/runelite/activity";
 	static final String ACTIVITY_LABEL = "activity";
@@ -131,19 +113,8 @@ public class OSRSCompanionApiClient
 	/** The website's data version last seen this login; null until the first answer. */
 	private Integer lastWebVersion;
 	private volatile Runnable webVersionChangedListener;
-	private volatile ErrorListener errorListener;
 	/** The current live activity status as JSON, or null when none is to be shared (see {@link #setActivitySource}). */
 	private volatile Supplier<String> activitySource;
-
-	/** Hears of failures worth an error report: refused uploads and website answers that could not be read. */
-	public interface ErrorListener
-	{
-		/** An upload the server refused (non-2xx) and that is not retried. */
-		void onUploadDropped(String label, String path, int httpStatus);
-
-		/** A website response that was not the JSON expected. */
-		void onResponseParseFailed(String label, String path, String error);
-	}
 
 	@Inject
 	public OSRSCompanionApiClient(OSRSCompanionConfig config, Gson gson, OkHttpClient okHttpClient)
@@ -173,17 +144,11 @@ public class OSRSCompanionApiClient
 		return builder;
 	}
 
-	public void sendTimersSync(List<TimerSyncItem> timers)
+	/** What RuneLite's Time Tracking stored ({@link com.osrscompanion.TimerMonitor}); merged per player. */
+	public void sendTimeTracking(String json, String playerUsername)
 	{
-		sendTimersSync(timers, null);
-	}
-
-	/** Timers sync naming the player at the top level, so an empty list still reaches the character. */
-	public void sendTimersSync(List<TimerSyncItem> timers, String playerUsername)
-	{
-		String json = TimersSyncPayload.toJson(timers, playerUsername);
-		postAsync(TIMERS_ENDPOINT, json, "timers", false, true, key("timers", playerUsername), false,
-			() -> log.debug("OSRS Companion timers sync successful: {} timers", timers.size()));
+		postAsync(TIME_TRACKING_ENDPOINT, json, "time-tracking", false, true, key("time-tracking", playerUsername), false,
+			null);
 	}
 
 	public void sendPlayerSkillsSync(PlayerSkillsSyncPayload payload)
@@ -198,7 +163,6 @@ public class OSRSCompanionApiClient
 		// rechecks and WikiSync, so it must run even when the payload is unchanged.
 		postAsync(SKILLS_ENDPOINT, payload.toJson(gson), "skills", false, false, key("skills", payload.getPlayer()), false,
 			() -> {
-				log.debug("OSRS Companion player skills sync successful for player: {}", payload.getPlayer());
 				if (onSuccess != null)
 				{
 					onSuccess.run();
@@ -209,7 +173,7 @@ public class OSRSCompanionApiClient
 	public void sendLoadoutSync(LoadoutSyncPayload payload)
 	{
 		postAsync(LOADOUT_ENDPOINT, payload.toJson(gson), "loadout", false, true, key("loadout", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion loadout sync successful for player: {}", payload.getPlayerUsername()));
+			null);
 	}
 
 	public void sendBankSync(BankSyncPayload payload)
@@ -218,129 +182,53 @@ public class OSRSCompanionApiClient
 		String sources = payload.getItems() == null ? "" : String.join(",", new java.util.TreeSet<>(payload.getItems().keySet()));
 		postAsync(BANK_ENDPOINT, payload.toJson(gson), "bank", false, true,
 			key("bank", payload.getPlayerUsername() + "|" + sources), false,
-			() -> log.debug("OSRS Companion bank sync successful: {} items for player: {}",
-				payload.getTotalItemCount(), payload.getPlayerUsername()));
+			null);
 	}
 
 	public void sendCollectionLogSync(CollectionLogSyncPayload payload)
 	{
 		postAsync(COLLECTION_LOG_ENDPOINT, payload.toJson(gson), "collection-log", false, true,
 			key("collection-log", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion collection log sync successful: {} items for player: {}",
-				payload.getItemCount(), payload.getPlayerUsername()));
+			null);
 	}
 
 	public void sendQuestsSync(QuestsSyncPayload payload)
 	{
 		postAsync(QUESTS_ENDPOINT, payload.toJson(gson), "quests", false, true, key("quests", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion quests sync successful: {} quests for player: {}",
-				payload.getQuests().size(), payload.getPlayerUsername()));
+			null);
 	}
 
-	public void sendAchievementDiariesSync(AchievementDiariesSyncPayload payload)
-	{
-		postAsync(ACHIEVEMENT_DIARIES_ENDPOINT, payload.toJson(gson), "achievement-diaries", false, true,
-			key("achievement-diaries", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion achievement diaries sync successful: {} regions for player: {}",
-				payload.getAchievementDiaries().size(), payload.getPlayerUsername()));
-	}
 
 	/** Auto-weed and Barbarian Farming state, for the farm route's loadout. */
 	public void sendFarmingUnlocks(String json)
 	{
 		postAsync(FARMING_UNLOCKS_ENDPOINT, json, "farming-unlocks", false, true, key("farming-unlocks", playerInBody(json)), false,
-			() -> log.debug("OSRS Companion farming unlocks synced"));
+			null);
 	}
 
-	/** One patch picked clean (Harvest stats); an event, so never deduped. */
-	public void sendFarmHarvest(String json)
+	/** A guided farm run that ended (Run history); an event, so never deduped. */
+	/** The farm run guide's action and state ({@link com.osrscompanion.FarmRunManager}), answered at once. */
+	public <T> void postFarmRun(String json, Class<T> type, RoadmapCallback<T> callback)
 	{
-		postAsync(FARM_HARVESTS_ENDPOINT, json, "farm-harvest", false, false, null, false,
-			() -> log.debug("OSRS Companion farm harvest recorded"));
+		postForResult(FARM_RUN_ENDPOINT, json, "farm-run", type, callback);
 	}
 
-	/** One finished boss trip (Boss Gear page, Trips); an event, so never deduped. */
-	public void sendBossTrip(String json)
-	{
-		postAsync(BOSS_TRIPS_ENDPOINT, json, "boss-trip", false, false, null, false,
-			() -> log.debug("OSRS Companion boss trip recorded"));
-	}
 
-	public void sendHouseLocationSync(HouseLocationSyncPayload payload)
-	{
-		postAsync(HOUSE_LOCATION_ENDPOINT, payload.toJson(gson), "house-location", false, true,
-			key("house-location", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion house location sync successful: varbit {} for player: {}",
-				payload.getHouseLocationVarbit(), payload.getPlayerUsername()));
-	}
 
-	public void sendKingdomSync(KingdomSyncPayload payload)
-	{
-		postAsync(KINGDOM_ENDPOINT, payload.toJson(gson), "kingdom", false, true, key("kingdom", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion kingdom sync successful: approval {} coffer {} for player: {}",
-				payload.getApprovalPoints(), payload.getCoffer(), payload.getPlayerUsername()));
-	}
 
-	public void sendCombatAchievementsSync(CombatAchievementsSyncPayload payload)
-	{
-		postAsync(COMBAT_ACHIEVEMENTS_ENDPOINT, payload.toJson(gson), "combat-achievements", false, true,
-			key("combat-achievements", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion combat achievements sync successful: {} tasks for player: {}",
-				payload.getCombatAchievements().size(), payload.getPlayerUsername()));
-	}
-
-	/**
-	 * Sends the queued deaths. Never deduped: an identical body is a retry of
-	 * deaths the backend has not acknowledged yet, or the login handshake.
-	 */
-	public void sendDeathsSync(DeathSyncPayload payload, Runnable onSuccess)
-	{
-		// The body is every death not yet acknowledged, so a newer one holds the older one's too.
-		postAsync(DEATHS_ENDPOINT, payload.toJson(gson), "deaths", false, false, key("deaths", payload.getPlayerUsername()), false,
-			() -> {
-				log.debug("OSRS Companion deaths sync successful: {} deaths for player: {}",
-					payload.getEvents().size(), payload.getPlayerUsername());
-				if (onSuccess != null)
-				{
-					onSuccess.run();
-				}
-			});
-	}
 
 	public void sendKillCountsSync(KillCountsSyncPayload payload)
 	{
 		postAsync(KILL_COUNTS_ENDPOINT, payload.toJson(gson), "kill-counts", false, true,
 			key("kill-counts", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion kill counts sync successful: {} bosses for player: {}",
-				payload.getKillCounts().size(), payload.getPlayerUsername()));
-	}
-
-	/**
-	 * Syncs slayer state + task transition events. Dedupe is disabled: the
-	 * payload carries pending events whose delivery must not be skipped just
-	 * because the state half is unchanged; the backend is idempotent on
-	 * event_uuid instead.
-	 */
-	public void sendSlayerSync(SlayerSyncPayload payload, Runnable onSuccess)
-	{
-		sendSlayerSync(payload, onSuccess, false);
+			null);
 	}
 
 	/** @param urgent send at once (a kill: the task count went down), not with the next timed flush */
-	public void sendSlayerSync(SlayerSyncPayload payload, Runnable onSuccess, boolean urgent)
+	public void sendSlayerSync(SlayerSyncPayload payload, boolean urgent)
 	{
-		// The state is whole and the events are every one not yet acknowledged, so a newer payload holds
-		// the older one's; a task transition (events) or a kill goes out at once.
-		postAsync(SLAYER_ENDPOINT, payload.toJson(gson), "slayer", false, false, key("slayer", payload.getPlayerUsername()),
-			urgent || !payload.getEvents().isEmpty(),
-			() -> {
-				log.debug("OSRS Companion slayer sync successful: {} events for player: {}",
-					payload.getEvents().size(), payload.getPlayerUsername());
-				if (onSuccess != null)
-				{
-					onSuccess.run();
-				}
-			});
+		// The state is whole, so a newer payload holds the older one's; a kill goes out at once.
+		postAsync(SLAYER_ENDPOINT, payload.toJson(gson), "slayer", false, false, key("slayer", payload.getPlayerUsername()), urgent, null);
 	}
 
 	/** Asks whether the server already has the slayer catalog with this hash. */
@@ -353,8 +241,7 @@ public class OSRSCompanionApiClient
 	public void sendSlayerCatalog(SlayerCatalogPayload payload)
 	{
 		postAsync(SLAYER_CATALOG_ENDPOINT, payload.toJson(gson), "slayer-catalog", true, true, "slayer-catalog", false,
-			() -> log.debug("OSRS Companion slayer catalog upload successful: hash {}",
-				payload.getPayloadHash()));
+			null);
 	}
 
 	public void sendSlayerRewards(SlayerRewardsPayload payload)
@@ -362,22 +249,37 @@ public class OSRSCompanionApiClient
 		// Dedupe off: identical scrapes are still distinct per-player facts,
 		// and the monitor already skips byte-identical repeats in-session.
 		postAsync(SLAYER_REWARDS_ENDPOINT, payload.toJson(gson), "slayer-rewards", false, false, null, false,
-			() -> log.debug("OSRS Companion slayer rewards sync successful: {} rows for player: {}",
-				payload.getRows().size(), payload.getPlayerUsername()));
+			null);
+	}
+
+	/** Fetches the current slayer task and its locations, best first (see the Slayer helper contract). */
+	/** The DPS calculator's best owned setups against the current slayer task's monster. */
+	public void getSlayerGear(String playerUsername, RoadmapCallback<com.osrscompanion.model.SlayerGear> callback)
+	{
+		getAsync(SLAYER_GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "slayer-gear", com.osrscompanion.model.SlayerGear.class, callback);
+	}
+
+	public void getSlayerGuide(String playerUsername, RoadmapCallback<SlayerGuide> callback)
+	{
+		getAsync(SLAYER_GUIDE_ENDPOINT + "?player=" + urlEncode(playerUsername), "slayer-guide", SlayerGuide.class, callback);
 	}
 
 	/**
-	 * Sends one boss history session (upserted by its session_uuid, so re-sending it as it grows is fine; a
-	 * queued older copy is replaced). The callback runs on the OkHttp thread.
-	 *
-	 * @param urgent send at once (a kill, a drop, logging out), not with the next timed flush
+	 * Sends one Slayer helper session (upserted by its session_uuid, so re-sending it as it grows is
+	 * fine). Never deduped: the helper only sends when something changed. The callback runs on the
+	 * OkHttp thread.
 	 */
-	public void sendBossSession(Map<String, Object> body, Runnable onSuccess, boolean urgent)
+	public void sendSlayerSession(Map<String, Object> body, Runnable onSuccess)
 	{
-		postAsync(BOSS_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "boss-session", false, false,
-			key("boss-session", String.valueOf(body.get("session_uuid"))), urgent,
+		sendSlayerSession(body, onSuccess, false);
+	}
+
+	/** @param urgent send at once (a kill), not with the next timed flush */
+	public void sendSlayerSession(Map<String, Object> body, Runnable onSuccess, boolean urgent)
+	{
+		postAsync(SLAYER_SESSIONS_ENDPOINT, gsonWithNulls.toJson(body), "slayer-session", false, false,
+			key("slayer-session", String.valueOf(body.get("session_uuid"))), urgent,
 			() -> {
-				log.debug("OSRS Companion boss session {} synced", body.get("session_uuid"));
 				if (onSuccess != null)
 				{
 					onSuccess.run();
@@ -388,8 +290,7 @@ public class OSRSCompanionApiClient
 	public void sendLootSync(LootSyncPayload payload)
 	{
 		postAsync(LOOT_ENDPOINT, payload.toJson(gson), "loot", true, true, key("loot", payload.getPlayerUsername()), false,
-			() -> log.debug("OSRS Companion loot sync successful: {} records for player: {}",
-				payload.getLootRecords().size(), payload.getPlayerUsername()));
+			null);
 	}
 
 	public void sendLootDrops(List<LootDropPayload> drops)
@@ -421,8 +322,7 @@ public class OSRSCompanionApiClient
 		String json = gson.toJson(payload);
 		// Append-style events: each batch is distinct (fresh dropped_at per drop), so never dedupe.
 		postAsync(LOOT_DROP_ENDPOINT, json, "loot-drops", true, false, null, true,
-			() -> log.debug("OSRS Companion loot drops batch recorded: {} drops for player: {}",
-				drops.size(), playerUsername));
+			null);
 	}
 
 	/**
@@ -439,6 +339,36 @@ public class OSRSCompanionApiClient
 		void onError(String message);
 	}
 
+	/**
+	 * Fetches the player's roadmaps (id/title/goal_count) for the panel selector.
+	 */
+	public void getRoadmaps(String playerUsername, RoadmapCallback<RoadmapList> callback)
+	{
+		String url = ROADMAPS_ENDPOINT + "?player=" + urlEncode(playerUsername);
+		getAsync(url, "roadmaps", RoadmapList.class, callback);
+	}
+
+	/**
+	 * Fetches a single roadmap fully rendered (goals + progress).
+	 */
+	public void getRoadmap(int collectionId, String playerUsername, RoadmapCallback<Roadmap> callback)
+	{
+		String url = ROADMAPS_ENDPOINT + collectionId + "/?player=" + urlEncode(playerUsername);
+		getAsync(url, "roadmap", Roadmap.class, callback);
+	}
+
+	/**
+	 * Recomputes a roadmap's goal completion against current synced data and
+	 * returns the re-rendered roadmap.
+	 */
+	public void recomputeRoadmap(int collectionId, String playerUsername, RoadmapCallback<Roadmap> callback)
+	{
+		String url = ROADMAPS_ENDPOINT + collectionId + "/recompute/";
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(url, gson.toJson(body), "roadmap-recompute", Roadmap.class, callback);
+	}
+
 	/** Reports a login ("start"), a "still playing" ping or a logout ("end"). */
 	public void sendSessionEvent(String playerUsername, String event, String at)
 	{
@@ -447,7 +377,7 @@ public class OSRSCompanionApiClient
 		body.put("event", event);
 		body.put("at", at);
 		postAsync(SESSION_ENDPOINT, gson.toJson(body), "session", false, false, null, false,
-			() -> log.debug("OSRS Companion session {} recorded for {}", event, playerUsername));
+			null);
 	}
 
 	/**
@@ -457,7 +387,7 @@ public class OSRSCompanionApiClient
 	public void sendActivity(String playerUsername, String json, boolean priority)
 	{
 		postAsync(ACTIVITY_ENDPOINT, json, ACTIVITY_LABEL, false, false, key(ACTIVITY_LABEL, playerUsername), priority,
-			() -> log.debug("OSRS Companion activity sent for {}", playerUsername));
+			null);
 	}
 
 	/**
@@ -504,98 +434,92 @@ public class OSRSCompanionApiClient
 		return new SyncOutbox.Item(baseUrl, appKey, ACTIVITY_ENDPOINT, "POST", json, ACTIVITY_LABEL, null, false, false, null);
 	}
 
-	/**
-	 * Fetches the website's boss lairs (boss key -> map regions). With the version the plugin has, the answer
-	 * is only { version, unchanged: true } while it is still current.
-	 */
-	public void getBossAreas(String version, RoadmapCallback<BossAreasResponse> callback)
+	/** Fetches the player's active farm route ({ route: null } until one is saved on the website). */
+	public void getFarmRoute(String playerUsername, RoadmapCallback<FarmRoute.Response> callback)
 	{
-		getAsync(BOSS_AREAS_ENDPOINT + (version == null ? "" : "?version=" + urlEncode(version)), "boss-areas", BossAreasResponse.class, callback);
+		getAsync(FARM_ROUTE_ENDPOINT + "?player=" + urlEncode(playerUsername), "farm-route", FarmRoute.Response.class, callback);
 	}
 
-	/** Which dailies are done, open or locked (and the ones ticked by hand); deduped like the other syncs. */
-	public void sendDailies(String json)
+	/** Makes another farm route the active one and returns it. */
+	public void activateFarmRoute(int routeId, String playerUsername, RoadmapCallback<FarmRoute.Response> callback)
 	{
-		// Not merged: a body may be a single untick rather than the whole list.
-		postAsync(DAILIES_ENDPOINT, json, "dailies", false, true, null, false,
-			() -> log.debug("OSRS Companion dailies synced"));
-	}
-
-	/** Fetches the dailies guide: every daily with its state, the way there and the steps. */
-	public void getDailies(String playerUsername, RoadmapCallback<Dailies> callback)
-	{
-		getAsync(DAILIES_ENDPOINT + "?player=" + urlEncode(playerUsername), "dailies", Dailies.class, callback);
-	}
-
-	/**
-	 * Sends error reports ({@code POST /api/runelite/errors}) through the outbox as a normal upload.
-	 * Their own failures are never reported (no loops).
-	 */
-	public void sendErrorReports(String playerUsername, List<Map<String, Object>> reports)
-	{
-		sendErrorReports(playerUsername, reports, null);
-	}
-
-	/** As above; {@code onSent} runs once the website accepted them (a 2xx answer). */
-	public void sendErrorReports(String playerUsername, List<Map<String, Object>> reports, Runnable onSent)
-	{
-		if (reports == null || reports.isEmpty())
-		{
-			return;
-		}
 		Map<String, Object> body = new LinkedHashMap<>();
-		body.put("player_username", playerUsername);
-		body.put("reports", reports);
-		postAsync(ERRORS_ENDPOINT, gsonWithNulls.toJson(body), ERRORS_LABEL, false, false, null, false,
-			() -> {
-				log.debug("OSRS Companion error reports sent: {}", reports.size());
-				if (onSent != null)
-				{
-					onSent.run();
-				}
-			});
+		body.put("player", playerUsername);
+		postForResult(FARM_ROUTE_ENDPOINT + "routes/" + routeId + "/activate/", gson.toJson(body), "farm-route-activate",
+			FarmRoute.Response.class, callback);
 	}
 
-	public void setErrorListener(ErrorListener listener)
+	/** Fetches the player's active boss gear set ({ set: null } until one is picked on the website). */
+	public void getBossGear(String playerUsername, RoadmapCallback<BossGear.Response> callback)
 	{
-		this.errorListener = listener;
+		getAsync(BOSS_GEAR_ENDPOINT + "?player=" + urlEncode(playerUsername), "boss-gear", BossGear.Response.class, callback);
 	}
 
-	private void notifyDropped(String label, String path, int status)
+	/** Makes any boss preset (boss key + setup index) the active boss gear and returns it. */
+	public void activateBossGearPreset(String bossKey, int setup, String playerUsername, RoadmapCallback<BossGear.Response> callback)
 	{
-		ErrorListener listener = errorListener;
-		// A website without the activity route (404) is not a plugin error: the status is sent again anyway.
-		if (listener == null || ERRORS_LABEL.equals(label) || ACTIVITY_LABEL.equals(label) && status == 404)
-		{
-			return;
-		}
-		try
-		{
-			listener.onUploadDropped(label, path, status);
-		}
-		catch (RuntimeException e)
-		{
-			log.debug("Error listener failed", e);
-		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("boss", bossKey);
+		body.put("setup", setup);
+		postForResult(BOSS_GEAR_ENDPOINT + "activate/", gson.toJson(body), "boss-gear-activate-preset",
+			BossGear.Response.class, callback);
 	}
 
-	private void notifyParseFailed(String label, String path, String error)
+	/** Sets the gear mode of wiki presets (bis | owned | alternatives), on the website too, and returns the reloaded set. */
+	public void setBossGearMode(String mode, String playerUsername, RoadmapCallback<BossGear.Response> callback)
 	{
-		ErrorListener listener = errorListener;
-		if (listener == null)
-		{
-			return;
-		}
-		int query = path.indexOf('?');
-		try
-		{
-			listener.onResponseParseFailed(label, query >= 0 ? path.substring(0, query) : path, error);
-		}
-		catch (RuntimeException e)
-		{
-			log.debug("Error listener failed", e);
-		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("mode", mode);
+		postForResult(BOSS_GEAR_ENDPOINT + "mode/", gson.toJson(body), "boss-gear-mode",
+			BossGear.Response.class, callback);
 	}
+
+	/**
+	 * Saves what you wear and carry as your own set for a boss ({@code loadout}: equipment by slot name,
+	 * 28 inventory cells, the rune pouch), makes it the active set and returns it.
+	 */
+	public void saveBossGearCustom(String bossKey, int setup, String name, Map<String, Object> loadout, String playerUsername,
+		RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		body.put("boss", bossKey);
+		body.put("setup", setup);
+		body.put("name", name);
+		body.put("loadout", loadout);
+		postForResult(BOSS_GEAR_ENDPOINT + "custom/", gson.toJson(body), "boss-gear-custom", BossGear.Response.class, callback);
+	}
+
+	/** Makes another saved boss gear set the active one and returns it. */
+	public void activateBossGear(int setId, String playerUsername, RoadmapCallback<BossGear.Response> callback)
+	{
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("player", playerUsername);
+		postForResult(BOSS_GEAR_ENDPOINT + "sets/" + setId + "/activate/", gson.toJson(body), "boss-gear-activate",
+			BossGear.Response.class, callback);
+	}
+
+	/** The data pump's watch list: per data type, the values the website wants ({@link com.osrscompanion.VarPump}). */
+	public <T> void getVarWatchList(String playerUsername, Class<T> type, RoadmapCallback<T> callback)
+	{
+		getAsync(VARS_ENDPOINT + "?player=" + urlEncode(playerUsername), "vars", type, callback);
+	}
+
+	/** The game events the website works the boss trips and history out from ({@link com.osrscompanion.GameEvents}); in order, never merged. */
+	public void sendEvents(String json, boolean priority)
+	{
+		postAsync(EVENTS_ENDPOINT, json, "events", false, false, null, priority, null);
+	}
+
+	/** The data pump's raw values (merged per player: only the newest set matters). */
+	public void sendVars(String json, String playerUsername)
+	{
+		postAsync(VARS_ENDPOINT, json, "vars", false, true, key("vars", playerUsername), false,
+			null);
+	}
+
 
 	private <T> void getAsync(String endpoint, String label, Class<T> type, RoadmapCallback<T> callback)
 	{
@@ -679,7 +603,6 @@ public class OSRSCompanionApiClient
 				catch (JsonSyntaxException e)
 				{
 					log.warn("Failed to parse {} response: {}", label, e.getMessage());
-					notifyParseFailed(label, endpoint, e.getMessage());
 					callback.onError("Could not read response");
 				}
 				catch (IOException e)
@@ -729,7 +652,6 @@ public class OSRSCompanionApiClient
 	{
 		if (!SyncGuard.hasAppKey(config))
 		{
-			log.debug("Skipping {} sync: no OSRS Companion App Key configured", syncType);
 			return;
 		}
 
@@ -738,7 +660,6 @@ public class OSRSCompanionApiClient
 		// otherwise going back to what the server had must still replace the newer queued one.
 		if (dedupe && isDuplicate(lastSentBodyByType.get(syncType), json) && (box == null || !box.hasPending(syncType)))
 		{
-			log.debug("Skipping {} sync: identical to last sent request", syncType);
 			return;
 		}
 
@@ -747,7 +668,10 @@ public class OSRSCompanionApiClient
 			{
 				lastSentBodyByType.put(syncType, json);
 			}
-			onSuccess.run();
+			if (onSuccess != null)
+			{
+				onSuccess.run();
+			}
 		};
 		String baseUrl = BASE_URL;
 		String appKey = config.osrsCompanionAppKey().trim();
@@ -770,7 +694,6 @@ public class OSRSCompanionApiClient
 				else
 				{
 					log.warn("OSRS Companion API returned {} for {} sync", httpStatus, syncType);
-					notifyDropped(syncType, endpoint, httpStatus);
 				}
 			}
 
@@ -807,7 +730,6 @@ public class OSRSCompanionApiClient
 				}
 			}, executor, System::currentTimeMillis);
 			box.setWebVersionListener(this::observeWebVersion);
-			box.setDropListener((item, status) -> notifyDropped(item.getLabel(), item.getPath(), status));
 			box.setBatchExtra(this::activityExtra);
 			outbox = box;
 		}
@@ -889,10 +811,6 @@ public class OSRSCompanionApiClient
 				catch (RuntimeException e)
 				{
 					log.warn("Failed to read the batch response: {}", e.getMessage());
-					if (!onlyErrorReports(items))
-					{
-						notifyParseFailed("batch", BATCH_ENDPOINT, e.getMessage());
-					}
 				}
 				finally
 				{
@@ -901,19 +819,6 @@ public class OSRSCompanionApiClient
 				callback.onResponse(code, statuses, webVersion);
 			}
 		});
-	}
-
-	/** True when a batch carries nothing but error reports (their failures are never reported). */
-	static boolean onlyErrorReports(List<SyncOutbox.Item> items)
-	{
-		for (SyncOutbox.Item item : items)
-		{
-			if (!ERRORS_LABEL.equals(item.getLabel()))
-			{
-				return false;
-			}
-		}
-		return true;
 	}
 
 	/** {@code {"requests":[{"path","method","body"}]}}, the bodies spliced in as the JSON they already are. */
@@ -1064,7 +969,6 @@ public class OSRSCompanionApiClient
 			@Override
 			public void onFailure(Call call, IOException e)
 			{
-				log.debug("Web version check failed: {}", e.getMessage());
 				callback.onError("Network error");
 			}
 
@@ -1082,12 +986,9 @@ public class OSRSCompanionApiClient
 				}
 				catch (IOException e)
 				{
-					log.debug("Failed to read the web version: {}", e.getMessage());
 				}
 				catch (RuntimeException e)
 				{
-					log.debug("Failed to read the web version: {}", e.getMessage());
-					notifyParseFailed("version", VERSION_ENDPOINT, e.getMessage());
 				}
 				finally
 				{
@@ -1125,7 +1026,6 @@ public class OSRSCompanionApiClient
 		Runnable listener = webVersionChangedListener;
 		if (changed && listener != null)
 		{
-			log.debug("Website data changed (webVersion {}), refreshing", version);
 			listener.run();
 		}
 	}
