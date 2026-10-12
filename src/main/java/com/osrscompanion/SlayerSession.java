@@ -2,11 +2,7 @@ package com.osrscompanion;
 
 import com.google.gson.annotations.SerializedName;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * One slayer session: one task assignment at one location, from the first time you walk into the

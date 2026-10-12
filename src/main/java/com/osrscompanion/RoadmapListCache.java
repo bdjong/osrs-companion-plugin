@@ -1,9 +1,7 @@
 package com.osrscompanion;
 
 import com.osrscompanion.model.RoadmapSummary;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**

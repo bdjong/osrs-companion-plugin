@@ -1,14 +1,7 @@
 package com.osrscompanion;
 
 import com.google.gson.annotations.SerializedName;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * A session's kill log: the task kills per exact NPC (its id, so each version of a monster apart), the
