@@ -93,8 +93,8 @@ public class BankMemoryMonitor {
 		this.deposits = new BankDepositLedger(() -> Map.of());
 	}
 
-	/** Items reached the bank without a bank container being sent (a storage item emptied into a
-	 * deposit box, a crew member banking the hold): count them as deposited and push. */
+	/** Items reached the bank without a bank container being sent (a crew member banking the hold): count them as
+	 * deposited and push. */
 	public void onItemsBankedUnseen(Map<Integer, Integer> contents) {
 		deposits.onContainerEmptied(contents);
 		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> push(true, false));

@@ -1,5 +1,7 @@
 package com.osrscompanion;
 
+// The plugin's StorageItemMonitor before the website kept the storage items: the reference for StorageEventsOracleTest.
+
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import java.util.ArrayList;
@@ -39,7 +41,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 
 /**
- * Drives a {@link StorageItemLedger} for every {@link StorageItemSpec}
+ * Drives a {@link OldStorageItemLedger} for every {@link OldStorageItemSpec}
  * (fish barrel, log basket, gem bag, coal bag, herb sack): storage items
  * the game exposes neither as a container nor as varbits. Each ledger is
  * handed to the goal tracker on every change so owned-item goals keep
@@ -47,7 +49,9 @@ import net.runelite.client.game.ItemManager;
  * its own bank-memory source through a debounced {@link SourceSyncer}.
  */
 @Singleton
-public class StorageItemMonitor {
+public class OldStorageItemMonitor {
+	/** What it uploaded (the test reads it). */
+	static java.util.function.BiConsumer<String, Map<Integer, Integer>> sink = (s, c) -> { };
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
 	static final String GUARD_FEATURE = "storage-items-sync";
 
@@ -60,12 +64,12 @@ public class StorageItemMonitor {
 	private enum Action { FILL, EMPTY, CHECK }
 
 	private final class Tracked {
-		final StorageItemLedger ledger;
+		final OldStorageItemLedger ledger;
 		final SourceSyncer syncer;
 		final Map<Action, Integer> actionTicks = new HashMap<>();
 
-		Tracked(StorageItemSpec spec) {
-			this.ledger = new StorageItemLedger(spec, StorageItemMonitor.this::itemName, () -> Map.of());
+		Tracked(OldStorageItemSpec spec) {
+			this.ledger = new OldStorageItemLedger(spec, OldStorageItemMonitor.this::itemName, () -> Map.of());
 			this.syncer = new SourceSyncer(spec.source, gson, executor,
 					() -> config.syncBankMemory() && SyncGuard.hasAppKey(config) && !GameModeUtil.isSpecialGameMode(client),
 					() -> SyncGuard.getPlayerUsername(client),
@@ -123,7 +127,7 @@ public class StorageItemMonitor {
 	}
 
 	@Inject
-	public StorageItemMonitor(
+	public OldStorageItemMonitor(
 			Client client,
 			ClientThread clientThread,
 			OSRSCompanionConfig config,
@@ -141,7 +145,7 @@ public class StorageItemMonitor {
 		this.gson = gson;
 		this.executor = executor;
 		this.configManager = configManager;
-		for (StorageItemSpec spec : StorageItemSpec.all()) {
+		for (OldStorageItemSpec spec : OldStorageItemSpec.all()) {
 			tracked.add(new Tracked(spec));
 		}
 	}
@@ -170,7 +174,7 @@ public class StorageItemMonitor {
 				Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 					readContainer(InventoryID.INV);
 					readContainer(InventoryID.WORN);
-					adoptChargesPluginState(ChargesPluginBridge.readAll(configManager::getConfiguration));
+					adoptChargesPluginState(OldChargesPluginBridge.readAll(configManager::getConfiguration));
 				});
 			} else if (SyncGuard.isLogout(previousGameState, newState)) {
 				for (Tracked t : tracked) {
@@ -198,10 +202,10 @@ public class StorageItemMonitor {
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
 		Guard.run(GUARD_FEATURE, () -> {
-			if (!ChargesPluginBridge.CONFIG_GROUP.equals(event.getGroup())) {
+			if (!OldChargesPluginBridge.CONFIG_GROUP.equals(event.getGroup())) {
 				return;
 			}
-			String source = ChargesPluginBridge.sourceForConfigKey(event.getKey());
+			String source = OldChargesPluginBridge.sourceForConfigKey(event.getKey());
 			if (source == null) {
 				return;
 			}
@@ -209,9 +213,9 @@ public class StorageItemMonitor {
 			// silk-lined variant share one) so a change to either lands correctly.
 			Map<Integer, Integer> merged = new LinkedHashMap<>();
 			boolean any = false;
-			for (String key : ChargesPluginBridge.keysFor(source)) {
-				Map<Integer, Integer> contents = ChargesPluginBridge.parse(
-						configManager.getConfiguration(ChargesPluginBridge.CONFIG_GROUP, key));
+			for (String key : OldChargesPluginBridge.keysFor(source)) {
+				Map<Integer, Integer> contents = OldChargesPluginBridge.parse(
+						configManager.getConfiguration(OldChargesPluginBridge.CONFIG_GROUP, key));
 				if (contents != null) {
 					any = true;
 					contents.forEach((id, qty) -> merged.merge(id, qty, Integer::sum));
@@ -442,6 +446,7 @@ public class StorageItemMonitor {
 				Map<Integer, Integer> contents = t.ledger.contents();
 				// An emptied container is worth telling the server about at once:
 				// its items are about to show up in the bank snapshot.
+				sink.accept(t.ledger.spec.source, contents);
 				t.syncer.submit(contents, push || contents.isEmpty());
 			}
 		});
