@@ -46,7 +46,6 @@ public class TeleportLeftClick {
 	/** Item names (lower case), read once on the client thread. */
 	private final Map<Integer, String> names = new ConcurrentHashMap<>();
 	/** The last menu choice written to the log, so a hovered item is logged once, not every frame. */
-	private String lastLog;
 
 	/**
 	 * Makes the travel's teleport the left click of the menu about to show. {@code where} names the
@@ -66,13 +65,7 @@ public class TeleportLeftClick {
 		}
 		Predicate<MenuEntry> cape = m -> isTeleportCape(m) && !keep.test(m);
 		MenuEntry[] entries = client.getMenuEntries();
-		StringBuilder capes = new StringBuilder();
-		for (MenuEntry m : entries) {
-			if (cape.test(m)) {
-				capes.append('\'').append(Text.removeTags(m.getOption())).append("' ");
-			}
-		}
-		if (capes.length() == 0) {
+		if (Arrays.stream(entries).noneMatch(cape)) {
 			travelItemLeftClick(entries, travel, where, keep);
 			return;
 		}
@@ -99,9 +92,6 @@ public class TeleportLeftClick {
 			// Only then a generic option that opens the cape's teleport list (the Farming cape's Teleport).
 			best = capeEntry(entries, capeFallbackOptions(travel), cape);
 		}
-		logOnce("CAPE TELEPORT " + where + ", travel '" + travel.getName() + "' (" + travel.getHow() + "), looking for " + wanted
-			+ ", cape options " + capes + "-> left click " + (best >= 0 ? "'" + Text.removeTags(entries[best].getOption()) + "'"
-			: fromSub != null ? "'" + Text.removeTags(fromSub.getOption()) + "' (from the Teleports menu)" : "unchanged"));
 		if (best < 0 && fromSub != null) {
 			copyToTop(fromSub);
 			return;
@@ -131,7 +121,7 @@ public class TeleportLeftClick {
 		MenuEntry best = null;
 		boolean bestFromSub = false;
 		int bestScore = 0;
-		StringBuilder seen = new StringBuilder();
+		boolean seen = false;
 		for (MenuEntry m : entries) {
 			boolean ours = (m.getItemId() > 0 && ids.contains(ItemVariationMapping.map(m.getItemId()))) || wantedNames.contains(baseName(m.getTarget()));
 			if (!ours || keep.test(m)) {
@@ -144,7 +134,7 @@ public class TeleportLeftClick {
 			}
 			for (MenuEntry o : options) {
 				String option = Text.removeTags(o.getOption()).toLowerCase().trim();
-				seen.append('\'').append(option).append("' ");
+				seen = true;
 				int score = optionScore(option, text);
 				if (score > bestScore) {
 					best = o;
@@ -153,11 +143,9 @@ public class TeleportLeftClick {
 				}
 			}
 		}
-		if (seen.length() == 0) {
+		if (!seen) {
 			return;
 		}
-		logOnce("TELEPORT LEFT CLICK " + where + ", travel '" + travel.getName() + "', item options " + seen
-			+ "-> " + (best == null ? "unchanged" : "'" + Text.removeTags(best.getOption()) + "'" + (bestFromSub ? " (from its sub menu)" : "")));
 		if (best == null) {
 			return;
 		}
@@ -235,12 +223,6 @@ public class TeleportLeftClick {
 			.setParam0(from.getParam0())
 			.setParam1(from.getParam1())
 			.onClick(from.onClick());
-	}
-
-	private void logOnce(String line) {
-		if (!line.equals(lastLog)) {
-			lastLog = line;
-		}
 	}
 
 	private static String travelText(FarmRoute.Travel travel) {
