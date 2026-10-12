@@ -11,8 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.events.*;
-import net.runelite.api.gameval.ItemID;
-import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.Subscribe;
 
 /**
@@ -33,13 +31,7 @@ public class PlankSackMonitor {
 
 	static {
 		Map<Integer, Integer> m = new LinkedHashMap<>();
-		m.put(VarbitID.PLANK_SACK_PLAIN, ItemID.WOODPLANK);
-		m.put(VarbitID.PLANK_SACK_OAK, ItemID.PLANK_OAK);
-		m.put(VarbitID.PLANK_SACK_TEAK, ItemID.PLANK_TEAK);
-		m.put(VarbitID.PLANK_SACK_MAHOGANY, ItemID.PLANK_MAHOGANY);
-		m.put(VarbitID.PLANK_SACK_CAMPHOR, ItemID.PLANK_CAMPHOR);
-		m.put(VarbitID.PLANK_SACK_IRONWOOD, ItemID.PLANK_IRONWOOD);
-		m.put(VarbitID.PLANK_SACK_ROSEWOOD, ItemID.PLANK_ROSEWOOD);
+		Tables.list("plankSack").forEach(p -> m.put(Tables.id(p.getAsJsonArray().get(0)), Tables.id(p.getAsJsonArray().get(1))));
 		PLANK_VARBITS = java.util.Collections.unmodifiableMap(m);
 	}
 

@@ -19,15 +19,7 @@ final class TripSupplies {
 	private static final String[] PREFIX_BOSSES = {"chambersofxeric", "theatreofblood", "tombsofamascut"};
 
 	static {
-		BOSS_ALIASES.put("dagannothrex", "dagannothkings");
-		BOSS_ALIASES.put("dagannothprime", "dagannothkings");
-		BOSS_ALIASES.put("dagannothsupreme", "dagannothkings");
-		BOSS_ALIASES.put("barrowschest", "barrows");
-		BOSS_ALIASES.put("lunarchest", "moonsofperil");
-		BOSS_ALIASES.put("tztokjad", "tzhaarfightcave");
-		BOSS_ALIASES.put("tzkalzuk", "inferno");
-		BOSS_ALIASES.put("solheredit", "fortiscolosseum");
-		BOSS_ALIASES.put("royaltitan", "royaltitans");
+		Tables.map("tripBossAliases").forEach((boss, as) -> BOSS_ALIASES.put(boss, as.getAsString()));
 	}
 
 	private TripSupplies() {
