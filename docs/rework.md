@@ -77,3 +77,7 @@ in-game roadmap window (both stay on the website): about 185k projected, give or
 | Slayer task outcomes and task times worked out by the website from game events (the plugin records its slayer reads, kills and completion chat; proven with 150 oracle play sessions, 1,753 task events) | -2,833 |
 | Storage items (fish barrel, log basket, gem bag, coal bag, herb sack) kept by the website from game events; the Charges plugin bridge moves too (proven with 60 oracle sessions, 6,414 uploads and 246 deposit-box empties) | -9,145 |
 | Death upload removed: the website has never stored deaths (its route only acknowledges them); the "Deaths" setting stays, off by default as before | -2,999 |
+| Leftovers of the debug log removed (a no-op logOnce building strings, an unused layout state) | -625 |
+| One wildcard import for java.util and net.runelite.api.events per file (other imports stay explicit) | -2,272 |
+
+**Result: about 194,111 tokens** (under the 195,000 the size test now enforces; the Plugin Hub limit is 200,000).

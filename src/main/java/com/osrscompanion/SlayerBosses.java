@@ -1,10 +1,6 @@
 package com.osrscompanion;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Slayer tasks that can also be done on a boss variant, and the boss NPCs that count for them (OSRS

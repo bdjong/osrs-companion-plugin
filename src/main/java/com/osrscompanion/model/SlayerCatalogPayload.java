@@ -2,8 +2,7 @@ package com.osrscompanion.model;
 
 import lombok.Getter;
 import com.google.gson.Gson;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Payload for uploading the game-cache slayer DB tables (113-117) to the

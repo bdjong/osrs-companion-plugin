@@ -1,8 +1,6 @@
 package com.osrscompanion;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Times each task monster's kill on its own: from the moment you started attacking it (or your
