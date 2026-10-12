@@ -139,17 +139,7 @@ public class BossGearManager {
 	private static final Map<net.runelite.api.EquipmentInventorySlot, String> WORN_KEYS = new java.util.EnumMap<>(net.runelite.api.EquipmentInventorySlot.class);
 
 	static {
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.HEAD, "head");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.CAPE, "cape");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.AMULET, "neck");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.AMMO, "ammo");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.WEAPON, "weapon");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.BODY, "body");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.SHIELD, "shield");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.LEGS, "legs");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.GLOVES, "hands");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.BOOTS, "feet");
-		WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.RING, "ring");
+		Tables.map("wornKeys").forEach((slot, key) -> WORN_KEYS.put(net.runelite.api.EquipmentInventorySlot.valueOf(slot), key.getAsString()));
 	}
 
 	/** Switches to any boss preset (on the website too) and loads it. */

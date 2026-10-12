@@ -12,7 +12,6 @@ import net.runelite.api.GameState;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.events.*;
 import net.runelite.api.gameval.VarPlayerID;
-import net.runelite.api.gameval.InventoryID;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 
@@ -31,23 +30,10 @@ public class VaultMonitor {
 	/** Container id to bank-sync source. Each container is its own source:
 	 * the backend replaces a whole source per upload and the plugin can only
 	 * snapshot a container it has seen, so two containers must not share one. */
-	private static final Map<Integer, String> VAULT_SOURCES;
+	private static final Map<Integer, String> VAULT_SOURCES = new HashMap<>();
 
 	static {
-		Map<Integer, String> m = new HashMap<>();
-		m.put(InventoryID.SEED_VAULT, "seed_vault");
-		m.put(InventoryID.LOOTING_BAG, "looting_bag");
-		m.put(InventoryID.SAILING_BOAT_1_CARGOHOLD, "boat_cargo_hold_1");
-		m.put(InventoryID.SAILING_BOAT_2_CARGOHOLD, "boat_cargo_hold_2");
-		m.put(InventoryID.SAILING_BOAT_3_CARGOHOLD, "boat_cargo_hold_3");
-		m.put(InventoryID.SAILING_BOAT_4_CARGOHOLD, "boat_cargo_hold_4");
-		m.put(InventoryID.SAILING_BOAT_5_CARGOHOLD, "boat_cargo_hold_5");
-		m.put(InventoryID.SAILING_TRAWLING_NET, "trawling_net");
-		m.put(InventoryID.SEED_BOX, "seed_box");
-		m.put(InventoryID.TACKLE_BOX, "tackle_box");
-		m.put(InventoryID.FORESTRY_KIT, "forestry_kit");
-		m.put(InventoryID.HUNTSMANS_KIT, "huntsmans_kit");
-		VAULT_SOURCES = Collections.unmodifiableMap(m);
+		Tables.map("vaultSources").forEach((source, id) -> VAULT_SOURCES.put(Tables.id(id), source));
 	}
 
 	/** Set on container ids the client reports for interface-owned inventories (a boat's hold arrives as 965 | 0x8000). */
