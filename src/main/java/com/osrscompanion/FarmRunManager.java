@@ -115,6 +115,9 @@ public class FarmRunManager {
 		boolean harvestable;
 		String step;
 		boolean compost;
+		/** For a patch still to do: the varbit values that mean planted ([from, to]) and its map region. */
+		int[][] planted;
+		int region;
 	}
 
 	private final Client client;
@@ -143,6 +146,8 @@ public class FarmRunManager {
 	// Requests to the website, one at a time and in order (client thread and OkHttp threads).
 	private final Deque<Map<String, Object>> queue = new ArrayDeque<>();
 	private boolean inFlight;
+	/** Patches seen planted in the game this run (sent along, so the website's answers agree). */
+	private final Set<String> seen = Collections.synchronizedSet(new HashSet<>());
 	private boolean syncPending;
 	private int lastSyncTick;
 
@@ -248,6 +253,7 @@ public class FarmRunManager {
 					running = false;
 					stopIndex = 0;
 					state = null;
+					seen.clear();
 				} else if (stopIndex >= route.getStops().size()) {
 					stopIndex = Math.max(0, route.getStops().size() - 1);
 				}
@@ -278,6 +284,9 @@ public class FarmRunManager {
 		body.put("player_username", player);
 		body.put("route_id", r.getId());
 		body.put("action", action);
+		synchronized (seen) {
+			body.put("done", new ArrayList<>(seen));
+		}
 		body.put("profile", TimerMonitor.timeTracking(configManager));
 		if (extra != null) {
 			body.putAll(extra);
@@ -370,6 +379,7 @@ public class FarmRunManager {
 		specialMode = GameModeUtil.isSpecialGameMode(client);
 		runPlayer = roadmapManager.getPlayerUsername();
 		state = null;
+		seen.clear();
 		running = true;
 		// Only one guide is active at a time: a farm run turns the boss setup and the slayer guide off.
 		turnOff(BOSS_ACTIVE_KEY);
@@ -466,6 +476,7 @@ public class FarmRunManager {
 			remindCape();
 			checkAway();
 			updateMinigameCooldown();
+			checkPlanted();
 			checkFinished();
 		});
 	}
@@ -496,6 +507,49 @@ public class FarmRunManager {
 	}
 
 	// ---- Finishing -----------------------------------------------------------------------
+
+	/**
+	 * Patches planted, read from the game with the values the website sent: the guide moves on at once (as the website
+	 * does: past a stop once nothing there needs a visit), with or without the website, and tells it.
+	 */
+	private void checkPlanted() {
+		State s = state;
+		FarmRoute r = route;
+		int[] regions = client.getMapRegions();
+		if (s == null || r == null || regions == null) {
+			return;
+		}
+		boolean changed = false;
+		for (FarmRoute.Stop stop : r.getStops()) {
+			for (FarmRoute.Patch p : stop.getPatches()) {
+				PatchState ps = s.patches.get(p.getKey());
+				if (ps == null || ps.planted == null || ps.status != Status.TODO || Arrays.stream(regions).noneMatch(id -> id == ps.region)) {
+					continue;
+				}
+				int v = client.getVarbitValue(p.getVarbit());
+				if (Arrays.stream(ps.planted).anyMatch(range -> v >= range[0] && v <= range[1])) {
+					ps.status = Status.DONE;
+					s.planted++;
+					seen.add(p.getKey());
+					changed = true;
+				}
+			}
+		}
+		if (!changed) {
+			return;
+		}
+		int next = stopIndex;
+		while (next < r.getStops().size() && r.getStops().get(next).getPatches().stream().noneMatch(p -> stateOf(p).status == Status.TODO)) {
+			next++;
+		}
+		if (next >= r.getStops().size()) {
+			s.complete = true;
+		} else if (next != stopIndex) {
+			s.previous_stop = stopIndex;
+			stopIndex = next;
+		}
+		send("sync", r);
+	}
 
 	/** A finished run: the summary popup straight away, then it stops once you leave the last stop, or after a minute. */
 	private void checkFinished() {

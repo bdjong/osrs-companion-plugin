@@ -46,7 +46,7 @@ in-game roadmap window (both stay on the website): about 185k projected, give or
 
 ## Open: decide when the rework is done
 
-- **Advancing guide steps offline (the owner's preference).** The website would send each step with simple conditions ("this patch is planted", "this item is in the inventory", "you are in this area") and the plugin checks them itself: guides keep moving without the website, and simple steps react instantly again. Estimated 4,000-6,000 tokens. Decide with the exact token count at the end of the rework: do it if it fits under 195,000.
+- **Advancing guide steps offline: done (2026-10-12, the owner chose it).** The farm run guide (the only guide with steps) reads the patches itself: with each answer the website sends, per patch still to do, the varbit values that mean planted and its map region; the plugin checks them every tick, marks the patch done and moves on to the next stop with work at once, with or without the website, and sends the patches it saw planted so the website's answers agree. Cost 439 tokens (estimated 4,000-6,000: the website works out the values).
 - **Two Plugin Hub plugins** (sync + guides) stays the fallback if the single plugin does not fit.
 
 ## Done so far
@@ -80,4 +80,6 @@ in-game roadmap window (both stay on the website): about 185k projected, give or
 | Leftovers of the debug log removed (a no-op logOnce building strings, an unused layout state) | -625 |
 | One wildcard import for java.util and net.runelite.api.events per file (other imports stay explicit) | -2,272 |
 
-**Result: about 194,111 tokens** (under the 195,000 the size test now enforces; the Plugin Hub limit is 200,000).
+| Farm run guide moves on in the plugin (offline steps) | +439 |
+
+**Result: about 194,550 tokens** (under the 195,000 the size test now enforces; the Plugin Hub limit is 200,000).
