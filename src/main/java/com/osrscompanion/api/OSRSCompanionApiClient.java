@@ -51,7 +51,8 @@ import okhttp3.Response;
 public class OSRSCompanionApiClient
 {
 	/** The OSRS Companion website every request goes to. */
-	public static final String BASE_URL = "https://osrs-companion-web.vercel.app";
+	/** The website; the DEV start script points a test client at the test website (-Dosrscompanion.url=...). */
+	public static final String BASE_URL = System.getProperty("osrscompanion.url", "https://osrs-companion-web.vercel.app");
 	private static final long REQUEST_TIMEOUT_SECONDS = 10;
 	private static final long LARGE_REQUEST_TIMEOUT_SECONDS = 60;
 	private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json");
