@@ -432,18 +432,6 @@ public class BankLayoutPrep {
 		}
 	}
 
-	/** Everything that decides the layout, for the debug log. */
-	private String state() {
-		BossGear set = bossGear.getSet();
-		return "boss: set " + (set == null ? "none" : set.getId() + " " + set.getBossName()) + ", active " + config.bossGearActive()
-			+ ", bank layout setting " + config.bossGearBankLayout() + ", loading " + bossGear.isLoading() + ", window open " + bossGear.isOpen()
-			+ " | farm: route " + (farmRun.getRoute() == null ? "none" : farmRun.getRoute().getId()) + ", setting " + config.farmRunBankFilter()
-			+ ", running " + farmRun.isRunning() + ", complete " + farmRun.isComplete()
-			+ " | slayer: setup " + (slayer.getGearSet() == null ? "none" : slayer.getGearSet().getKey()) + ", setting " + config.slayerGearBankLayout()
-			+ ", window open " + slayer.isGearOpen()
-			+ " | Bank Tags on " + bankTagsOn() + ", driver " + driver();
-	}
-
 	/** With the boss setup Active in the bank, have it loaded before the bank opens. */
 	private void preloadBossGear() {
 		int now = client.getTickCount();
