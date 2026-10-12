@@ -15,8 +15,9 @@ public interface OSRSCompanionConfig extends Config {
 	 * third-party server, which the Plugin Hub requires plugins to disclose.
 	 */
 	String APP_KEY_WARNING = "With an App Key this plugin sends your account's game data (your RuneScape name, skills, bank and other"
-		+ " storage, collection log, quests, diaries, combat achievements, kill counts, loot, slayer, farming, your online status and"
-		+ " current activity, and the other items switched on under Data Syncing) to the OSRS Companion website (osrs-companion-web.vercel.app). This is a third-party"
+		+ " storage, collection log, quests, diaries, combat achievements, kill counts, loot, slayer, farming, game events such as the"
+		+ " game's messages, inventory changes and XP gains, your online status and current activity, and the other items switched on"
+		+ " under Data Syncing) to the OSRS Companion website (osrs-companion-web.vercel.app). This is a third-party"
 		+ " server that is not run or checked by the RuneLite developers. Continue?";
 	/** The goal sound switch; replaced the old "goalCompleteSound" choice (In-game / Off). */
 	String GOAL_SOUND_KEY = "goalSoundOn";
