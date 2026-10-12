@@ -16,6 +16,9 @@ import javax.inject.Singleton;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.api.widgets.Widget;
+import net.runelite.api.ItemContainer;
 import net.runelite.client.plugins.timetracking.TimeTrackingConfig;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.config.ConfigManager;
@@ -54,8 +57,11 @@ import net.runelite.http.api.loottracker.LootRecordType;
  * where you are (a region change or a far jump), what you carry while a trip can be going, logging out, and a
  * heartbeat while you are bossing; and for the harvest stats, Pick / Harvest / Clear on a farming patch, each tick
  * with Farming XP (and what came into the inventory with it), what RuneLite's Time Tracking stores and walking away
- * from the patch. In order, each with its tick and time; sent with the other uploads every 30 seconds, and at once
- * after a kill, a drop, a death, the bank or logging out.
+ * from the patch; and for the storage items (fish barrel, log basket, gem bag, coal bag, herb sack, whose contents the
+ * game never sends) the inventory and worn items, game messages, Cooking / Firemaking / Farming XP, their Fill / Empty /
+ * Check clicks and Check text, the deposit box and the Charges plugin's storages. In order, each with its tick and
+ * time; sent with the other uploads every 30 seconds, and at once after a kill, a drop, a death, the bank or logging
+ * out.
  */
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
@@ -79,6 +85,7 @@ public class GameEvents {
 	private final Gson gson;
 	private final FarmRunManager farmRun;
 	private final ConfigManager configManager;
+	private final ClientThread clientThread;
 
 	private List<Map<String, Object>> buffer = new ArrayList<>();
 	private long lastFlushMs;
@@ -106,9 +113,16 @@ public class GameEvents {
 	/** The Kandarin and Kourend & Kebos diaries' completed varbits, easy to elite (they raise two herb patches' yields). */
 	private static final int[] KANDARIN_DIARY = {4515, 4516, 4517, 4518};
 	private static final int[] KOUREND_DIARY = {7929, 7930, 7931, 7932};
+	/** The Charges Improved plugin's config group: its exact storage contents ("..._storage" keys). */
+	private static final String CHARGES = "tictac7x-charges";
+	/** The message box "Check" writes a storage item's contents to. */
+	private static final int MESSAGEBOX = 193;
+	private final Map<Skill, Integer> lastXp = new HashMap<>();
+	private GameState gameState = GameState.UNKNOWN;
 
 	private boolean on() {
-		return (config.bossTrips() || config.bossHistory() || config.syncFarmHarvests() || config.syncSlayer()) && SyncGuard.hasAppKey(config)
+		return (config.bossTrips() || config.bossHistory() || config.syncFarmHarvests() || config.syncSlayer() || config.syncBankMemory())
+			&& SyncGuard.hasAppKey(config)
 			&& !GameModeUtil.isSpecialGameMode(client);
 	}
 
@@ -150,6 +164,16 @@ public class GameEvents {
 				add("bank_open");
 				armed = false;
 				flush(true);
+			} else if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
+				add("dbox", "o", true);
+			} else if (event.getGroupId() == MESSAGEBOX) {
+				// A storage item's Check listing; its text is set after the load.
+				Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
+					Widget w = client.getWidget(MESSAGEBOX, 2);
+					if (w != null && w.getText() != null) {
+						add("st_check", "text", w.getText());
+					}
+				});
 			}
 		});
 	}
@@ -160,6 +184,8 @@ public class GameEvents {
 			if (event.getGroupId() == InterfaceID.BANKMAIN) {
 				carried(add("bank_close"));
 				armed = true;
+			} else if (event.getGroupId() == InterfaceID.BANK_DEPOSITBOX) {
+				add("dbox", "o", false);
 			}
 		});
 	}
@@ -168,6 +194,9 @@ public class GameEvents {
 	public void onChatMessage(ChatMessage event) {
 		Guard.run(GUARD_FEATURE, () -> {
 			ChatMessageType type = event.getType();
+			if (type == ChatMessageType.GAMEMESSAGE || type == ChatMessageType.SPAM) {
+				add("msg", "s", type == ChatMessageType.SPAM, "m", event.getMessage());
+			}
 			String text = event.getMessage() == null ? null
 				: Text.removeTags(event.getMessage()).replaceAll("@[a-z_]+@", "").replace(' ', ' ').trim();
 			if ((type != ChatMessageType.GAMEMESSAGE && type != ChatMessageType.SPAM) || text == null || !WANTED_CHAT.matcher(text).find()) {
@@ -216,6 +245,15 @@ public class GameEvents {
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
 		Guard.run(GUARD_FEATURE, () -> {
+			if (event.getGameState() == GameState.LOGGED_IN && gameState != GameState.LOGGED_IN) {
+				// Logged in (or back from a loading screen): what the storage items start from.
+				storage(InventoryID.INV);
+				storage(InventoryID.WORN);
+				charges(null);
+			} else if (SyncGuard.isLogout(gameState, event.getGameState())) {
+				add("st_out");
+			}
+			gameState = event.getGameState();
 			if (event.getGameState() == GameState.LOGIN_SCREEN) {
 				if (ticksLoggedIn > 0) {
 					add("logout");
@@ -230,6 +268,7 @@ public class GameEvents {
 	public void onItemContainerChanged(ItemContainerChanged event) {
 		if (event.getContainerId() == InventoryID.INV || event.getContainerId() == InventoryID.WORN) {
 			carriedDirty = true;
+			Guard.run(GUARD_FEATURE, () -> storage(event.getContainerId()));
 		}
 		if (event.getContainerId() == InventoryID.INV) {
 			Map<Integer, Integer> now = new HashMap<>();
@@ -250,8 +289,39 @@ public class GameEvents {
 		}
 	}
 
+	/** The inventory (canonical ids) or worn items, for the storage items. */
+	private void storage(int containerId) {
+		ItemContainer c = client.getItemContainer(containerId);
+		Map<Integer, Integer> q = new HashMap<>();
+		for (Item item : c == null ? new Item[0] : c.getItems()) {
+			if (item != null && item.getId() > 0 && item.getQuantity() > 0) {
+				q.merge(containerId == InventoryID.INV ? itemManager.canonicalize(item.getId()) : item.getId(), item.getQuantity(), Integer::sum);
+			}
+		}
+		add(containerId == InventoryID.INV ? "inv" : "worn", "q", q);
+	}
+
+	/** The Charges plugin's storage contents (its raw values), on login or when {@code changed} (a key) changed. */
+	private void charges(String changed) {
+		Map<String, String> v = new HashMap<>();
+		for (String k : configManager.getConfigurationKeys(CHARGES + ".")) {
+			String key = k.substring(CHARGES.length() + 1);
+			if (key.endsWith("_storage")) {
+				v.put(key, configManager.getConfiguration(CHARGES, key));
+			}
+		}
+		add("charges", "k", changed, "v", v);
+	}
+
 	@Subscribe
 	public void onStatChanged(StatChanged event) {
+		Skill skill = event.getSkill();
+		int gained = event.getXp() - lastXp.getOrDefault(skill, event.getXp());
+		lastXp.put(skill, event.getXp());
+		// The storage items: XP that eats a catch (infernal tools) or is a herb going into the herb sack.
+		if (gained > 0 && (skill == Skill.COOKING || skill == Skill.FIREMAKING || skill == Skill.FARMING)) {
+			Guard.run(GUARD_FEATURE, () -> add("xp", "s", skill.getName(), "g", gained));
+		}
 		if (event.getSkill() == Skill.FARMING) {
 			farmXpThisTick |= farmXp >= 0 && event.getXp() > farmXp;
 			farmXp = event.getXp();
@@ -263,6 +333,16 @@ public class GameEvents {
 	public void onMenuOptionClicked(MenuOptionClicked event) {
 		Guard.run(GUARD_FEATURE, () -> {
 			String option = event.getMenuOption() == null ? "" : event.getMenuOption().toLowerCase();
+			MenuAction action = event.getMenuAction();
+			// The storage items: an item used on one (a fill), and their Fill / Empty / Check (and Pick: the herb).
+			if (action == MenuAction.WIDGET_TARGET_ON_WIDGET) {
+				add("st_use", "a", itemOf(event.getWidget()), "b", itemOf(client.getSelectedWidget()));
+				return;
+			}
+			if (option.equals("fill") || option.equals("empty") || option.equals("empty-to-bank") || option.equals("check") || option.equals("pick")) {
+				add("st_op", "o", option, "i", action == MenuAction.CC_OP || action == MenuAction.CC_OP_LOW_PRIORITY ? itemOf(event.getWidget()) : -1,
+					"tgt", event.getMenuTarget());
+			}
 			if (event.getMenuAction().getId() < MenuAction.GAME_OBJECT_FIRST_OPTION.getId() || event.getMenuAction().getId() > MenuAction.GAME_OBJECT_FIFTH_OPTION.getId()
 				|| !(option.startsWith("pick") || option.startsWith("harvest") || option.startsWith("clear"))) {
 				return;
@@ -278,6 +358,10 @@ public class GameEvents {
 		});
 	}
 
+	private static int itemOf(Widget w) {
+		return w == null ? -1 : w.getItemId();
+	}
+
 	/** Highest tier of the diary done in order: 0 none, 1 easy, 2 medium, 3 hard, 4 elite. */
 	private int tier(int[] varbits) {
 		int done = 0;
@@ -290,6 +374,9 @@ public class GameEvents {
 	/** What RuneLite's Time Tracking stores (patches, compost) as it changes, for the harvests. */
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event) {
+		if (CHARGES.equals(event.getGroup()) && event.getKey() != null && event.getKey().endsWith("_storage")) {
+			Guard.run(GUARD_FEATURE, () -> charges(event.getKey()));
+		}
 		if (TimeTrackingConfig.CONFIG_GROUP.equals(event.getGroup()) && event.getProfile() != null && event.getProfile().equals(configManager.getRSProfileKey())) {
 			Guard.run(GUARD_FEATURE, () -> add("tt", "k", event.getKey(), "v", event.getNewValue()));
 		}
@@ -365,6 +452,10 @@ public class GameEvents {
 		if (buffer.isEmpty() || player == null || !now && t - lastFlushMs < FLUSH_MS) {
 			return;
 		}
+		if (!now) {
+			// The end of a game tick (the website closes the tick's storage item changes).
+			add("gt");
+		}
 		lastFlushMs = t;
 		seq = Math.max(seq + 1, t);
 		Map<String, Object> body = new LinkedHashMap<>();
@@ -373,6 +464,7 @@ public class GameEvents {
 		body.put("trips", config.bossTrips());
 		body.put("history", config.bossHistory());
 		body.put("harvests", config.syncFarmHarvests());
+		body.put("bank", config.syncBankMemory());
 		body.put("events", buffer);
 		buffer = new ArrayList<>();
 		apiClient.sendEvents(gson.toJson(body), now);

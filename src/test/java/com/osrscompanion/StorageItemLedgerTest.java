@@ -30,8 +30,8 @@ public class StorageItemLedgerTest {
 		NAMES.put(ItemID.UNIDENTIFIED_GUAM, "Grimy guam leaf");
 	}
 
-	private static StorageItemLedger ledger(StorageItemSpec spec) {
-		return new StorageItemLedger(spec, id -> NAMES.getOrDefault(id, "Item " + id));
+	private static OldStorageItemLedger ledger(OldStorageItemSpec spec) {
+		return new OldStorageItemLedger(spec, id -> NAMES.getOrDefault(id, "Item " + id));
 	}
 
 	private static Map<Integer, Integer> qty(int id, int q) {
@@ -42,7 +42,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void catchesWithOpenBarrelAreCreditedPerFish() {
-		StorageItemLedger l = ledger(StorageItemSpec.fishBarrel());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.fishBarrel());
 		l.onGatherMessage("You catch an anglerfish!");
 		assertTrue(l.settle(true));
 		l.onGatherMessage("You catch a shark.");
@@ -61,7 +61,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void closedBarrelOrFishLandingInInventoryIsNotCredited() {
-		StorageItemLedger l = ledger(StorageItemSpec.fishBarrel());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.fishBarrel());
 		l.onGatherMessage("You catch an anglerfish!");
 		assertFalse(l.settle(false));
 		assertTrue(l.contents().isEmpty());
@@ -78,7 +78,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void infernalHarpoonCookedFishIsNotStored() {
-		StorageItemLedger l = ledger(StorageItemSpec.fishBarrel());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.fishBarrel());
 		l.onGatherMessage("You catch an anglerfish!");
 		l.onXp(Skill.COOKING, 230);
 		l.settle(true);
@@ -87,7 +87,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void fillMovesInventoryFishInAndCapacityCaps() {
-		StorageItemLedger l = ledger(StorageItemSpec.fishBarrel());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.fishBarrel());
 		l.onInventoryDiff(Map.of(), qty(ItemID.RAW_SHARK, 20), true, false);
 		l.onInventoryDiff(Map.of(), qty(ItemID.RAW_ANGLERFISH, 20), true, false);
 		l.settle(false);
@@ -103,7 +103,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void emptyingIntoTheBankClearsAndCheckResyncs() {
-		StorageItemLedger l = ledger(StorageItemSpec.fishBarrel());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.fishBarrel());
 		l.onGatherMessage("You catch an anglerfish!");
 		l.settle(true);
 		assertTrue(l.onGameMessage("You empty all of your containers into the bank."));
@@ -124,7 +124,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void fullMessageStopsCreditingUntilEmptied() {
-		StorageItemLedger l = ledger(StorageItemSpec.fishBarrel());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.fishBarrel());
 		l.onGatherMessage("You catch an anglerfish!");
 		l.settle(true);
 		l.onGameMessage("The barrel is full. It may be emptied at a bank.");
@@ -139,7 +139,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void logBasketCountsChoppedLogsAndPartialEmpties() {
-		StorageItemLedger l = ledger(StorageItemSpec.logBasket());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.logBasket());
 		l.onGatherMessage("You get some oak logs.");
 		l.onGatherMessage("Your Kandarin headgear provides you with an additional log.");
 		l.settle(true);
@@ -159,7 +159,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void gemBagParsesMinedGemsAndTheCheckMessage() {
-		StorageItemLedger l = ledger(StorageItemSpec.gemBag());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.gemBag());
 		l.onGatherMessage("You just mined a sapphire!");
 		l.onGatherMessage("You just found a ruby!");
 		l.settle(true);
@@ -177,7 +177,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void coalBagCountsMinedCoalAndParsesItsCheckMessage() {
-		StorageItemLedger l = ledger(StorageItemSpec.coalBag());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.coalBag());
 		l.onGatherMessage("You manage to mine some coal.");
 		l.onGatherMessage("Your Celestial ring allows you to mine an additional ore.");
 		l.settle(true);
@@ -195,7 +195,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void herbSackCreditsHarvestsByFarmingXpOnly() {
-		StorageItemLedger l = ledger(StorageItemSpec.herbSack());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.herbSack());
 		// Ranarr harvest: 30.5 XP shows as 30 or 31 with nothing entering the inventory.
 		l.onXp(Skill.FARMING, 31);
 		l.settle(true);
@@ -224,7 +224,7 @@ public class StorageItemLedgerTest {
 	public void unknownLedgerSeedsFromTheServerOnFirstSignalOnly() {
 		Map<Integer, Integer> server = new HashMap<>();
 		server.put(ItemID.RAW_ANGLERFISH, 2);
-		StorageItemLedger l = new StorageItemLedger(StorageItemSpec.fishBarrel(),
+		OldStorageItemLedger l = new OldStorageItemLedger(OldStorageItemSpec.fishBarrel(),
 				id -> NAMES.getOrDefault(id, "Item " + id), () -> server);
 		assertFalse(l.isKnown());
 		assertFalse(l.settle(true));
@@ -245,15 +245,15 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void singularisesCheckNames() {
-		assertEquals("sapphire", StorageItemLedger.singular("Sapphires"));
-		assertEquals("ruby", StorageItemLedger.singular("Rubies"));
-		assertEquals("red topaz", StorageItemLedger.singular("Red topazes"));
-		assertEquals("opal", StorageItemLedger.singular("Opal"));
+		assertEquals("sapphire", OldStorageItemLedger.singular("Sapphires"));
+		assertEquals("ruby", OldStorageItemLedger.singular("Rubies"));
+		assertEquals("red topaz", OldStorageItemLedger.singular("Red topazes"));
+		assertEquals("opal", OldStorageItemLedger.singular("Opal"));
 	}
 
 	@Test
 	public void herbSackCountsPickupsAndPickedPatchesByName() {
-		StorageItemLedger l = ledger(StorageItemSpec.herbSack());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.herbSack());
 		l.onGatherMessage("You put the Grimy ranarr weed herb into your herb sack.");
 		l.settle(true);
 		assertEquals(Integer.valueOf(1), l.contents().get(ItemID.UNIDENTIFIED_RANARR));
@@ -267,7 +267,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void outsideStateResyncsExactly() {
-		StorageItemLedger l = ledger(StorageItemSpec.fishBarrel());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.fishBarrel());
 		l.onGatherMessage("You catch an anglerfish!");
 		l.settle(true);
 		l.resync(qty(ItemID.RAW_SHARK, 9));
@@ -283,7 +283,7 @@ public class StorageItemLedgerTest {
 
 	@Test
 	public void gemBagCountsThievingAndEmptiesForEveryVariant() {
-		StorageItemLedger l = ledger(StorageItemSpec.gemBag());
+		OldStorageItemLedger l = ledger(OldStorageItemSpec.gemBag());
 		l.onGatherMessage("You steal an uncut sapphire and add it to your gem sack.");
 		l.onGatherMessage("You put the stolen Uncut ruby into your gem bag.");
 		l.settle(true);
