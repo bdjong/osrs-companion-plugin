@@ -2,9 +2,7 @@ package com.osrscompanion.model;
 
 import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * A fully rendered roadmap (goals + progress) from the roadmap detail / recompute

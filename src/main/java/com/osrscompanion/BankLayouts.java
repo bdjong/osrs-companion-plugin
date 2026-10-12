@@ -1,10 +1,6 @@
 package com.osrscompanion;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Bank positions for a loadout, 8 items per bank row: the worn equipment in the game's doll shape on

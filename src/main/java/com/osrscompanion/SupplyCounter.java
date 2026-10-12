@@ -1,9 +1,7 @@
 package com.osrscompanion;
 
 import lombok.RequiredArgsConstructor;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.inject.Inject;
 import javax.inject.Singleton;

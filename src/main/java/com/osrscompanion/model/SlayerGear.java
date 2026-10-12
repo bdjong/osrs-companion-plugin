@@ -2,8 +2,7 @@ package com.osrscompanion.model;
 
 import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * GET /api/runelite/slayer/gear/: the website's Gear &amp; DPS calculator's best owned setup per combat

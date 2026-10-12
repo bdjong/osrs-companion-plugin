@@ -32,7 +32,7 @@ public class PluginSizeTest {
 	 * Off while the plugin is reworked (logic moves to the website; the full plugin is about 352k): the size
 	 * is printed but does not fail the build. Turn it on again before any Plugin Hub pull request.
 	 */
-	static final boolean ENFORCE = false;
+	static final boolean ENFORCE = true;
 	static final double TOKENS_PER_PIECE = 351_624.0 / 497_964.0;
 
 	private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);

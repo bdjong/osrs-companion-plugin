@@ -1,13 +1,6 @@
 package com.osrscompanion;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Live activity, the pure part: which activity the player is doing (from signals the

@@ -2,8 +2,7 @@ package com.osrscompanion.model;
 
 import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * Response wrapper for {@code GET /api/runelite/roadmaps/}.
