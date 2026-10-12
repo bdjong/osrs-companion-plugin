@@ -1,5 +1,7 @@
 package com.osrscompanion;
 
+// The plugin's ChargesPluginBridge before the website kept the storage items: the reference for StorageEventsOracleTest.
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -18,7 +20,7 @@ import java.util.function.BiFunction;
  * change it writes. Read-only: the plugin hub forbids writing to another
  * plugin's config group.
  */
-final class ChargesPluginBridge {
+final class OldChargesPluginBridge {
 	static final String CONFIG_GROUP = "tictac7x-charges";
 	static final String STORAGE_SUFFIX = "_storage";
 
@@ -41,7 +43,7 @@ final class ChargesPluginBridge {
 		SOURCE_BY_KEY = Collections.unmodifiableMap(m);
 	}
 
-	private ChargesPluginBridge() {
+	private OldChargesPluginBridge() {
 	}
 
 	/** Our source for one of their config keys ({@code fish_barrel_storage}), or null when not one we mirror. */

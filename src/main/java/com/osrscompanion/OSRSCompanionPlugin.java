@@ -70,8 +70,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private PlankSackMonitor plankSackMonitor;
 
-	@Inject
-	private StorageItemMonitor storageItemMonitor;
 
 	@Inject
 	private LoadoutMonitor loadoutMonitor;
@@ -246,7 +244,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("farming timers", this::startFarming);
 
 		subscribers = java.util.Arrays.asList(this, timerMonitor, playerSkillsMonitor, bankMemoryMonitor, vaultMonitor,
-				potionStorageMonitor, runePouchMonitor, plankSackMonitor, storageItemMonitor, loadoutMonitor, lootMonitor,
+				potionStorageMonitor, runePouchMonitor, plankSackMonitor, loadoutMonitor, lootMonitor,
 				collectionLogMonitor, questMonitor, varPump, farmingUnlocksMonitor,
 				killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
 				slayerRewardsMonitor, farmRunManager, bankLayoutPrep,
@@ -317,7 +315,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	private void connectGoalProgress() {
 		roadmapManager.setRoadmapListener(goalProgressTracker::onServerRoadmap);
 		roadmapManager.setRoadmapSetListener(goalProgressTracker::retainRoadmaps);
-		storageItemMonitor.setEmptiedToDepositBoxListener(bankMemoryMonitor::onItemsBankedUnseen);
 		vaultMonitor.setCargoBankedListener(bankMemoryMonitor::onItemsBankedUnseen);
 	}
 
@@ -423,7 +420,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("stop potionStorageMonitor", () -> potionStorageMonitor.stop());
 		step("stop runePouchMonitor", () -> runePouchMonitor.stop());
 		step("stop plankSackMonitor", () -> plankSackMonitor.stop());
-		step("stop storageItemMonitor", () -> storageItemMonitor.stop());
 		step("stop loadoutMonitor", () -> loadoutMonitor.stop());
 		step("stop lootMonitor", () -> lootMonitor.stop());
 		step("stop collectionLogMonitor", () -> collectionLogMonitor.stop());
@@ -470,7 +466,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		roadmapManager.setRoadmapListener(null);
 		roadmapManager.setRoadmapSetListener(null);
 		roadmapManager.setPanelListener(null);
-		storageItemMonitor.setEmptiedToDepositBoxListener(null);
 		vaultMonitor.setCargoBankedListener(null);
 		goalCompletionNotifier.clear();
 		goalProgressTracker.clear();
