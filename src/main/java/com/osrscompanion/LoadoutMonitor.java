@@ -41,17 +41,7 @@ public class LoadoutMonitor {
 	private static final Map<Integer, String> EQUIPMENT_SLOT_MAP = new HashMap<>();
 
 	static {
-		EQUIPMENT_SLOT_MAP.put(0, "head");
-		EQUIPMENT_SLOT_MAP.put(1, "cape");
-		EQUIPMENT_SLOT_MAP.put(2, "neck");
-		EQUIPMENT_SLOT_MAP.put(3, "weapon");
-		EQUIPMENT_SLOT_MAP.put(4, "body");
-		EQUIPMENT_SLOT_MAP.put(5, "shield");
-		EQUIPMENT_SLOT_MAP.put(7, "legs");
-		EQUIPMENT_SLOT_MAP.put(9, "hands");
-		EQUIPMENT_SLOT_MAP.put(10, "feet");
-		EQUIPMENT_SLOT_MAP.put(12, "ring");
-		EQUIPMENT_SLOT_MAP.put(13, "ammo");
+		Tables.map("loadoutSlots").forEach((slot, key) -> EQUIPMENT_SLOT_MAP.put(Integer.parseInt(slot), key.getAsString()));
 	}
 
 	private final Client client;

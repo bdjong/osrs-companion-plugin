@@ -13,7 +13,6 @@ import net.runelite.api.EnumComposition;
 import net.runelite.api.EnumID;
 import net.runelite.api.GameState;
 import net.runelite.api.events.*;
-import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.Subscribe;
 
 /**
@@ -31,14 +30,8 @@ public class RunePouchMonitor {
 
 	static final String SOURCE = "rune_pouch";
 
-	private static final int[] TYPE_VARBITS = {
-		VarbitID.RUNE_POUCH_TYPE_1, VarbitID.RUNE_POUCH_TYPE_2, VarbitID.RUNE_POUCH_TYPE_3,
-		VarbitID.RUNE_POUCH_TYPE_4, VarbitID.RUNE_POUCH_TYPE_5, VarbitID.RUNE_POUCH_TYPE_6,
-	};
-	private static final int[] QUANTITY_VARBITS = {
-		VarbitID.RUNE_POUCH_QUANTITY_1, VarbitID.RUNE_POUCH_QUANTITY_2, VarbitID.RUNE_POUCH_QUANTITY_3,
-		VarbitID.RUNE_POUCH_QUANTITY_4, VarbitID.RUNE_POUCH_QUANTITY_5, VarbitID.RUNE_POUCH_QUANTITY_6,
-	};
+	private static final int[] TYPE_VARBITS = Tables.ids(Tables.list("runePouchTypes"));
+	private static final int[] QUANTITY_VARBITS = Tables.ids(Tables.list("runePouchQuantities"));
 
 	private final Client client;
 	private final SourceSyncer syncer;

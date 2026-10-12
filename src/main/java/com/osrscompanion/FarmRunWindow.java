@@ -53,12 +53,7 @@ public class FarmRunWindow extends GameWindow {
 	private static final Map<String, String[]> STORAGE = new LinkedHashMap<>();
 
 	static {
-		STORAGE.put("leprechaun", new String[]{"L", "tool leprechaun"});
-		STORAGE.put("seed_vault", new String[]{"V", "seed vault"});
-		STORAGE.put("seed_box", new String[]{"S", "seed box"});
-		STORAGE.put("bank", new String[]{"B", "bank"});
-		// Runes in a rune pouch left in the bank (a carried pouch counts as carried, so the slot is green).
-		STORAGE.put("rune_pouch", new String[]{"P", "rune pouch"});
+		Tables.map("farmStorage").forEach((place, text) -> STORAGE.put(place, Tables.strings(text).toArray(new String[0])));
 	}
 
 	private final FarmRunManager manager;

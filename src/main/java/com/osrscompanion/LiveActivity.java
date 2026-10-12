@@ -241,48 +241,22 @@ final class LiveActivity {
 	// ---- Raids, minigames and bosses ------------------------------------------------------------
 
 	/** Map region (the template region inside instances) -> raid name. Chambers of Xeric and the Theatre also go by varbit. */
-	static final Map<Integer, String> RAID_REGIONS;
+	static final Map<Integer, String> RAID_REGIONS = regions("raidRegions");
 	/** Map region -> minigame name. The Gauntlet goes by varbit. */
-	static final Map<Integer, String> MINIGAME_REGIONS;
+	static final Map<Integer, String> MINIGAME_REGIONS = regions("minigameRegions");
 
-	static {
-		Map<Integer, String> raids = new HashMap<>();
-		for (int r : new int[]{14160, 15698, 15700, 14162, 14164, 14674, 14676, 15186, 15188, 15184, 15696, 14672}) {
-			raids.put(r, "Tombs of Amascut");
-		}
-		for (int r : new int[]{12613, 13125, 13122, 13123, 13379, 12611}) {
-			raids.put(r, "Theatre of Blood");
-		}
-		RAID_REGIONS = Collections.unmodifiableMap(raids);
-
-		Map<Integer, String> games = new HashMap<>();
-		games.put(9043, "Inferno");
-		games.put(9551, "Fight Caves");
-		games.put(7216, "Fortis Colosseum");
-		games.put(14484, "Guardians of the Rift");
-		games.put(12078, "Tempoross");
-		games.put(6462, "Wintertodt");
-		games.put(12126, "Zalcano");
-		games.put(9033, "Nightmare Zone");
-		games.put(10536, "Pest Control");
-		games.put(13491, "Giants' Foundry");
-		games.put(14231, "Barrows");
-		games.put(7512, "The Gauntlet");
-		games.put(7768, "The Corrupted Gauntlet");
-		MINIGAME_REGIONS = Collections.unmodifiableMap(games);
+	private static Map<Integer, String> regions(String table) {
+		Map<Integer, String> m = new HashMap<>();
+		Tables.map(table).forEach((name, regions) -> {
+			for (int r : Tables.ids(regions)) {
+				m.put(r, name);
+			}
+		});
+		return m;
 	}
 
 	/** Boss NPC names (lower case), besides the slayer boss variants and the boss gear catalog. */
-	private static final Set<String> BOSSES = new HashSet<>(Arrays.asList(
-		"abyssal sire", "alchemical hydra", "amoxliatl", "araxxor", "artio", "branda the fire queen", "bryophyta",
-		"callisto", "calvar'ion", "cerberus", "chaos elemental", "chaos fanatic", "commander zilyana", "corporeal beast",
-		"crazy archaeologist", "dagannoth prime", "dagannoth rex", "dagannoth supreme", "dawn", "deranged archaeologist",
-		"doom of mokhaiotl", "duke sucellus", "dusk", "eldric the ice king", "general graardor", "giant mole", "hespori",
-		"k'ril tsutsaroth", "kalphite queen", "king black dragon", "kraken", "kree'arra", "nex", "obor",
-		"phantom muspah", "phosani's nightmare", "sarachnis", "scorpia", "scurrius", "shellbane gryphon", "skotizo",
-		"sol heredit", "spindel", "the hueycoatl", "the leviathan", "the nightmare", "the whisperer",
-		"thermonuclear smoke devil", "tztok-jad", "tzkal-zuk", "vardorvis", "venenatis", "vet'ion", "vorkath", "yama",
-		"zulrah"));
+	private static final Set<String> BOSSES = Tables.stringSet("bossNames");
 
 	static {
 		for (java.util.List<String> names : SlayerBosses.BOSSES.values()) {

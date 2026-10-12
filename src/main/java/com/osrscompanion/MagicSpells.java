@@ -42,11 +42,7 @@ final class MagicSpells {
 	private static final Pattern LEVEL = Pattern.compile("\\s*\\((level|skill)-\\d+\\)\\s*$", Pattern.CASE_INSENSITIVE);
 
 	/** Offensive spells by exact name (lower case), besides the elemental and Ancient patterns below. */
-	private static final Set<String> OFFENSIVE = new HashSet<>(Arrays.asList(
-		"crumble undead", "iban blast", "magic dart", "saradomin strike", "claws of guthix", "flames of zamorak",
-		"confuse", "weaken", "curse", "bind", "snare", "entangle", "vulnerability", "enfeeble", "stun", "tele block",
-		"inferior demonbane", "superior demonbane", "dark demonbane", "ghostly grasp", "skeletal grasp", "undead grasp",
-		"corruption", "lesser corruption", "greater corruption"));
+	private static final Set<String> OFFENSIVE = Tables.stringSet("offensiveSpells");
 	private static final Pattern ELEMENTAL = Pattern.compile("^(wind|water|earth|fire) (strike|bolt|blast|wave|surge)$");
 	private static final Pattern ANCIENT = Pattern.compile("^(smoke|shadow|blood|ice) (rush|burst|blitz|barrage)$");
 

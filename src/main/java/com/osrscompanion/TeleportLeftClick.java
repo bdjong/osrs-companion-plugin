@@ -27,14 +27,11 @@ import net.runelite.client.util.Text;
 @Singleton
 public class TeleportLeftClick {
 	/** Capes with teleports a route uses: Max capes, Construction capes, Farming capes, Ardougne cloaks. */
-	private static final Set<Integer> TELEPORT_CAPES = new HashSet<>(Arrays.asList(
-		13280, 13342, 9789, 9790, FarmRunManager.FARMING_CAPE, FarmRunManager.FARMING_CAPE_T, 13121, 13122, 13123, 13124));
+	private static final Set<Integer> TELEPORT_CAPES = Tables.idSet("teleportCapes");
 	/** "Max cape (Hosidius house portal)": the cape's teleport to a town's house portal. */
 	private static final Pattern HOUSE_PORTAL = Pattern.compile("\\(([a-z' ]+) house portal\\)");
 	/** Item options that never teleport: not made the left click. */
-	private static final Set<String> NOT_TELEPORTS = new HashSet<>(Arrays.asList(
-		"wear", "wield", "remove", "drop", "use", "examine", "check", "cancel", "walk here", "destroy", "read", "inspect", "features",
-		"spellbook", "check charges", "uncharge", "empty"));
+	private static final Set<String> NOT_TELEPORTS = Tables.stringSet("notTeleports");
 
 	private final Client client;
 	/** Item names (lower case), read once on the client thread. */
