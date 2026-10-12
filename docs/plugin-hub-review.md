@@ -18,6 +18,10 @@ Decided 2026-10-11: O3 accepted (the licence notices stay in the public reposito
 
 Still open: the in-game test of `development`, then the release merge and the hub pull request (README, "Plugin Hub release: what still has to be done").
 
+## Status 2026-10-12 (resubmission after the rework)
+
+Re-checked against `development` after the rework (docs/rework.md): no reflection, `Unsafe`, `Runtime`, subprocesses, `Thread.sleep` or file I/O; no `new Gson()` / `new OkHttpClient()` (`Tables` parses tables.json with `JsonParser`); one thread of its own (roadmap refreshes; the freeze watchdog went with the error reporting); `client.menuAction` only for the collection log; `runScript` only for the collection-log search, quest status, potion storage doses and the notification popup; hint arrows only from the farm run and Slayer guides (the dailies guide was dropped); `LinkBrowser.browse` only (OSRS Wiki, the website); no writes to other plugins' settings; the website address is the constant `OSRSCompanionApiClient.BASE_URL` (O7). New since the first submission: the game events (`GameEvents`) are disclosed in the App Key warning, the README, the hub `warning=` line and the PR text (docs/plugin-hub-pr.md). Review size about 193,500 tokens.
+
 The review below is the one of 2026-10-08 and is kept as the reasoning behind these decisions.
 
 ---
