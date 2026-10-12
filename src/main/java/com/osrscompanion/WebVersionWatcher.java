@@ -6,12 +6,11 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 
 /**
- * Notices changes made on the website (such as the dailies)
+ * Notices changes made on the website (roadmaps, farm routes, gear setups, slayer picks, settings...)
  * without each feature polling: the website bumps a webVersion per character, every batch upload
  * answers with it, and every {@link #CHECK_SECONDS} a tiny {@code GET /api/runelite/version} asks
  * for it when no batch answered lately. A different value than the last one seen re-reads
@@ -22,7 +21,6 @@ import net.runelite.api.GameState;
  * status goes out on its own (a batch, whose answer carries the webVersion too, so no version check is
  * needed then). Idle, that is one request per 15 s instead of the version check's one per 30 s.
  */
-@Slf4j
 @Singleton
 public class WebVersionWatcher {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -38,7 +36,10 @@ public class WebVersionWatcher {
 	private final OSRSCompanionConfig config;
 	private final OSRSCompanionApiClient apiClient;
 	private final ScheduledExecutorService executor;
-	private final DailiesManager dailiesManager;
+	private final RoadmapManager roadmapManager;
+	private final FarmRunManager farmRunManager;
+	private final SlayerHelperManager slayerHelperManager;
+	private final BossGearManager bossGearManager;
 	private final LiveActivityMonitor liveActivity;
 
 	private ScheduledFuture<?> task;
@@ -47,13 +48,18 @@ public class WebVersionWatcher {
 
 	@Inject
 	public WebVersionWatcher(Client client, OSRSCompanionConfig config, OSRSCompanionApiClient apiClient,
-			ScheduledExecutorService executor, DailiesManager dailiesManager, LiveActivityMonitor liveActivity) {
+			ScheduledExecutorService executor, RoadmapManager roadmapManager, FarmRunManager farmRunManager,
+			SlayerHelperManager slayerHelperManager, BossGearManager bossGearManager,
+			LiveActivityMonitor liveActivity) {
 		executor = GuardedExecutor.wrap(GUARD_FEATURE, executor);
 		this.client = client;
 		this.config = config;
 		this.apiClient = apiClient;
 		this.executor = executor;
-		this.dailiesManager = dailiesManager;
+		this.roadmapManager = roadmapManager;
+		this.farmRunManager = farmRunManager;
+		this.slayerHelperManager = slayerHelperManager;
+		this.bossGearManager = bossGearManager;
 		this.liveActivity = liveActivity;
 	}
 
@@ -121,11 +127,9 @@ public class WebVersionWatcher {
 
 				@Override
 				public void onError(String message) {
-					log.debug("Web version check: {}", message);
 				}
 			});
 		} catch (RuntimeException e) {
-			log.debug("Web version check failed", e);
 		}
 	}
 
@@ -134,8 +138,13 @@ public class WebVersionWatcher {
 		if (client.getGameState() != GameState.LOGGED_IN || !SyncGuard.hasAppKey(config)) {
 			return;
 		}
-		if (dailiesManager.getGuide() != null) {
-			run("dailies", dailiesManager::refresh);
+		run("roadmaps", roadmapManager::refreshAllFresh);
+		run("farm route", farmRunManager::refresh);
+		if (slayerHelperManager.getGuide() != null) {
+			run("slayer guide", slayerHelperManager::refresh);
+		}
+		if (bossGearManager.isLoaded() || bossGearManager.isOpen()) {
+			run("boss gear", bossGearManager::refresh);
 		}
 	}
 
@@ -143,7 +152,6 @@ public class WebVersionWatcher {
 		try {
 			refresh.run();
 		} catch (RuntimeException e) {
-			log.debug("Refreshing the {} after a website change failed", what, e);
 		}
 	}
 }

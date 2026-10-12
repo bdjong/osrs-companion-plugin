@@ -11,12 +11,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -127,43 +122,10 @@ public class LootMonitor
 		}
 	}
 
-	/** Invoked after each upload so roadmap progress can be re-read; set by the plugin. */
-	private volatile Runnable syncedListener;
-
-	public void setSyncedListener(Runnable listener)
-	{
-		this.syncedListener = listener;
-	}
-
-	private void notifySynced()
-	{
-		Runnable listener = syncedListener;
-		if (listener != null)
-		{
-			listener.run();
-		}
-	}
-
 	/** Receives every loot drop the monitor queues for upload (set by the plugin). */
 	public interface DropListener
 	{
 		void onDrop(int npcId, String npcName, int kills, List<LootSyncPayload.LootItem> items);
-	}
-
-	private volatile DropListener dropListener;
-
-	public void setDropListener(DropListener listener)
-	{
-		this.dropListener = listener;
-	}
-
-	/**
-	 * Flushes queued drops on the background executor right away (a roadmap goal
-	 * just completed locally and the server should hear about it promptly).
-	 */
-	public void flushDropsNow()
-	{
-		executorService.execute(this::flushDrops);
 	}
 
 	public void stop()
@@ -203,7 +165,6 @@ public class LootMonitor
 
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN)
 			{
-				log.debug("Player logged in, waiting for RS profile before loot sync");
 				// Use clientThread.invokeLater to poll each tick until the RS profile
 				// key is available. Returns false to retry, true when done.
 				Guard.invokeLater(clientThread, GUARD_FEATURE, () ->
@@ -218,14 +179,12 @@ public class LootMonitor
 					{
 						return false; // not ready yet, retry next tick
 					}
-					log.debug("RS profile ready ({}), scheduling loot sync in {}s", profileKey, PROFILE_SYNC_DELAY_SECONDS);
 					executorService.schedule(this::syncLoot, PROFILE_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 					return true;
 				});
 			}
 			else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN)
 			{
-				log.debug("Player logged out, flushing pending drops and syncing loot");
 				flushDrops();
 				syncLoot();
 			}
@@ -315,16 +274,10 @@ public class LootMonitor
 
 			String droppedAt = DateTimeFormatter.ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC));
 			LootDropPayload payload = new LootDropPayload(playerUsername, clientId, npcId, npcName, killCount, droppedAt, items);
-			log.debug("Loot drop from {} (id={}, kc={}): {} items (queued)", npcName, npcId, killCount, items.size());
 
 			synchronized (pendingDrops)
 			{
 				pendingDrops.add(payload);
-			}
-			DropListener listener = dropListener;
-			if (listener != null)
-			{
-				listener.onDrop(npcId, npcName, event.getAmount(), items);
 			}
 			if (notable)
 			{
@@ -356,9 +309,7 @@ public class LootMonitor
 			pendingDrops.clear();
 		}
 
-		log.debug("Flushing {} loot drops to API", dropsToSend.size());
 		apiClient.sendLootDrops(dropsToSend);
-		notifySynced();
 	}
 
 	/**
@@ -372,12 +323,10 @@ public class LootMonitor
 		}
 		if (!SyncGuard.hasAppKey(config))
 		{
-			log.debug("Loot sync skipped: no App Key configured");
 			return;
 		}
 		if (GameModeUtil.isSpecialGameMode(client))
 		{
-			log.debug("Loot sync skipped: special game mode detected");
 			return;
 		}
 
@@ -391,7 +340,6 @@ public class LootMonitor
 		List<LootSyncPayload.LootRecord> lootRecords = readLootTrackerData();
 		if (lootRecords.isEmpty())
 		{
-			log.debug("No loot tracker data to sync");
 			return;
 		}
 
@@ -405,14 +353,11 @@ public class LootMonitor
 
 		if (currentHash.equals(lastSyncHash))
 		{
-			log.debug("Loot data unchanged, skipping sync ({} records)", lootRecords.size());
 			return;
 		}
 
 		LootSyncPayload payload = new LootSyncPayload(playerUsername, clientId, lootRecords);
-		log.debug("Syncing {} loot records for player: {}", lootRecords.size(), playerUsername);
 		apiClient.sendLootSync(payload);
-		notifySynced();
 
 		lastSyncHash = currentHash;
 		configManager.setRSProfileConfiguration("osrscompanion", LAST_SYNC_HASH_KEY, currentHash);
@@ -453,7 +398,6 @@ public class LootMonitor
 		}
 		catch (NoSuchAlgorithmException e)
 		{
-			log.debug("MD5 not available, skipping hash-based dedup", e);
 			return UUID.randomUUID().toString();
 		}
 	}
@@ -481,7 +425,6 @@ public class LootMonitor
 			String profileKey = configManager.getRSProfileKey();
 			if (profileKey == null)
 			{
-				log.debug("No RS profile key available for loot sync");
 				return records;
 			}
 
@@ -507,7 +450,6 @@ public class LootMonitor
 				}
 				catch (Exception e)
 				{
-					log.debug("Failed to parse loot tracker key: {}", key, e);
 				}
 			}
 		}
@@ -607,7 +549,6 @@ public class LootMonitor
 		}
 		catch (Exception e)
 		{
-			log.debug("Could not read cumulative kill count for {}", npcName, e);
 			return 0;
 		}
 	}

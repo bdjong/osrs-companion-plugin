@@ -1,0 +1,22 @@
+fillRect 180,130,640,440 #3e3529ff
+drawRect 181,131,637,437 #0e0c08ff w=3
+drawRect 183,133,633,433 #5d5240ff w=1
+text 'Boss Gear' 468,151 RuneScape Bold/1/16 #000000ff
+text 'Boss Gear' 467,150 RuneScape Bold/1/16 #ff981fff
+fillRect 792,136,20,18 #3e3529ff
+drawRect 792,136,19,17 #14110cff w=1
+drawRect 793,137,17,15 #6a5c48ff w=1
+line 798,141-806,149 #c8a24aff w=2
+line 806,141-798,149 #c8a24aff w=2
+line 188,158-811,158 #14110cff w=1
+line 188,159-811,159 #5d5240ff w=1
+text 'No build loaded yet. Press Pick a build to load a wiki preset, or make a custom build on the website' 228,341 RuneScape/0/16 #000000ff
+text 'No build loaded yet. Press Pick a build to load a wiki preset, or make a custom build on the website' 227,340 RuneScape/0/16 #ffffffff
+text '(Tools > Boss Gear > My sets).' 418,357 RuneScape/0/16 #000000ff
+text '(Tools > Boss Gear > My sets).' 417,356 RuneScape/0/16 #ffffffff
+fillRect 440,380,120,20 #3e3529ff
+drawRect 440,380,119,19 #14110cff w=1
+drawRect 441,381,117,17 #6a5c48ff w=1
+text 'Pick a build' 473,395 RuneScape Small/0/16 #000000ff
+text 'Pick a build' 472,394 RuneScape Small/0/16 #ff981fff
+=> 640x440

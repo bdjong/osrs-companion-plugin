@@ -1,0 +1,520 @@
+{
+  "SlayerMonitor.MASTER_BLOCK_VARBITS": {
+    "Chaeldar": [
+      17830,
+      17831,
+      17832,
+      17833,
+      17834,
+      17835,
+      17863
+    ],
+    "Duradel": [
+      17848,
+      17849,
+      17850,
+      17851,
+      17852,
+      17853,
+      17866
+    ],
+    "Konar": [
+      17836,
+      17837,
+      17838,
+      17839,
+      17840,
+      17841,
+      17864
+    ],
+    "Krystilia": [
+      17854,
+      17855,
+      17856,
+      17857,
+      17858,
+      17859,
+      17867
+    ],
+    "Mazchna": [
+      17818,
+      17819,
+      17820,
+      17821,
+      17822,
+      17823,
+      17861
+    ],
+    "Mortimer": [
+      15783,
+      15784
+    ],
+    "Nieve": [
+      17842,
+      17843,
+      17844,
+      17845,
+      17846,
+      17847,
+      17865
+    ],
+    "Turael": [
+      17812,
+      17813,
+      17814,
+      17815,
+      17816,
+      17817,
+      17860
+    ],
+    "Vannaka": [
+      17824,
+      17825,
+      17826,
+      17827,
+      17828,
+      17829,
+      17862
+    ]
+  },
+  "SlayerMonitor.BLOCK_LIST_VARPS": [
+    1096,
+    4830,
+    4831,
+    4832,
+    4833,
+    4834,
+    4835,
+    4836,
+    4837,
+    4838,
+    4839,
+    4840,
+    4841,
+    4842,
+    4843
+  ],
+  "SlayerMonitor.WATCHED_VARPS": [
+    "1076",
+    "1096",
+    "1344",
+    "2096",
+    "394",
+    "395",
+    "4258",
+    "5587"
+  ],
+  "SlayerMonitor.WATCHED_VARBITS": [
+    "15783",
+    "15784",
+    "17812",
+    "17813",
+    "17814",
+    "17815",
+    "17816",
+    "17817",
+    "17818",
+    "17819",
+    "17820",
+    "17821",
+    "17822",
+    "17823",
+    "17824",
+    "17825",
+    "17826",
+    "17827",
+    "17828",
+    "17829",
+    "17830",
+    "17831",
+    "17832",
+    "17833",
+    "17834",
+    "17835",
+    "17836",
+    "17837",
+    "17838",
+    "17839",
+    "17840",
+    "17841",
+    "17842",
+    "17843",
+    "17844",
+    "17845",
+    "17846",
+    "17847",
+    "17848",
+    "17849",
+    "17850",
+    "17851",
+    "17852",
+    "17853",
+    "17854",
+    "17855",
+    "17856",
+    "17857",
+    "17858",
+    "17859",
+    "17860",
+    "17861",
+    "17862",
+    "17863",
+    "17864",
+    "17865",
+    "17866",
+    "17867",
+    "4067",
+    "4068",
+    "4069",
+    "4723",
+    "5617"
+  ],
+  "SlayerBosses.BOSSES": {
+    "abyssal demons": [
+      "Abyssal Sire"
+    ],
+    "araxytes": [
+      "Araxxor"
+    ],
+    "aviansie": [
+      "Kree\u0027arra"
+    ],
+    "bears": [
+      "Callisto",
+      "Artio"
+    ],
+    "black demons": [
+      "Skotizo"
+    ],
+    "black dragons": [
+      "King Black Dragon"
+    ],
+    "blue dragons": [
+      "Vorkath"
+    ],
+    "cave kraken": [
+      "Kraken"
+    ],
+    "dagannoth": [
+      "Dagannoth Rex",
+      "Dagannoth Prime",
+      "Dagannoth Supreme"
+    ],
+    "fire giants": [
+      "Branda the Fire Queen"
+    ],
+    "gargoyles": [
+      "Dusk",
+      "Dawn"
+    ],
+    "greater demons": [
+      "K\u0027ril Tsutsaroth",
+      "Tstanon Karlak",
+      "Skotizo"
+    ],
+    "gryphons": [
+      "Shellbane Gryphon"
+    ],
+    "hellhounds": [
+      "Cerberus"
+    ],
+    "hill giants": [
+      "Obor"
+    ],
+    "hydras": [
+      "Alchemical Hydra"
+    ],
+    "ice giants": [
+      "Eldric the Ice King"
+    ],
+    "kalphite": [
+      "Kalphite Queen"
+    ],
+    "moss giants": [
+      "Bryophyta"
+    ],
+    "rats": [
+      "Scurrius"
+    ],
+    "scorpions": [
+      "Scorpia"
+    ],
+    "skeletons": [
+      "Vet\u0027ion",
+      "Calvar\u0027ion"
+    ],
+    "smoke devils": [
+      "Thermonuclear smoke devil"
+    ],
+    "spiders": [
+      "Sarachnis",
+      "Venenatis",
+      "Spindel"
+    ]
+  },
+  "LiveActivity.RAID_REGIONS": {
+    "12611": "Theatre of Blood",
+    "12613": "Theatre of Blood",
+    "13122": "Theatre of Blood",
+    "13123": "Theatre of Blood",
+    "13125": "Theatre of Blood",
+    "13379": "Theatre of Blood",
+    "14160": "Tombs of Amascut",
+    "14162": "Tombs of Amascut",
+    "14164": "Tombs of Amascut",
+    "14672": "Tombs of Amascut",
+    "14674": "Tombs of Amascut",
+    "14676": "Tombs of Amascut",
+    "15184": "Tombs of Amascut",
+    "15186": "Tombs of Amascut",
+    "15188": "Tombs of Amascut",
+    "15696": "Tombs of Amascut",
+    "15698": "Tombs of Amascut",
+    "15700": "Tombs of Amascut"
+  },
+  "LiveActivity.MINIGAME_REGIONS": {
+    "10536": "Pest Control",
+    "12078": "Tempoross",
+    "12126": "Zalcano",
+    "13491": "Giants\u0027 Foundry",
+    "14231": "Barrows",
+    "14484": "Guardians of the Rift",
+    "6462": "Wintertodt",
+    "7216": "Fortis Colosseum",
+    "7512": "The Gauntlet",
+    "7768": "The Corrupted Gauntlet",
+    "9033": "Nightmare Zone",
+    "9043": "Inferno",
+    "9551": "Fight Caves"
+  },
+  "LiveActivity.BOSSES": [
+    "abyssal sire",
+    "alchemical hydra",
+    "amoxliatl",
+    "araxxor",
+    "artio",
+    "branda the fire queen",
+    "bryophyta",
+    "callisto",
+    "calvar\u0027ion",
+    "cerberus",
+    "chaos elemental",
+    "chaos fanatic",
+    "commander zilyana",
+    "corporeal beast",
+    "crazy archaeologist",
+    "dagannoth prime",
+    "dagannoth rex",
+    "dagannoth supreme",
+    "dawn",
+    "deranged archaeologist",
+    "doom of mokhaiotl",
+    "duke sucellus",
+    "dusk",
+    "eldric the ice king",
+    "general graardor",
+    "giant mole",
+    "hespori",
+    "k\u0027ril tsutsaroth",
+    "kalphite queen",
+    "king black dragon",
+    "kraken",
+    "kree\u0027arra",
+    "nex",
+    "obor",
+    "phantom muspah",
+    "phosani\u0027s nightmare",
+    "sarachnis",
+    "scorpia",
+    "scurrius",
+    "shellbane gryphon",
+    "skotizo",
+    "sol heredit",
+    "spindel",
+    "the hueycoatl",
+    "the leviathan",
+    "the nightmare",
+    "the whisperer",
+    "thermonuclear smoke devil",
+    "tstanon karlak",
+    "tzkal-zuk",
+    "tztok-jad",
+    "vardorvis",
+    "venenatis",
+    "vet\u0027ion",
+    "vorkath",
+    "yama",
+    "zulrah"
+  ],
+  "MagicSpells.OFFENSIVE": [
+    "bind",
+    "claws of guthix",
+    "confuse",
+    "corruption",
+    "crumble undead",
+    "curse",
+    "dark demonbane",
+    "enfeeble",
+    "entangle",
+    "flames of zamorak",
+    "ghostly grasp",
+    "greater corruption",
+    "iban blast",
+    "inferior demonbane",
+    "lesser corruption",
+    "magic dart",
+    "saradomin strike",
+    "skeletal grasp",
+    "snare",
+    "stun",
+    "superior demonbane",
+    "tele block",
+    "undead grasp",
+    "vulnerability",
+    "weaken"
+  ],
+  "VaultMonitor.VAULT_SOURCES": {
+    "516": "looting_bag",
+    "573": "seed_box",
+    "626": "seed_vault",
+    "651": "tackle_box",
+    "814": "forestry_kit",
+    "855": "huntsmans_kit",
+    "963": "boat_cargo_hold_1",
+    "964": "boat_cargo_hold_2",
+    "965": "boat_cargo_hold_3",
+    "966": "boat_cargo_hold_4",
+    "967": "boat_cargo_hold_5",
+    "968": "trawling_net"
+  },
+  "BossGearManager.WORN_KEYS": {
+    "AMMO": "ammo",
+    "AMULET": "neck",
+    "BODY": "body",
+    "BOOTS": "feet",
+    "CAPE": "cape",
+    "GLOVES": "hands",
+    "HEAD": "head",
+    "LEGS": "legs",
+    "RING": "ring",
+    "SHIELD": "shield",
+    "WEAPON": "weapon"
+  },
+  "BankLayouts.EQUIPMENT_POS": {
+    "ammo": 10,
+    "body": 17,
+    "cape": 8,
+    "feet": 33,
+    "hands": 32,
+    "head": 1,
+    "legs": 25,
+    "neck": 9,
+    "ring": 34,
+    "shield": 18,
+    "switch": 3,
+    "switch_shield": 11,
+    "weapon": 16
+  },
+  "PlankSackMonitor.PLANK_VARBITS": {
+    "18171": 960,
+    "18172": 8778,
+    "18173": 8780,
+    "18174": 8782,
+    "18175": 31432,
+    "18176": 31435,
+    "18177": 31438
+  },
+  "LoadoutMonitor.EQUIPMENT_SLOT_MAP": {
+    "0": "head",
+    "1": "cape",
+    "10": "feet",
+    "12": "ring",
+    "13": "ammo",
+    "2": "neck",
+    "3": "weapon",
+    "4": "body",
+    "5": "shield",
+    "7": "legs",
+    "9": "hands"
+  },
+  "FarmRunWindow.STORAGE": {
+    "bank": [
+      "B",
+      "bank"
+    ],
+    "leprechaun": [
+      "L",
+      "tool leprechaun"
+    ],
+    "rune_pouch": [
+      "P",
+      "rune pouch"
+    ],
+    "seed_box": [
+      "S",
+      "seed box"
+    ],
+    "seed_vault": [
+      "V",
+      "seed vault"
+    ]
+  },
+  "TripSupplies.BOSS_ALIASES": {
+    "barrowschest": "barrows",
+    "dagannothprime": "dagannothkings",
+    "dagannothrex": "dagannothkings",
+    "dagannothsupreme": "dagannothkings",
+    "lunarchest": "moonsofperil",
+    "royaltitan": "royaltitans",
+    "solheredit": "fortiscolosseum",
+    "tzkalzuk": "inferno",
+    "tztokjad": "tzhaarfightcave"
+  },
+  "TeleportLeftClick.NOT_TELEPORTS": [
+    "cancel",
+    "check",
+    "check charges",
+    "destroy",
+    "drop",
+    "empty",
+    "examine",
+    "features",
+    "inspect",
+    "read",
+    "remove",
+    "spellbook",
+    "uncharge",
+    "use",
+    "walk here",
+    "wear",
+    "wield"
+  ],
+  "TeleportLeftClick.TELEPORT_CAPES": [
+    "13121",
+    "13122",
+    "13123",
+    "13124",
+    "13280",
+    "13342",
+    "9789",
+    "9790",
+    "9810",
+    "9811"
+  ],
+  "RunePouchMonitor.TYPE_VARBITS": [
+    29,
+    1622,
+    1623,
+    14285,
+    15373,
+    15374
+  ],
+  "RunePouchMonitor.QUANTITY_VARBITS": [
+    1624,
+    1625,
+    1626,
+    14286,
+    15375,
+    15376
+  ]
+}

@@ -2,13 +2,10 @@ package com.osrscompanion;
 
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.PlayerSkillsSyncPayload;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -16,8 +13,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.StatChanged;
+import net.runelite.api.events.*;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.eventbus.Subscribe;
@@ -48,9 +44,6 @@ public class PlayerSkillsMonitor {
 	private final Map<String, Integer> lastSeenXp = new HashMap<>();
 	private volatile boolean xpDirty;
 	private ScheduledFuture<?> trainingTask;
-	/** The XP snapshot of the last upload the server acknowledged, keyed by skill name. */
-	private volatile Map<String, Integer> lastUploadedXp = Collections.emptyMap();
-	private volatile Consumer<Map<String, Integer>> uploadListener;
 
 	@Inject
 	public PlayerSkillsMonitor(
@@ -82,19 +75,9 @@ public class PlayerSkillsMonitor {
 		previousGameState = GameState.UNKNOWN;
 		lastSeenXp.clear();
 		xpDirty = false;
-		uploadListener = null;
 	}
 
-	/** Receives each acknowledged upload's XP snapshot (set by the plugin). */
-	public void setUploadListener(Consumer<Map<String, Integer>> listener) {
-		this.uploadListener = listener;
-	}
-
-	public Map<String, Integer> getLastUploadedXp() {
-		return lastUploadedXp;
-	}
-
-	/** Re-runs the skills sync now (App Key entered while logged in). */
+	/** Re-runs the skills sync now (App Key entered while logged in, or the roadmap's "Sync &amp; refresh"). */
 	public void forceSync() {
 		syncOnClientThread();
 	}
@@ -110,10 +93,8 @@ public class PlayerSkillsMonitor {
 			GameState newState = event.getGameState();
 
 			if (newState == GameState.LOGGED_IN && previousGameState != GameState.LOGGED_IN) {
-				log.debug("Player logged in, scheduling skills sync in {}s", LOGIN_SYNC_DELAY_SECONDS);
 				executorService.schedule(this::syncOnClientThread, LOGIN_SYNC_DELAY_SECONDS, TimeUnit.SECONDS);
 			} else if (previousGameState == GameState.LOGGED_IN && newState != GameState.LOGGED_IN) {
-				log.debug("Player logged out, syncing skills");
 				lastSeenXp.clear();
 				xpDirty = false;
 				syncPlayerSkills();
@@ -153,15 +134,12 @@ public class PlayerSkillsMonitor {
 	 */
 	private void syncPlayerSkills() {
 		if (!SyncGuard.hasAppKey(config)) {
-			log.debug("Player skills sync skipped: no App Key configured");
 			return;
 		}
 		if (!config.syncSkills()) {
-			log.debug("Player skills sync skipped: Skills & XP sync is off");
 			return;
 		}
 		if (GameModeUtil.isSpecialGameMode(client)) {
-			log.debug("Player skills sync skipped: special game mode detected (Leagues, DMM, etc.)");
 			return;
 		}
 
@@ -176,14 +154,12 @@ public class PlayerSkillsMonitor {
 			return;
 		}
 		Map<String, PlayerSkillsSyncPayload.SkillData> skills = new HashMap<>();
-		Map<String, Integer> xpSnapshot = new HashMap<>();
 		int totalLevel = 0;
 
 		for (Skill skill : Skill.values()) {
 			int level = client.getRealSkillLevel(skill);
 			int xp = client.getSkillExperience(skill);
 			skills.put(skill.getName(), new PlayerSkillsSyncPayload.SkillData(level, xp));
-			xpSnapshot.put(skill.getName(), xp);
 			totalLevel += level;
 		}
 
@@ -192,15 +168,6 @@ public class PlayerSkillsMonitor {
 		// Account type (Group Ironman helmet on the website): varbit IRONMAN, sent only when it names an iron type.
 		Integer accountType = PlayerSkillsSyncPayload.accountTypeOf(client.getVarbitValue(VarbitID.IRONMAN));
 		PlayerSkillsSyncPayload payload = new PlayerSkillsSyncPayload(playerUsername, skills, totalLevel, combatLevel, accountType);
-		log.debug("Syncing {} skills for player: {} (Total Level: {}, Combat Level: {})",
-				skills.size(), playerUsername, totalLevel, combatLevel);
-		Map<String, Integer> snapshot = Collections.unmodifiableMap(xpSnapshot);
-		apiClient.sendPlayerSkillsSync(payload, () -> {
-			lastUploadedXp = snapshot;
-			Consumer<Map<String, Integer>> listener = uploadListener;
-			if (listener != null) {
-				listener.accept(snapshot);
-			}
-		});
+		apiClient.sendPlayerSkillsSync(payload);
 	}
 }

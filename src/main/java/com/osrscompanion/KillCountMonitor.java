@@ -3,17 +3,14 @@ package com.osrscompanion;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.KillCountsSyncPayload;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
+import net.runelite.api.events.*;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.events.ConfigChanged;
@@ -34,7 +31,6 @@ import net.runelite.client.eventbus.Subscribe;
  * read + dedupe on the next {@link GameTick} (throttled). A JSON equality check
  * means an unchanged set is never resent.
  */
-@Slf4j
 @Singleton
 public class KillCountMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -77,20 +73,6 @@ public class KillCountMonitor {
 		this.configManager = configManager;
 		this.executorService = executorService;
 		this.gson = gson;
-	}
-
-	/** Invoked after each upload so roadmap progress can be re-read; set by the plugin. */
-	private volatile Runnable syncedListener;
-
-	public void setSyncedListener(Runnable listener) {
-		this.syncedListener = listener;
-	}
-
-	private void notifySynced() {
-		Runnable listener = syncedListener;
-		if (listener != null) {
-			listener.run();
-		}
 	}
 
 	public void stop() {
@@ -190,12 +172,9 @@ public class KillCountMonitor {
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {
-			log.debug("Kill counts unchanged, skipping sync");
 			return;
 		}
 		lastSyncJson = json;
-		log.debug("Syncing {} kill counts for player: {}", killCounts.size(), playerUsername);
 		apiClient.sendKillCountsSync(payload);
-		notifySynced();
 	}
 }

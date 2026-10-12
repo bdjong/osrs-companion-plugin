@@ -1,0 +1,141 @@
+fillRect 240,150,520,400 #3e3529ff
+drawRect 241,151,517,397 #0e0c08ff w=3
+drawRect 243,153,513,393 #5d5240ff w=1
+text 'Slayer Gear' 463,171 RuneScape Bold/1/16 #000000ff
+text 'Slayer Gear' 462,170 RuneScape Bold/1/16 #ff981fff
+fillRect 732,156,20,18 #3e3529ff
+drawRect 732,156,19,17 #14110cff w=1
+drawRect 733,157,17,15 #6a5c48ff w=1
+line 738,161-746,169 #c8a24aff w=2
+line 746,161-738,169 #c8a24aff w=2
+line 248,178-751,178 #14110cff w=1
+line 248,179-751,179 #5d5240ff w=1
+text 'Abyssal demon' 253,195 RuneScape/0/16 #000000ff
+text 'Abyssal demon' 252,194 RuneScape/0/16 #ffffffff
+text '  Melee' 339,195 RuneScape Small/0/16 #000000ff
+text '  Melee' 338,194 RuneScape Small/0/16 #c9b98fff
+text 'Max 44 · 6.81 DPS · 121 kills/h' 604,195 RuneScape Small/0/16 #000000ff
+text 'Max 44 · 6.81 DPS · 121 kills/h' 603,194 RuneScape Small/0/16 #ffff00ff
+fillRect 248,204,252,32 #5a4d3aff
+drawRect 248,204,251,31 #14110cff w=1
+drawRect 249,205,249,29 #6a5c48ff w=1
+text 'Melee (best)' 345,218 RuneScape Small/0/16 #000000ff
+text 'Melee (best)' 344,217 RuneScape Small/0/16 #ff981fff
+text '6.81 DPS' 353,231 RuneScape Small/0/16 #000000ff
+text '6.81 DPS' 352,230 RuneScape Small/0/16 #ffffffff
+fillRect 500,204,252,32 #2e2820ff
+drawRect 500,204,251,31 #14110cff w=1
+drawRect 501,205,249,29 #4a4134ff w=1
+text 'Ice Burst (3 targets)' 577,218 RuneScape Small/0/16 #000000ff
+text 'Ice Burst (3 targets)' 576,217 RuneScape Small/0/16 #9a9080ff
+text '9.40 DPS' 604,231 RuneScape Small/0/16 #000000ff
+text '9.40 DPS' 603,230 RuneScape Small/0/16 #c9b98fff
+fillRect 248,242,149,298 #2e2820ff
+drawRect 248,242,148,297 #14110cff w=1
+drawRect 249,243,146,295 #4a4134ff w=1
+text 'Worn' 259,261 RuneScape Bold/1/16 #000000ff
+text 'Worn' 258,260 RuneScape Bold/1/16 #ff981fff
+fillRect 301,268,40,40 #2b251cff
+drawRect 301,268,39,39 #13100bff w=1
+drawRect 302,269,37,37 #3f3629ff w=1
+image item:11865 303,272 36x32 #3f3629ff
+drawRect 301,268,39,39 #0dc10dff w=1
+fillRect 258,311,40,40 #2b251cff
+drawRect 258,311,39,39 #13100bff w=1
+drawRect 259,312,37,37 #3f3629ff w=1
+image item:6570 260,315 36x32 #3f3629ff
+drawRect 258,311,39,39 #ff981fff w=1
+text 'B' 291,349 RuneScape Small/0/16 #000000ff
+text 'B' 290,348 RuneScape Small/0/16 #ff981fff
+fillRect 301,311,40,40 #2b251cff
+drawRect 301,311,39,39 #13100bff w=1
+drawRect 302,312,37,37 #3f3629ff w=1
+image item:6585 303,315 36x32 #3f3629ff
+drawRect 301,311,39,39 #0dc10dff w=1
+fillRect 344,311,40,40 #2b251cff
+drawRect 344,311,39,39 #13100bff w=1
+drawRect 345,312,37,37 #3f3629ff w=1
+fillRect 258,354,40,40 #2b251cff
+drawRect 258,354,39,39 #13100bff w=1
+drawRect 259,355,37,37 #3f3629ff w=1
+image item:12006 260,358 36x32 #3f3629ff
+drawRect 258,354,39,39 #ff981fff w=1
+text 'B' 291,392 RuneScape Small/0/16 #000000ff
+text 'B' 290,391 RuneScape Small/0/16 #ff981fff
+fillRect 301,354,40,40 #2b251cff
+drawRect 301,354,39,39 #13100bff w=1
+drawRect 302,355,37,37 #3f3629ff w=1
+image item:10551 303,358 36x32 #3f3629ff
+drawRect 301,354,39,39 #0dc10dff w=1
+fillRect 344,354,40,40 #2b251cff
+drawRect 344,354,39,39 #13100bff w=1
+drawRect 345,355,37,37 #3f3629ff w=1
+image item:12954 346,358 36x32 #3f3629ff
+drawRect 344,354,39,39 #ff981fff w=1
+text 'B' 377,392 RuneScape Small/0/16 #000000ff
+text 'B' 376,391 RuneScape Small/0/16 #ff981fff
+fillRect 301,397,40,40 #2b251cff
+drawRect 301,397,39,39 #13100bff w=1
+drawRect 302,398,37,37 #3f3629ff w=1
+image item:4087 303,401 36x32 #3f3629ff
+drawRect 301,397,39,39 #0dc10dff w=1
+fillRect 258,440,40,40 #2b251cff
+drawRect 258,440,39,39 #13100bff w=1
+drawRect 259,441,37,37 #3f3629ff w=1
+image item:7462 260,444 36x32 #3f3629ff
+drawRect 258,440,39,39 #ff981fff w=1
+text 'B' 291,478 RuneScape Small/0/16 #000000ff
+text 'B' 290,477 RuneScape Small/0/16 #ff981fff
+fillRect 301,440,40,40 #2b251cff
+drawRect 301,440,39,39 #13100bff w=1
+drawRect 302,441,37,37 #3f3629ff w=1
+image item:11840 303,444 36x32 #3f3629ff
+drawRect 301,440,39,39 #ff981fff w=1
+text 'B' 334,478 RuneScape Small/0/16 #000000ff
+text 'B' 333,477 RuneScape Small/0/16 #ff981fff
+fillRect 344,440,40,40 #2b251cff
+drawRect 344,440,39,39 #13100bff w=1
+drawRect 345,441,37,37 #3f3629ff w=1
+image item:11773 346,444 36x32 #3f3629ff
+drawRect 344,440,39,39 #0dc10dff w=1
+fillRect 405,242,347,298 #2e2820ff
+drawRect 405,242,346,297 #14110cff w=1
+drawRect 406,243,344,295 #4a4134ff w=1
+text 'Melee' 416,261 RuneScape Bold/1/16 #000000ff
+text 'Melee' 415,260 RuneScape Bold/1/16 #ff981fff
+text 'Max hit' 416,277 RuneScape Small/0/16 #000000ff
+text 'Max hit' 415,276 RuneScape Small/0/16 #9a9080ff
+text '44' 496,277 RuneScape Small/0/16 #000000ff
+text '44' 495,276 RuneScape Small/0/16 #ffffffff
+text 'DPS' 416,290 RuneScape Small/0/16 #000000ff
+text 'DPS' 415,289 RuneScape Small/0/16 #9a9080ff
+text '6.81' 496,290 RuneScape Small/0/16 #000000ff
+text '6.81' 495,289 RuneScape Small/0/16 #ffffffff
+text 'Kills / hour' 416,303 RuneScape Small/0/16 #000000ff
+text 'Kills / hour' 415,302 RuneScape Small/0/16 #9a9080ff
+text '121' 496,303 RuneScape Small/0/16 #000000ff
+text '121' 495,302 RuneScape Small/0/16 #ffffffff
+text 'Also uses' 416,322 RuneScape Bold/1/16 #000000ff
+text 'Also uses' 415,321 RuneScape Bold/1/16 #ff981fff
+text 'Prayer: ' 416,337 RuneScape Small/0/16 #000000ff
+text 'Prayer: ' 415,336 RuneScape Small/0/16 #9a9080ff
+text 'Piety' 457,337 RuneScape Small/0/16 #000000ff
+text 'Piety' 456,336 RuneScape Small/0/16 #c9b98fff
+text 'Boost: ' 416,350 RuneScape Small/0/16 #000000ff
+text 'Boost: ' 415,349 RuneScape Small/0/16 #9a9080ff
+text 'Super combat potion' 451,350 RuneScape Small/0/16 #000000ff
+text 'Super combat potion' 450,349 RuneScape Small/0/16 #c9b98fff
+text 'Carried' 416,369 RuneScape Small/0/16 #000000ff
+text 'Carried' 415,368 RuneScape Small/0/16 #0dc10dff
+text 'In your bank or storage (B)' 416,382 RuneScape Small/0/16 #000000ff
+text 'In your bank or storage (B)' 415,381 RuneScape Small/0/16 #ff981fff
+text 'Turn on Bank layout on the Slayer helper page to have the bank' 416,400 RuneScape Small/0/16 #000000ff
+text 'Turn on Bank layout on the Slayer helper page to have the bank' 415,399 RuneScape Small/0/16 #9a9080ff
+text 'show this setup.' 416,413 RuneScape Small/0/16 #000000ff
+text 'show this setup.' 415,412 RuneScape Small/0/16 #9a9080ff
+fillRect 523,510,110,20 #3e3529ff
+drawRect 523,510,109,19 #14110cff w=1
+drawRect 524,511,107,17 #6a5c48ff w=1
+text 'Refresh' 559,525 RuneScape Small/0/16 #000000ff
+text 'Refresh' 558,524 RuneScape Small/0/16 #ff981fff
+=> 520x400

@@ -1,16 +1,15 @@
 package com.osrscompanion;
 
+import lombok.RequiredArgsConstructor;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.SlayerRewardsPayload;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InterfaceID;
@@ -36,7 +35,7 @@ import net.runelite.client.util.Text;
  * name text (type 4), spacer (type 3), status sprite (type 5), percent text
  * (type 4). Status is read from the sprite id, never from colours.
  */
-@Slf4j
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class SlayerRewardsMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -68,20 +67,6 @@ public class SlayerRewardsMonitor {
 	 */
 	private String lastContentKey;
 	private long lastScrapeSentMs;
-
-	@Inject
-	public SlayerRewardsMonitor(
-			Client client,
-			ClientThread clientThread,
-			OSRSCompanionConfig config,
-			OSRSCompanionApiClient apiClient,
-			Gson gson) {
-		this.client = client;
-		this.clientThread = clientThread;
-		this.config = config;
-		this.apiClient = apiClient;
-		this.gson = gson;
-	}
 
 	public void stop() {
 		lastContentKey = null;
@@ -136,19 +121,16 @@ public class SlayerRewardsMonitor {
 			}
 		}
 		if (rows.isEmpty()) {
-			log.debug("Slayer rewards scrape found no task rows");
 			return;
 		}
 
 		int masterId = client.getVarbitValue(VarbitID.SLAYER_MASTER);
 		String contentKey = masterId + "|" + gson.toJson(rows);
 		if (contentKey.equals(lastContentKey)) {
-			log.debug("Slayer rewards scrape unchanged, skipping sync");
 			return;
 		}
 		long nowMs = System.currentTimeMillis();
 		if (nowMs - lastScrapeSentMs < MIN_SCRAPE_INTERVAL_MS) {
-			log.debug("Slayer rewards scrape throttled");
 			return;
 		}
 		SlayerRewardsPayload payload = new SlayerRewardsPayload(
@@ -158,8 +140,6 @@ public class SlayerRewardsMonitor {
 				Instant.now().toString());
 		lastContentKey = contentKey;
 		lastScrapeSentMs = nowMs;
-		log.debug("Syncing slayer rewards scrape: {} rows for player: {}",
-				rows.size(), playerUsername);
 		apiClient.sendSlayerRewards(payload);
 	}
 

@@ -1,0 +1,45 @@
+fillRect 64,44,230,214 #3e3529ff
+drawRect 64,44,229,213 #0e0c08ff w=1
+drawRect 65,45,227,211 #5d5240ff w=1
+text 'Vorkath (ranged, Ruby dragon ...' 73,63 RuneScape Bold/1/16 #000000ff
+text 'Vorkath (ranged, Ruby dragon ...' 72,62 RuneScape Bold/1/16 #ff981fff
+text 'Enough for ~4 trips (runs out of: Prayer ...' 73,77 RuneScape Small/0/16 #000000ff
+text 'Enough for ~4 trips (runs out of: Prayer ...' 72,76 RuneScape Small/0/16 #0dc10dff
+text 'Supplies used on your last 6 trips' 73,90 RuneScape Small/0/16 #000000ff
+text 'Supplies used on your last 6 trips' 72,89 RuneScape Small/0/16 #9a9080ff
+image item:2434 72,94 20x18 #9a9080ff
+text 'Prayer potion(4) x3' 97,109 RuneScape Small/0/16 #000000ff
+text 'Prayer potion(4) x3' 96,108 RuneScape Small/0/16 #ffffffff
+text '4 trips' 255,109 RuneScape Small/0/16 #000000ff
+text '4 trips' 254,108 RuneScape Small/0/16 #0dc10dff
+image item:385 72,116 20x18 #0dc10dff
+text 'Shark x11' 97,131 RuneScape Small/0/16 #000000ff
+text 'Shark x11' 96,130 RuneScape Small/0/16 #ffffffff
+text '12 trips' 249,131 RuneScape Small/0/16 #000000ff
+text '12 trips' 248,130 RuneScape Small/0/16 #0dc10dff
+image item:21944 72,138 20x18 #0dc10dff
+text 'Ruby dragon bolts (e) x180' 97,153 RuneScape Small/0/16 #000000ff
+text 'Ruby dragon bolts (e) x180' 96,152 RuneScape Small/0/16 #ffffffff
+text '14 trips' 251,153 RuneScape Small/0/16 #000000ff
+text '14 trips' 250,152 RuneScape Small/0/16 #0dc10dff
+image item:23733 72,160 20x18 #0dc10dff
+text 'Divine ranging potion(4) and ...' 97,175 RuneScape Small/0/16 #000000ff
+text 'Divine ranging potion(4) and ...' 96,174 RuneScape Small/0/16 #ffffffff
+text '2 trips' 253,175 RuneScape Small/0/16 #000000ff
+text '2 trips' 252,174 RuneScape Small/0/16 #ff981fff
+image item:2452 72,182 20x18 #ff981fff
+text 'Antifire potion(4) x1' 97,197 RuneScape Small/0/16 #000000ff
+text 'Antifire potion(4) x1' 96,196 RuneScape Small/0/16 #ff3d3dff
+text '0 trips' 253,197 RuneScape Small/0/16 #000000ff
+text '0 trips' 252,196 RuneScape Small/0/16 #ff3d3dff
+image item:12791 72,204 20x18 #ff3d3dff
+text 'Rune pouch x1' 97,219 RuneScape Small/0/16 #000000ff
+text 'Rune pouch x1' 96,218 RuneScape Small/0/16 #ffffffff
+text '' 287,219 RuneScape Small/0/16 #000000ff
+text '' 286,218 RuneScape Small/0/16 #0dc10dff
+image item:1 72,226 20x18 #0dc10dff
+text 'Seventh row that is not shown...' 97,241 RuneScape Small/0/16 #000000ff
+text 'Seventh row that is not shown...' 96,240 RuneScape Small/0/16 #ffffffff
+text '1 trip' 262,241 RuneScape Small/0/16 #000000ff
+text '1 trip' 261,240 RuneScape Small/0/16 #ff981fff
+=> null

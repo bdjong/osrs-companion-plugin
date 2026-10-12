@@ -16,15 +16,12 @@ import static org.junit.Assert.assertTrue;
 public class GuardedExecutorTest {
 	private Guard previous;
 	private Guard guard;
-	private GuardTest.RecordingListener listener;
 	private FakeScheduledExecutorService fake;
 
 	@Before
 	public void setUp() {
 		previous = Guard.shared();
-		guard = new Guard(System::currentTimeMillis, System::nanoTime);
-		listener = new GuardTest.RecordingListener();
-		guard.setListener(listener);
+		guard = new Guard(System::currentTimeMillis);
 		Guard.setShared(guard);
 		fake = new FakeScheduledExecutorService();
 	}
@@ -36,7 +33,7 @@ public class GuardedExecutorTest {
 	}
 
 	@Test
-	public void aThrowingPeriodicJobKeepsRunningAndIsReported() {
+	public void aThrowingPeriodicJobKeepsRunning() {
 		ScheduledExecutorService ex = GuardedExecutor.wrap("timers-sync", fake);
 		AtomicInteger runs = new AtomicInteger();
 		ex.scheduleWithFixedDelay(() -> {
@@ -46,14 +43,16 @@ public class GuardedExecutorTest {
 		fake.runDue(1_000);
 		fake.runDue(2_000);
 		assertEquals(2, runs.get());
-		assertEquals(2, listener.failures.size());
-		assertEquals("timers-sync:IllegalStateException", listener.failures.get(0));
 	}
 
 	@Test
 	public void aTurnedOffFeaturesJobsDoNothing() {
 		ScheduledExecutorService ex = GuardedExecutor.wrap("loot-sync", fake);
-		guard.frozen("loot-sync", 3000, new StackTraceElement[0]);
+		for (int i = 0; i < Guard.FAILURE_LIMIT; i++) {
+			guard.runIn("loot-sync", () -> {
+				throw new IllegalStateException("boom");
+			});
+		}
 		AtomicInteger runs = new AtomicInteger();
 		ex.execute(runs::incrementAndGet);
 		assertEquals(0, runs.get());

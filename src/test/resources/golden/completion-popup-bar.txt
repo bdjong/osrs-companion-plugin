@@ -1,0 +1,7 @@
+fillRound 154,87,452,6,6,6 #0000006e
+fillRound 154,87,131,6,6,6 #2563ebff
+text '7 / 24 goals' 155,111 RuneScape/0/16 #000000ff
+text '7 / 24 goals' 154,110 RuneScape/0/16 #c6c6c6ff
+text '29%' 580,111 RuneScape/0/16 #000000ff
+text '29%' 579,110 RuneScape/0/16 #c6c6c6ff
+=> 452x29

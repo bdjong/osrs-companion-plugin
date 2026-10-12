@@ -1,8 +1,7 @@
 package com.osrscompanion;
 
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -11,7 +10,6 @@ import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemVariationMapping;
 
@@ -20,12 +18,9 @@ import net.runelite.client.game.ItemVariationMapping;
  * check, and remembers for each key the item that pictures it (the highest dose seen) and its name.
  * Client thread, except {@link #rep} which only reads what was counted.
  */
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 @Singleton
 public class SupplyCounter {
-	/** Rune pouches (regular and divine, and their locked versions): the runes inside count as carried. */
-	static final java.util.Set<Integer> RUNE_POUCHES = com.google.common.collect.ImmutableSet.of(
-		ItemID.BH_RUNE_POUCH, ItemID.BH_RUNE_POUCH_TROUVER, ItemID.DIVINE_RUNE_POUCH, ItemID.DIVINE_RUNE_POUCH_TROUVER);
-
 	private final Client client;
 	private final ItemManager itemManager;
 
@@ -43,12 +38,6 @@ public class SupplyCounter {
 	}
 
 	private final Map<String, Rep> reps = new ConcurrentHashMap<>();
-
-	@Inject
-	public SupplyCounter(Client client, ItemManager itemManager) {
-		this.client = client;
-		this.itemManager = itemManager;
-	}
 
 	/** The key of an item (noted and placeholder versions count as the item). */
 	String key(int itemId) {
@@ -84,7 +73,7 @@ public class SupplyCounter {
 			}
 			for (Item item : c.getItems()) {
 				add(out, item.getId(), item.getQuantity());
-				pouch |= container == InventoryID.INV && RUNE_POUCHES.contains(item.getId());
+				pouch |= container == InventoryID.INV && FarmRunManager.RUNE_POUCHES.contains(item.getId());
 			}
 		}
 		if (pouch) {

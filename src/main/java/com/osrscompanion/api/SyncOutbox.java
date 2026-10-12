@@ -1,11 +1,7 @@
 package com.osrscompanion.api;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import lombok.Getter;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -47,14 +43,21 @@ public final class SyncOutbox {
 
 	/** One queued upload. */
 	public static final class Item {
+		@Getter
 		final String baseUrl;
+		@Getter
 		final String appKey;
+		@Getter
 		final String path;
+		@Getter
 		final String method;
+		@Getter
 		final String body;
+		@Getter
 		final String label;
 		/** Non-null for a full-state upload: a newer one with the same key replaces it while queued. */
 		final String coalesceKey;
+		@Getter
 		final boolean large;
 		boolean priority;
 		final List<Runnable> onSuccess = new ArrayList<>();
@@ -78,33 +81,6 @@ public final class SyncOutbox {
 			}
 		}
 
-		public String getBaseUrl() {
-			return baseUrl;
-		}
-
-		public String getAppKey() {
-			return appKey;
-		}
-
-		public String getPath() {
-			return path;
-		}
-
-		public String getMethod() {
-			return method;
-		}
-
-		public String getBody() {
-			return body;
-		}
-
-		public String getLabel() {
-			return label;
-		}
-
-		public boolean isLarge() {
-			return large;
-		}
 	}
 
 	/** How a batch went: the HTTP status of the batch, and per request (in order) its status. */
@@ -144,9 +120,10 @@ public final class SyncOutbox {
 	private long backoffUntilMs;
 	private long batchUnsupportedUntilMs;
 	private boolean stopped;
+	/** When a batch response last arrived (clock ms), or {@link Long#MIN_VALUE} if never. */
+	@Getter
 	private volatile long lastBatchResponseMs = Long.MIN_VALUE;
 	private volatile IntConsumer webVersionListener;
-	private volatile DropListener dropListener;
 
 	/**
 	 * Adds one request to a batch about to be sent (the live activity status rides along with every
@@ -159,11 +136,6 @@ public final class SyncOutbox {
 
 	private volatile BatchExtra batchExtra;
 
-	/** Hears of each upload the server refused (a non-2xx status for it), so it is not silently lost. */
-	public interface DropListener {
-		void onDropped(Item item, int httpStatus);
-	}
-
 	public SyncOutbox(Sender sender, ScheduledExecutorService executor, LongSupplier clockMs) {
 		this.sender = sender;
 		this.executor = executor;
@@ -174,17 +146,8 @@ public final class SyncOutbox {
 		this.webVersionListener = listener;
 	}
 
-	public void setDropListener(DropListener listener) {
-		this.dropListener = listener;
-	}
-
 	public void setBatchExtra(BatchExtra extra) {
 		this.batchExtra = extra;
-	}
-
-	/** When a batch response last arrived (clock ms), or {@link Long#MIN_VALUE} if never. */
-	public long getLastBatchResponseMs() {
-		return lastBatchResponseMs;
 	}
 
 	public synchronized int size() {
@@ -220,7 +183,6 @@ public final class SyncOutbox {
 						item.onSuccess.clear();
 						item.onSuccess.addAll(merged);
 						item.priority |= old.priority;
-						log.debug("Outbox: {} replaced by a newer copy before it was sent", item.label);
 					}
 				}
 			}
@@ -351,7 +313,6 @@ public final class SyncOutbox {
 				chunk.add(item);
 			}
 		} catch (RuntimeException e) {
-			log.debug("Outbox: the batch extra failed", e);
 		}
 	}
 
@@ -402,7 +363,6 @@ public final class SyncOutbox {
 			synchronized (this) {
 				batchUnsupportedUntilMs = clockMs.getAsLong() + BATCH_RETRY_AFTER_404_MS;
 			}
-			log.debug("Outbox: no batch endpoint on this server, sending {} requests one by one", chunk.size());
 			sendIndividually(chunk, 0, results);
 			return;
 		}
@@ -464,8 +424,6 @@ public final class SyncOutbox {
 	 */
 	private void complete(List<Item> chunk, Integer[] results, boolean retry) {
 		List<Runnable> callbacks = new ArrayList<>();
-		List<Runnable> drops = new ArrayList<>();
-		DropListener dropped = dropListener;
 		boolean runNow;
 		synchronized (this) {
 			long now = clockMs.getAsLong();
@@ -477,7 +435,6 @@ public final class SyncOutbox {
 				if (status == null) {
 					if (stopped) {
 						queue.remove(item);
-						log.debug("Outbox: {} dropped (plugin stopped)", item.label);
 					}
 					continue;
 				}
@@ -486,10 +443,6 @@ public final class SyncOutbox {
 					callbacks.addAll(item.onSuccess);
 				} else {
 					log.warn("OSRS Companion API returned {} for {} sync", status, item.label);
-					if (dropped != null) {
-						int code = status;
-						drops.add(() -> dropped.onDropped(item, code));
-					}
 				}
 			}
 			if (retry && !stopped) {
@@ -519,13 +472,6 @@ public final class SyncOutbox {
 				r.run();
 			} catch (RuntimeException e) {
 				log.warn("Upload callback failed", e);
-			}
-		}
-		for (Runnable r : drops) {
-			try {
-				r.run();
-			} catch (RuntimeException e) {
-				log.debug("Drop listener failed", e);
 			}
 		}
 		if (runNow) {

@@ -1,8 +1,8 @@
 package com.osrscompanion.model;
 
+import lombok.Getter;
 import com.google.gson.Gson;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Payload for uploading the game-cache slayer DB tables (113-117) to the
@@ -15,16 +15,15 @@ import java.util.Map;
 public class SlayerCatalogPayload {
 	/** Response shape of GET /api/runelite/slayer/catalog/status/. */
 	public static class Status {
+		@Getter
 		private boolean needed;
 
-		public boolean isNeeded() {
-			return needed;
-		}
 	}
 
 	private final String player_username;
 	private final String cache_revision;
 	private final String payload_hash;
+	@Getter
 	private final Map<String, List<Map<String, Object>>> tables;
 
 	public SlayerCatalogPayload(
@@ -40,14 +39,6 @@ public class SlayerCatalogPayload {
 
 	public String getPlayerUsername() {
 		return player_username;
-	}
-
-	public String getPayloadHash() {
-		return payload_hash;
-	}
-
-	public Map<String, List<Map<String, Object>>> getTables() {
-		return tables;
 	}
 
 	public String toJson(Gson gson) {

@@ -4,10 +4,8 @@ import com.google.gson.Gson;
 import com.osrscompanion.model.BankSyncPayload;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,14 +15,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class SourceSyncerTest {
-	private static final long GOAL_MS = TimeUnit.SECONDS.toMillis(SourceSyncer.GOAL_DEBOUNCE_SECONDS);
 	private static final long DEFAULT_MS = TimeUnit.SECONDS.toMillis(SourceSyncer.DEFAULT_DEBOUNCE_SECONDS);
 
 	private FakeScheduledExecutorService executor;
 	private List<BankSyncPayload> sent;
 	private boolean enabled;
 	private long now;
-	private Set<Integer> goalItems;
 	private SourceSyncer syncer;
 
 	@Before
@@ -33,9 +29,7 @@ public class SourceSyncerTest {
 		sent = new ArrayList<>();
 		enabled = true;
 		now = 0;
-		goalItems = new HashSet<>();
 		syncer = new SourceSyncer("fish_barrel", new Gson(), executor, () -> now, () -> enabled, () -> "Zezima", sent::add);
-		syncer.setGoalItems(() -> goalItems);
 	}
 
 	private static Map<Integer, Integer> qty(int itemId, int q) {
@@ -66,30 +60,11 @@ public class SourceSyncerTest {
 			syncer.submit(qty(13439, i), false);
 		}
 		assertEquals(1, sent.size());
-		advance(GOAL_MS);
-		assertEquals("not a goal item: still waiting", 1, sent.size());
-		advance(DEFAULT_MS - GOAL_MS);
+		advance(DEFAULT_MS - 1);
+		assertEquals("still waiting", 1, sent.size());
+		advance(1);
 		assertEquals(2, sent.size());
 		assertEquals(11, quantity(sent.get(1), "fish_barrel", 13439));
-	}
-
-	@Test
-	public void changesToAGoalItemUseTheShortDebounce() {
-		goalItems.add(13439);
-		syncer.submit(qty(13439, 1), false);
-		syncer.submit(qty(13439, 2), false);
-		advance(GOAL_MS);
-		assertEquals(2, sent.size());
-		// A later non-goal change never pushes a running goal wait out.
-		Map<Integer, Integer> both = qty(13439, 3);
-		syncer.submit(both, false);
-		advance(GOAL_MS / 2);
-		Map<Integer, Integer> plusShark = new HashMap<>(both);
-		plusShark.put(383, 1);
-		syncer.submit(plusShark, false);
-		advance(GOAL_MS / 2);
-		assertEquals(3, sent.size());
-		assertEquals(1, quantity(sent.get(2), "fish_barrel", 383));
 	}
 
 	@Test
@@ -126,7 +101,6 @@ public class SourceSyncerTest {
 	@Test
 	public void multipleSourcesMergeIntoOnePendingUpload() {
 		SourceSyncer bank = new SourceSyncer("bank memory", new Gson(), executor, () -> now, () -> enabled, () -> "Zezima", sent::add);
-		bank.setGoalItems(() -> goalItems);
 		Map<String, Map<Integer, Integer>> first = new HashMap<>();
 		first.put("inventory", qty(1511, 5));
 		bank.submitSources(first, false);
@@ -245,7 +219,7 @@ public class SourceSyncerTest {
 
 	@Test
 	public void aPendingUploadStillGoesUpWhenTheMonitorsFeatureWasTurnedOff() {
-		Guard guard = new Guard(() -> now, System::nanoTime);
+		Guard guard = new Guard(() -> now);
 		Guard previous = Guard.shared();
 		Guard.setShared(guard);
 		try {
@@ -255,8 +229,12 @@ public class SourceSyncerTest {
 			bank.submit(qty(13124, 1), false);
 			assertEquals(1, sent.size());
 			bank.submit(qty(13124, 2), false);
-			// The bank sync tripped its breaker (a freeze while loading, five errors...).
-			guard.frozen("bank-sync", 5_000, new StackTraceElement[0]);
+			// The bank sync tripped its breaker (five errors).
+			for (int i = 0; i < Guard.FAILURE_LIMIT; i++) {
+				guard.runIn("bank-sync", () -> {
+					throw new IllegalStateException("boom");
+				});
+			}
 			assertTrue(guard.isDisabled("bank-sync"));
 			advance(DEFAULT_MS);
 			assertEquals("what was already read is not dropped", 2, sent.size());

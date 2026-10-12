@@ -2,23 +2,15 @@ package com.osrscompanion;
 
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Supplier;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.BiConsumer;
 import java.util.function.IntUnaryOperator;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.gameval.ItemID;
-import net.runelite.api.gameval.VarbitID;
+import net.runelite.api.events.*;
 import net.runelite.client.eventbus.Subscribe;
 
 /**
@@ -39,13 +31,7 @@ public class PlankSackMonitor {
 
 	static {
 		Map<Integer, Integer> m = new LinkedHashMap<>();
-		m.put(VarbitID.PLANK_SACK_PLAIN, ItemID.WOODPLANK);
-		m.put(VarbitID.PLANK_SACK_OAK, ItemID.PLANK_OAK);
-		m.put(VarbitID.PLANK_SACK_TEAK, ItemID.PLANK_TEAK);
-		m.put(VarbitID.PLANK_SACK_MAHOGANY, ItemID.PLANK_MAHOGANY);
-		m.put(VarbitID.PLANK_SACK_CAMPHOR, ItemID.PLANK_CAMPHOR);
-		m.put(VarbitID.PLANK_SACK_IRONWOOD, ItemID.PLANK_IRONWOOD);
-		m.put(VarbitID.PLANK_SACK_ROSEWOOD, ItemID.PLANK_ROSEWOOD);
+		Tables.list("plankSack").forEach(p -> m.put(Tables.id(p.getAsJsonArray().get(0)), Tables.id(p.getAsJsonArray().get(1))));
 		PLANK_VARBITS = java.util.Collections.unmodifiableMap(m);
 	}
 
@@ -54,7 +40,6 @@ public class PlankSackMonitor {
 
 	private boolean dirty;
 	private GameState previousGameState = GameState.UNKNOWN;
-	private volatile BiConsumer<String, Map<Integer, Integer>> snapshotListener;
 
 	@Inject
 	public PlankSackMonitor(
@@ -72,23 +57,9 @@ public class PlankSackMonitor {
 		this.syncer.setPriorityFlush(apiClient::requestOutboxFlush);
 	}
 
-	public void setSnapshotListener(BiConsumer<String, Map<Integer, Integer>> listener) {
-		this.snapshotListener = listener;
-	}
-
-	/** Item ids active owned-item goals are counting (short debounce for them); set by the plugin. */
-	public void setGoalItems(Supplier<Set<Integer>> goalItems) {
-		syncer.setGoalItems(goalItems);
-	}
-
 	public void stop() {
 		syncer.stop();
 		dirty = false;
-	}
-
-	public void syncNow() {
-		syncer.invalidate();
-		dirty = true;
 	}
 
 	@Subscribe
@@ -121,10 +92,6 @@ public class PlankSackMonitor {
 			}
 			dirty = false;
 			Map<Integer, Integer> contents = contents(client::getVarbitValue);
-			BiConsumer<String, Map<Integer, Integer>> listener = snapshotListener;
-			if (listener != null) {
-				listener.accept(SOURCE, contents);
-			}
 			syncer.submit(contents, false);
 		});
 	}

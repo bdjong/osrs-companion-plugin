@@ -3,29 +3,18 @@ package com.osrscompanion;
 import com.google.gson.Gson;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.QuestsSyncPayload;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.ScriptCallbackEvent;
-import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.events.*;
 import net.runelite.api.ScriptID;
 import net.runelite.api.gameval.DBTableID;
 import net.runelite.api.gameval.InterfaceID;
@@ -57,7 +46,6 @@ import net.runelite.client.eventbus.Subscribe;
  * carried as completed for the rest of the login session. The scroll text is parsed
  * the way RuneLite's own screenshot plugin parses it.
  */
-@Slf4j
 @Singleton
 public class QuestMonitor {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -112,27 +100,6 @@ public class QuestMonitor {
 		this.apiClient = apiClient;
 		this.executorService = executorService;
 		this.gson = gson;
-	}
-
-	/** Receives every quest read (RuneLite quest name to status 0/1/2); set by the plugin. */
-	private volatile Consumer<Map<String, Integer>> statesListener;
-
-	public void setStatesListener(Consumer<Map<String, Integer>> listener) {
-		this.statesListener = listener;
-	}
-
-	/** Invoked after each upload so roadmap progress can be re-read; set by the plugin. */
-	private volatile Runnable syncedListener;
-
-	public void setSyncedListener(Runnable listener) {
-		this.syncedListener = listener;
-	}
-
-	private void notifySynced() {
-		Runnable listener = syncedListener;
-		if (listener != null) {
-			listener.run();
-		}
 	}
 
 	public void stop() {
@@ -244,7 +211,6 @@ public class QuestMonitor {
 		if (name == null) {
 			return;
 		}
-		log.debug("Quest complete scroll names '{}'", name);
 		if (completedFromScroll.add(name)) {
 			questCheckPending = false;
 			lastReadTick = client.getTickCount();
@@ -316,22 +282,14 @@ public class QuestMonitor {
 			questStates.putIfAbsent(name, 2);
 		}
 
-		Consumer<Map<String, Integer>> states = statesListener;
-		if (states != null) {
-			states.accept(questStates);
-		}
-
 		QuestsSyncPayload payload = new QuestsSyncPayload(playerUsername, questStates);
 		String json = payload.toJson(gson);
 
 		if (json.equals(lastSyncJson)) {
-			log.debug("Quests unchanged, skipping sync");
 			return;
 		}
 		lastSyncJson = json;
-		log.debug("Syncing {} quests for player: {}", questStates.size(), playerUsername);
 		apiClient.sendQuestsSync(payload);
-		notifySynced();
 	}
 
 	/** A quest row's display name, or null when the row can't be read. */
@@ -340,7 +298,6 @@ public class QuestMonitor {
 			Object[] field = client.getDBTableField(row, DBTableID.Quest.COL_DISPLAYNAME, 0);
 			return field != null && field.length > 0 && field[0] instanceof String ? (String) field[0] : null;
 		} catch (RuntimeException e) {
-			log.debug("Quest row {} has no readable name", row, e);
 			return null;
 		}
 	}

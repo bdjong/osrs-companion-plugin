@@ -1,0 +1,31 @@
+fill rect(0,0,220,204) #463d329c
+draw rect(0,0,219,203) #383028da w=1
+draw rect(1,1,217,201) #54493cda w=1
+text 'Slayer: Abyssal demons' 5,21 RuneScape/0/16 #000000ff
+text 'Slayer: Abyssal demons' 4,20 RuneScape/0/16 #f28c28ff
+text '143 left' 173,21 RuneScape/0/16 #000000ff
+text '143 left' 172,20 RuneScape/0/16 #a5a5a5ff
+text 'Catacombs of Kourend (multi)' 5,37 RuneScape/0/16 #000000ff
+text 'Catacombs of Kourend (multi)' 4,36 RuneScape/0/16 #ffffffff
+image img:14x14:9cb79000 4,36 #ffffffff
+text 'Go north-west, 87 tiles' 25,53 RuneScape/0/16 #000000ff
+text 'Go north-west, 87 tiles' 24,52 RuneScape/0/16 #ffe04aff
+image item:21760 4,52 #ffe04aff
+text 'Use Kharedst's memoirs' 47,69 RuneScape/0/16 #000000ff
+text 'Use Kharedst's memoirs' 46,68 RuneScape/0/16 #00ffffff
+text 'Lunch by the Lancalliums, then walk' 5,101 RuneScape/0/16 #000000ff
+text 'Lunch by the Lancalliums, then walk' 4,100 RuneScape/0/16 #a5a5a5ff
+text 'to the statue.' 5,117 RuneScape/0/16 #000000ff
+text 'to the statue.' 4,116 RuneScape/0/16 #a5a5a5ff
+image img:1x4:ecbb4b55 4,116 #a5a5a5ff
+text '1. Climb down the statue in the' 5,137 RuneScape/0/16 #000000ff
+text '1. Climb down the statue in the' 4,136 RuneScape/0/16 #ffe04aff
+text '   middle of Kourend Castle's' 5,153 RuneScape/0/16 #000000ff
+text '   middle of Kourend Castle's' 4,152 RuneScape/0/16 #ffe04aff
+text '   courtyard.' 5,169 RuneScape/0/16 #000000ff
+text '   courtyard.' 4,168 RuneScape/0/16 #ffe04aff
+text '2. Go north-west through the dark' 5,185 RuneScape/0/16 #000000ff
+text '2. Go north-west through the dark' 4,184 RuneScape/0/16 #ffe04aff
+text '   beasts' corridor.' 5,201 RuneScape/0/16 #000000ff
+text '   beasts' corridor.' 4,200 RuneScape/0/16 #ffe04aff
+=> 220x204

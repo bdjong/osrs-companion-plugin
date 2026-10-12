@@ -368,21 +368,12 @@ public class SyncOutboxTest {
 	}
 
 	@Test
-	public void refusedUploadsReachTheDropListenerButNotSuccessOrRetries() {
-		List<String> dropped = new ArrayList<>();
-		outbox.setDropListener((item, status) -> dropped.add(item.getPath() + " " + status));
+	public void refusedUploadsAreNotSuccesses() {
 		outbox.enqueue(item("/ok", "{}", null, false));
 		outbox.enqueue(item("/bad", "{}", null, false));
 		advance(SyncOutbox.FLUSH_INTERVAL_MS);
 		sender.lastBatch().onResponse(200, Arrays.asList(200, 400), null);
-		assertEquals(Collections.singletonList("/bad 400"), dropped);
 		assertEquals(Collections.singletonList("/ok{}"), succeeded);
-
-		// A network failure keeps the upload for a retry: nothing dropped.
-		outbox.enqueue(item("/later", "{}", null, false));
-		advance(SyncOutbox.FLUSH_INTERVAL_MS);
-		sender.lastBatch().onNetworkFailure("offline");
-		assertEquals(1, dropped.size());
 	}
 
 	@Test

@@ -6,10 +6,7 @@ import com.osrscompanion.model.SlayerCatalogPayload;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
@@ -129,7 +126,6 @@ public class SlayerCatalogMonitor {
 			return;
 		}
 		if (tables.get("slayer_task").isEmpty()) {
-			log.debug("Slayer catalog dump produced no tasks; skipping");
 			return;
 		}
 
@@ -148,17 +144,13 @@ public class SlayerCatalogMonitor {
 				confirmedHash = hash;
 				confirmedRevision = client.getRevision();
 				if (status.isNeeded()) {
-					log.debug("Uploading slayer catalog (revision {}, {} tasks)",
-							revision, tables.get("slayer_task").size());
 					apiClient.sendSlayerCatalog(payload);
 				} else {
-					log.debug("Slayer catalog {} already known server-side", hash);
 				}
 			}
 
 			@Override
 			public void onError(String message) {
-				log.debug("Slayer catalog status check failed: {}", message);
 			}
 		});
 	}
@@ -299,7 +291,6 @@ public class SlayerCatalogMonitor {
 				return (Integer) values[0];
 			}
 		} catch (RuntimeException e) {
-			log.trace("DB field read failed: table={} row={} col={}", table, row, column);
 		}
 		return null;
 	}
@@ -311,7 +302,6 @@ public class SlayerCatalogMonitor {
 				return (String) values[0];
 			}
 		} catch (RuntimeException e) {
-			log.trace("DB field read failed: table={} row={} col={}", table, row, column);
 		}
 		return null;
 	}
