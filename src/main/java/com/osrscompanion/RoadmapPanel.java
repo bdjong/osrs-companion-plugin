@@ -220,6 +220,8 @@ public class RoadmapPanel extends PluginPanel {
 			RoadmapGoal next = r == null ? null : r.firstIncompleteGoal();
 			return next == null ? null : images.get(next.getImageUrl());
 		}), null);
+		add(p, new PanelTiles.Callout("SET UP ON THE WEBSITE", "Pick your roadmap, add goals and change their order on the website. Changes show here within 30 seconds.",
+			"Open your roadmaps >", ROADMAP, () -> LinkBrowser.browse(OSRSCompanionApiClient.BASE_URL + "/tools/roadmap")), "Opens the roadmaps on the OSRS Companion website.");
 		add(p, toggle("Roadmap box", "Next goal in the game", "Hidden", ROADMAP, "showNextGoal", config::showNextGoal), null);
 		add(p, toggle("Goal popup", "Popup on completion", "No popup", ROADMAP, "showGoalPopup", config::showGoalPopup), null);
 		return p;

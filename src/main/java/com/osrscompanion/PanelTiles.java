@@ -646,6 +646,119 @@ final class PanelTiles {
 		}
 	}
 
+	/**
+	 * A tinted info card with an "i" mark: a heading, a short text (wrapped) and a link line; the whole card opens
+	 * the link (where something is set up on the website).
+	 */
+	static final class Callout extends JComponent {
+		private static final int TEXT_Y = 36;
+		private static final int LINE = 13;
+		private final String heading;
+		private final String text;
+		private final String link;
+		private final Color accent;
+		private boolean hover;
+
+		Callout(String heading, String text, String link, Color accent, Runnable open) {
+			this.heading = heading;
+			this.text = text;
+			this.link = link;
+			this.accent = accent;
+			setMinimumSize(new Dimension(120, 60));
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseEntered(MouseEvent e) {
+					hover = true;
+					repaint();
+				}
+
+				@Override
+				public void mouseExited(MouseEvent e) {
+					hover = false;
+					repaint();
+				}
+
+				@Override
+				public void mouseReleased(MouseEvent e) {
+					Guard.run(RoadmapPanel.GUARD_FEATURE, () -> {
+						if (contains(e.getPoint())) {
+							open.run();
+						}
+					});
+				}
+			});
+		}
+
+		private java.util.List<String> lines(int width) {
+			FontMetrics fm = getFontMetrics(FontManager.getRunescapeSmallFont());
+			java.util.List<String> out = new java.util.ArrayList<>();
+			String line = "";
+			for (String word : text.split(" ")) {
+				String next = line.isEmpty() ? word : line + " " + word;
+				if (!line.isEmpty() && fm.stringWidth(next) > width) {
+					out.add(line);
+					next = word;
+				}
+				line = next;
+			}
+			out.add(line);
+			return out;
+		}
+
+		@Override
+		public Dimension getPreferredSize() {
+			int w = getWidth() > 0 ? getWidth() : 205;
+			return new Dimension(w, TEXT_Y + lines(w - 26).size() * LINE + 15);
+		}
+
+		@Override
+		public Dimension getMaximumSize() {
+			return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			Graphics2D g = (Graphics2D) graphics.create();
+			try {
+				smooth(g);
+				int w = getWidth();
+				int h = getHeight();
+				RoundRectangle2D card = new RoundRectangle2D.Float(0.5f, 0.5f, w - 1.5f, h - 1.5f, ARC, ARC);
+				g.setColor(mix(new Color(0x1A1F2B), accent, hover ? 0.16f : 0.1f));
+				g.fill(card);
+				g.setClip(card);
+				g.setColor(accent);
+				g.fillRect(0, 0, 3, h);
+				g.setClip(null);
+				g.setColor(alpha(accent, hover ? 210 : 120));
+				g.draw(card);
+				// The "i" mark.
+				g.setColor(alpha(accent, 70));
+				g.fillOval(12, 7, 14, 14);
+				g.setColor(accent);
+				g.setStroke(new BasicStroke(1.2f));
+				g.drawOval(12, 7, 14, 14);
+				g.fillRect(18, 13, 2, 5);
+				g.fillRect(18, 10, 2, 2);
+				g.setFont(FontManager.getRunescapeSmallFont());
+				shadow(g, fit(heading, g.getFontMetrics(), w - 44), 32, 19, brighten(accent));
+				int y = TEXT_Y;
+				for (String line : lines(w - 26)) {
+					shadow(g, line, 14, y, new Color(0xC9D1DE));
+					y += LINE;
+				}
+				y += 4;
+				shadow(g, link, 14, y, hover ? Color.WHITE : brighten(accent));
+				if (hover) {
+					g.fillRect(14, y + 2, g.getFontMetrics().stringWidth(link), 1);
+				}
+			} finally {
+				g.dispose();
+			}
+		}
+	}
+
 	private static void smooth(Graphics2D g) {
 		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
