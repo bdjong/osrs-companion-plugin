@@ -81,5 +81,7 @@ in-game roadmap window (both stay on the website): about 185k projected, give or
 | One wildcard import for java.util and net.runelite.api.events per file (other imports stay explicit) | -2,272 |
 
 | Farm run guide moves on in the plugin (offline steps) | +439 |
+| Roadmap page: an info box pointing to the roadmaps on the website (owner's request) | +984 |
+| 20 fixed tables read from `tables.json` (ids written with RuneLite's constant names, checked by TablesTest) | -1,990 |
 
-**Result: about 194,550 tokens** (under the 195,000 the size test now enforces; the Plugin Hub limit is 200,000).
+**Result: about 193,553 tokens** (under the 195,000 the size test now enforces; the Plugin Hub limit is 200,000).

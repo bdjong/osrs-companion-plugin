@@ -30,17 +30,7 @@ final class BankLayouts {
 
 	static {
 		Map<String, Integer> m = new HashMap<>();
-		m.put("head", 1);
-		m.put("cape", 8);
-		m.put("neck", 9);
-		m.put("ammo", 10);
-		m.put("weapon", 16);
-		m.put("body", 17);
-		m.put("shield", 18);
-		m.put("legs", 25);
-		m.put("hands", 32);
-		m.put("feet", 33);
-		m.put("ring", 34);
+		Tables.map("bankEquipmentPos").forEach((key, pos) -> m.put(key, pos.getAsInt()));
 		m.put("switch", SWITCH_POS);
 		m.put("switch_shield", SWITCH_SHIELD_POS);
 		EQUIPMENT_POS = Collections.unmodifiableMap(m);

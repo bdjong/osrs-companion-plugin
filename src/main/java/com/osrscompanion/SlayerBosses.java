@@ -16,39 +16,10 @@ final class SlayerBosses {
 	}
 
 	/** Task name (lower case, as the game names the task) -> the boss NPC names that count for it. */
-	static final Map<String, List<String>> BOSSES;
+	static final Map<String, List<String>> BOSSES = new LinkedHashMap<>();
 
 	static {
-		Map<String, List<String>> m = new LinkedHashMap<>();
-		m.put("abyssal demons", Collections.singletonList("Abyssal Sire"));
-		m.put("araxytes", Collections.singletonList("Araxxor"));
-		m.put("hydras", Collections.singletonList("Alchemical Hydra"));
-		m.put("cave kraken", Collections.singletonList("Kraken"));
-		m.put("smoke devils", Collections.singletonList("Thermonuclear smoke devil"));
-		m.put("hellhounds", Collections.singletonList("Cerberus"));
-		// The Grotesque Guardians.
-		m.put("gargoyles", Arrays.asList("Dusk", "Dawn"));
-		// The Dagannoth Kings.
-		m.put("dagannoth", Arrays.asList("Dagannoth Rex", "Dagannoth Prime", "Dagannoth Supreme"));
-		m.put("kalphite", Collections.singletonList("Kalphite Queen"));
-		m.put("black dragons", Collections.singletonList("King Black Dragon"));
-		m.put("blue dragons", Collections.singletonList("Vorkath"));
-		// Skotizo counts for both black and greater demons (OSRS Wiki, Skotizo).
-		m.put("greater demons", Arrays.asList("K'ril Tsutsaroth", "Tstanon Karlak", "Skotizo"));
-		m.put("black demons", Collections.singletonList("Skotizo"));
-		m.put("skeletons", Arrays.asList("Vet'ion", "Calvar'ion"));
-		// The Royal Titans: Branda for fire giants, Eldric for ice giants.
-		m.put("fire giants", Collections.singletonList("Branda the Fire Queen"));
-		m.put("ice giants", Collections.singletonList("Eldric the Ice King"));
-		m.put("aviansie", Collections.singletonList("Kree'arra"));
-		m.put("spiders", Arrays.asList("Sarachnis", "Venenatis", "Spindel"));
-		m.put("bears", Arrays.asList("Callisto", "Artio"));
-		m.put("scorpions", Collections.singletonList("Scorpia"));
-		m.put("rats", Collections.singletonList("Scurrius"));
-		m.put("hill giants", Collections.singletonList("Obor"));
-		m.put("moss giants", Collections.singletonList("Bryophyta"));
-		m.put("gryphons", Collections.singletonList("Shellbane Gryphon"));
-		BOSSES = Collections.unmodifiableMap(m);
+		Tables.map("slayerBosses").forEach((task, names) -> BOSSES.put(task, Tables.strings(names)));
 	}
 
 	/** The boss NPCs that count for a task ("Hydras" -> Alchemical Hydra); empty when it has none. */
