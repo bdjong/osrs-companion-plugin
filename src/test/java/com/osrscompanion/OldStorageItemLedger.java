@@ -1,5 +1,7 @@
 package com.osrscompanion;
 
+// The plugin's StorageItemLedger before the website kept the storage items: the reference for StorageEventsOracleTest.
+
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -10,9 +12,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Inferred contents of one storage item (see {@link StorageItemSpec}),
+ * Inferred contents of one storage item (see {@link OldStorageItemSpec}),
  * per item id. Pure: fed chat lines, inventory diffs, XP drops and the
- * "Check" text by {@link StorageItemMonitor}, settled once per game tick.
+ * "Check" text by {@link OldStorageItemMonitor}, settled once per game tick.
  *
  * <p>Gather messages ("You catch an anglerfish") while the open container is
  * carried credit the item unless it landed in the inventory that tick (the
@@ -21,13 +23,13 @@ import java.util.regex.Pattern;
  * the Check listing is an exact resync. The ledger is only ever as good as
  * these signals, so the monitor logs inferred-vs-checked totals to judge it.
  */
-final class StorageItemLedger {
+final class OldStorageItemLedger {
 	private static final Pattern CHECK_ENTRY = Pattern.compile("(\\d+)\\s*[x×]\\s*([A-Za-z' ]+?)\\s*(?:,|$|/)");
 	private static final Pattern GEM_ENTRY = Pattern.compile("([A-Za-z ]+?):\\s*(\\d+)");
 	private static final Pattern COAL_ENTRY = Pattern.compile("contains (\\d+|one) pieces? of coal");
 	private static final Pattern TAGS = Pattern.compile("<[^>]+>");
 
-	final StorageItemSpec spec;
+	final OldStorageItemSpec spec;
 	/** Resolves an item id to its in-game name; supplied by the monitor (client thread). */
 	private final IntFunction<String> itemName;
 	/** What the server last knew this container held (goal items only); applied before the first signal of a session. */
@@ -52,11 +54,11 @@ final class StorageItemLedger {
 	private boolean checkedEmpty;
 	private String lastPickTarget;
 
-	StorageItemLedger(StorageItemSpec spec, IntFunction<String> itemName) {
+	OldStorageItemLedger(OldStorageItemSpec spec, IntFunction<String> itemName) {
 		this(spec, itemName, Map::of);
 	}
 
-	StorageItemLedger(StorageItemSpec spec, IntFunction<String> itemName, Supplier<Map<Integer, Integer>> seed) {
+	OldStorageItemLedger(OldStorageItemSpec spec, IntFunction<String> itemName, Supplier<Map<Integer, Integer>> seed) {
 		this.spec = spec;
 		this.itemName = itemName;
 		this.seed = seed == null ? Map::of : seed;

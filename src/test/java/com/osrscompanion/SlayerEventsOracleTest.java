@@ -120,7 +120,7 @@ public class SlayerEventsOracleTest {
 		OldSlayerMonitor.clock = () -> ms;
 		OldSlayerMonitor.sink = p -> oldEvents.addAll(p.getEvents());
 		old = new OldSlayerMonitor(client(), clientThread(), config, api, executor(), new Gson(), configManager());
-		GameEvents events = new GameEvents(null, null, null, null, null, null, null, null) {
+		GameEvents events = new GameEvents(null, null, null, null, null, null, null, null, null) {
 			@Override
 			Map<String, Object> add(String type, Object... kv) {
 				Map<String, Object> e = new LinkedHashMap<>();

@@ -1,5 +1,7 @@
 package com.osrscompanion;
 
+// The plugin's StorageItemSpec before the website kept the storage items: the reference for StorageEventsOracleTest.
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -15,10 +17,10 @@ import net.runelite.api.gameval.ItemID;
  * container or varbit (fish barrel, log basket, gem bag, coal bag, herb
  * sack): which items it takes, its capacity, and the chat text the game
  * emits when something goes in, when it is checked, and when it is emptied.
- * The bookkeeping lives in {@link StorageItemLedger}; RuneLite wiring in
- * {@link StorageItemMonitor}.
+ * The bookkeeping lives in {@link OldStorageItemLedger}; RuneLite wiring in
+ * {@link OldStorageItemMonitor}.
  */
-final class StorageItemSpec {
+final class OldStorageItemSpec {
 	/** Chat lines (GAMEMESSAGE) every "empty your containers" bank action emits. */
 	static final List<String> CONTAINERS_EMPTIED_MESSAGES = List.of(
 			"You empty all of your containers into the bank.",
@@ -58,7 +60,7 @@ final class StorageItemSpec {
 	/** Chat names that differ from the item name (after the prefix strip). */
 	final Map<String, String> nameAliases;
 
-	private StorageItemSpec(Builder b) {
+	private OldStorageItemSpec(Builder b) {
 		this.source = b.source;
 		this.closedIds = Set.copyOf(b.closedIds);
 		this.openIds = Set.copyOf(b.openIds);
@@ -94,7 +96,7 @@ final class StorageItemSpec {
 
 	// ------------------------------------------------------------- specs
 
-	static StorageItemSpec fishBarrel() {
+	static OldStorageItemSpec fishBarrel() {
 		return new Builder("fish_barrel")
 				.closed(ItemID.FISH_BARREL_CLOSED, ItemID.FISH_SACK_BARREL_CLOSED)
 				.open(ItemID.FISH_BARREL_OPEN, ItemID.FISH_SACK_BARREL_OPEN)
@@ -123,7 +125,7 @@ final class StorageItemSpec {
 				.build();
 	}
 
-	static StorageItemSpec logBasket() {
+	static OldStorageItemSpec logBasket() {
 		return new Builder("log_basket")
 				.closed(ItemID.LOG_BASKET_CLOSED, ItemID.FORESTRY_BASKET_CLOSED)
 				.open(ItemID.LOG_BASKET_OPEN, ItemID.FORESTRY_BASKET_OPEN)
@@ -144,7 +146,7 @@ final class StorageItemSpec {
 				.build();
 	}
 
-	static StorageItemSpec gemBag() {
+	static OldStorageItemSpec gemBag() {
 		return new Builder("gem_bag")
 				.closed(ItemID.GEM_BAG, ItemID.GEM_POUCH, ItemID.GEM_SATCHEL, ItemID.GEM_TOTE, ItemID.GEM_SACK)
 				.open(ItemID.GEM_BAG_OPEN, ItemID.GEM_POUCH_OPEN, ItemID.GEM_SATCHEL_OPEN, ItemID.GEM_TOTE_OPEN,
@@ -162,7 +164,7 @@ final class StorageItemSpec {
 				.build();
 	}
 
-	static StorageItemSpec coalBag() {
+	static OldStorageItemSpec coalBag() {
 		return new Builder("coal_bag")
 				.closed(ItemID.COAL_BAG)
 				.open(ItemID.COAL_BAG_OPEN)
@@ -177,7 +179,7 @@ final class StorageItemSpec {
 				.build();
 	}
 
-	static StorageItemSpec herbSack() {
+	static OldStorageItemSpec herbSack() {
 		Builder b = new Builder("herb_sack")
 				.closed(ItemID.SLAYER_HERB_SACK, ItemID.SLAYER_HERB_SACK_SILK)
 				.open(ItemID.SLAYER_HERB_SACK_OPEN, ItemID.SLAYER_HERB_SACK_SILK_OPEN)
@@ -204,7 +206,7 @@ final class StorageItemSpec {
 		return b.build();
 	}
 
-	static List<StorageItemSpec> all() {
+	static List<OldStorageItemSpec> all() {
 		return List.of(fishBarrel(), logBasket(), gemBag(), coalBag(), herbSack());
 	}
 
@@ -251,8 +253,8 @@ final class StorageItemSpec {
 		Builder stripPrefix(String p) { namePrefixToStrip = p; return this; }
 		Builder alias(String chat, String item) { nameAliases.put(chat, item); return this; }
 
-		StorageItemSpec build() {
-			return new StorageItemSpec(this);
+		OldStorageItemSpec build() {
+			return new OldStorageItemSpec(this);
 		}
 	}
 }
