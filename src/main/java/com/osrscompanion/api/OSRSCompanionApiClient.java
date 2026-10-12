@@ -11,7 +11,6 @@ import com.osrscompanion.PluginVersion;
 import com.osrscompanion.SyncGuard;
 import com.osrscompanion.model.BankSyncPayload;
 import com.osrscompanion.model.CollectionLogSyncPayload;
-import com.osrscompanion.model.DeathSyncPayload;
 import com.osrscompanion.model.BossGear;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.KillCountsSyncPayload;
@@ -75,7 +74,6 @@ public class OSRSCompanionApiClient
 	private static final String QUESTS_ENDPOINT = "/api/runelite/quests/";
 	private static final String FARMING_UNLOCKS_ENDPOINT = "/api/runelite/farming-unlocks/";
 	private static final String FARM_RUN_ENDPOINT = "/api/runelite/farm-run/";
-	private static final String DEATHS_ENDPOINT = "/api/runelite/deaths/";
 	private static final String KILL_COUNTS_ENDPOINT = "/api/runelite/kill-counts/";
 	private static final String LOADOUT_ENDPOINT = "/api/runelite/loadouts/";
 	private static final String LOOT_ENDPOINT = "/api/runelite/loot/";
@@ -221,22 +219,6 @@ public class OSRSCompanionApiClient
 
 
 
-
-	/**
-	 * Sends the queued deaths. Never deduped: an identical body is a retry of
-	 * deaths the backend has not acknowledged yet, or the login handshake.
-	 */
-	public void sendDeathsSync(DeathSyncPayload payload, Runnable onSuccess)
-	{
-		// The body is every death not yet acknowledged, so a newer one holds the older one's too.
-		postAsync(DEATHS_ENDPOINT, payload.toJson(gson), "deaths", false, false, key("deaths", payload.getPlayerUsername()), false,
-			() -> {
-				if (onSuccess != null)
-				{
-					onSuccess.run();
-				}
-			});
-	}
 
 	public void sendKillCountsSync(KillCountsSyncPayload payload)
 	{
