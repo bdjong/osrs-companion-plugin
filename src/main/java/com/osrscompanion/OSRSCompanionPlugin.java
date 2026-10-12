@@ -96,8 +96,6 @@ public class OSRSCompanionPlugin extends Plugin {
 	@Inject
 	private KillCountMonitor killCountMonitor;
 
-	@Inject
-	private DeathMonitor deathMonitor;
 
 	@Inject
 	private SlayerMonitor slayerMonitor;
@@ -246,7 +244,7 @@ public class OSRSCompanionPlugin extends Plugin {
 		subscribers = java.util.Arrays.asList(this, timerMonitor, playerSkillsMonitor, bankMemoryMonitor, vaultMonitor,
 				potionStorageMonitor, runePouchMonitor, plankSackMonitor, loadoutMonitor, lootMonitor,
 				collectionLogMonitor, questMonitor, varPump, farmingUnlocksMonitor,
-				killCountMonitor, deathMonitor, slayerMonitor, slayerCatalogMonitor,
+				killCountMonitor, slayerMonitor, slayerCatalogMonitor,
 				slayerRewardsMonitor, farmRunManager, bankLayoutPrep,
 				farmRunSceneOverlay, slayerHelperManager, slayerGuideMarkers, slayerGuideHouseOverlay, sessionMonitor,
 				gameEvents, suppliesCheck, liveActivityMonitor);
@@ -427,7 +425,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		step("stop varPump", () -> varPump.stop());
 		step("stop farmingUnlocksMonitor", () -> farmingUnlocksMonitor.stop());
 		step("stop killCountMonitor", () -> killCountMonitor.stop());
-		step("stop deathMonitor", () -> deathMonitor.stop());
 		step("stop slayerMonitor", () -> slayerMonitor.stop());
 		step("stop slayerCatalogMonitor", () -> slayerCatalogMonitor.stop());
 		step("stop slayerRewardsMonitor", () -> slayerRewardsMonitor.stop());
@@ -526,7 +523,6 @@ public class OSRSCompanionPlugin extends Plugin {
 		varPump.forceSync();
 		farmingUnlocksMonitor.forceSync();
 		killCountMonitor.forceSync();
-		deathMonitor.forceSync();
 		slayerMonitor.forceSync();
 		slayerCatalogMonitor.forceSync();
 	}
