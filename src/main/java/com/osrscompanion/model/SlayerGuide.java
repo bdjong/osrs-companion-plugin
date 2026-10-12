@@ -2,12 +2,7 @@ package com.osrscompanion.model;
 
 import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * GET /api/runelite/slayer/guide/: the current task and where to do it, best place first.

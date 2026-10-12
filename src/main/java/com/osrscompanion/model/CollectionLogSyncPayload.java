@@ -1,8 +1,7 @@
 package com.osrscompanion.model;
 
 import com.google.gson.Gson;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Payload for syncing collection log data to the OSRS Companion API.

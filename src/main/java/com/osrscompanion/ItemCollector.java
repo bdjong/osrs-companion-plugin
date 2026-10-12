@@ -1,9 +1,7 @@
 package com.osrscompanion;
 
 import com.osrscompanion.model.BankSyncPayload;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;

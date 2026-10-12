@@ -2,9 +2,7 @@ package com.osrscompanion.model;
 
 import lombok.Getter;
 import com.google.gson.annotations.SerializedName;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * The active boss gear set as returned by GET /api/runelite/boss-gear/: per worn slot the item to

@@ -1,7 +1,6 @@
 package com.osrscompanion;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import net.runelite.api.Client;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
