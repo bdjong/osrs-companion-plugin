@@ -51,4 +51,4 @@ Every later update: raise `version` in both `version.properties` and `runelite-p
 
 ## License
 
-BSD 2-Clause, see [LICENSE](LICENSE). This plugin includes third-party code; see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) for their copyright notices and licenses.
+BSD 2-Clause, see [LICENSE](LICENSE).
