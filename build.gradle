@@ -46,11 +46,11 @@ tasks.withType(JavaCompile).configureEach {
 	options.release.set(11)
 }
 
-// The licences must travel with every distributed jar, not only with the source.
+// The licence must travel with every distributed jar, not only with the source.
 // Their own folder keeps them from clashing with dependencies' META-INF/LICENSE in shadowJar.
 tasks.withType(Jar).configureEach {
 	from(rootDir) {
-		include 'LICENSE', 'THIRD_PARTY_NOTICES.txt'
+		include 'LICENSE'
 		into 'META-INF/osrs-companion'
 	}
 }
