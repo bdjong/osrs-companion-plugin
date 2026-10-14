@@ -105,7 +105,9 @@ final class LiveActivity {
 			this.subject = subject;
 			this.npcId = npcId;
 			// Always sent (also empty): it tells the website to write the text itself.
-			this.parts = parts == null ? Collections.emptyMap() : parts;
+			// Not Collections.emptyMap(): RuneLite's Gson cannot write it on Java 17+ (it tries to open its private
+			// constructor), which turned live activity off for players running the plugin on a newer Java.
+			this.parts = parts == null ? new LinkedHashMap<>() : parts;
 		}
 
 		/** Two choices with the same key are the same activity (only counts like "12 left" differ). */

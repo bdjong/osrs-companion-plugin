@@ -218,10 +218,11 @@ public class VarPump {
 		Map<String, String> quests, Integer region, long sessionStart) {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("player_username", player);
-		body.put("sources", sources);
-		body.put("varbits", bitValues);
-		body.put("varps", playerValues);
-		body.put("quests", quests);
+		// Plain copies: RuneLite's Gson cannot write the JDK's own empty / immutable collections on Java 17+.
+		body.put("sources", new ArrayList<>(sources));
+		body.put("varbits", new LinkedHashMap<>(bitValues));
+		body.put("varps", new LinkedHashMap<>(playerValues));
+		body.put("quests", new LinkedHashMap<>(quests));
 		body.put("region", region);
 		body.put("session_start", sessionStart > 0 ? sessionStart : null);
 		return gson.toJson(body);
