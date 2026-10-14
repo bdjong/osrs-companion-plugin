@@ -90,6 +90,8 @@ If you use a Jagex account and can't log in when running from the IDE, you need 
 
 A release merges `development` into `main`. `main` deleted `friend/` and `run-dev.bat` after `development` branched off, so a normal `git merge development` on `main` keeps them out, as long as nobody changes those files on `development` (then delete them again in the merge commit). Do not merge `main` back into `development`: that would delete the kit there. A hotfix made on `main` goes to `development` as a cherry-pick.
 
+**The friend kit never goes to `main`** (for people and for AI assistants alike): never commit, merge, cherry-pick or copy `friend/` or `run-dev.bat` into `main`. Before committing a release merge on `main`, check `git diff --cached --name-only` for them and delete them again in the merge commit if they are there. The `Plugin` workflow fails on `main` when either is present (step "The friend kit is not on main").
+
 ## Testing a release
 
 Before merging `development` into `main`, build it (`./gradlew build` must pass) and check in game with a fresh RuneLite profile (or the plugin's settings reset) and an App Key:
