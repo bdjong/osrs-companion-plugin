@@ -19,8 +19,8 @@ import net.runelite.api.GameState;
  * <p>It is also the live activity heartbeat: while the status is shared ({@link LiveActivityMonitor}),
  * every batch carries it, and when no batch answered for {@link LiveActivityMonitor#HEARTBEAT_MS} the
  * status goes out on its own (a batch, whose answer carries the webVersion too, so no version check is
- * needed then). Idle, that is the heartbeat every 60 s with a version check 30 s after each, so website changes
- * still reach the plugin within about 30 s.
+ * needed then). Idle, that is the heartbeat every 5 minutes with the version check every 30 s in between, so
+ * website changes still reach the plugin within about 30 s.
  */
 @Singleton
 public class WebVersionWatcher {
@@ -88,7 +88,7 @@ public class WebVersionWatcher {
 		lastHeartbeatMs = Long.MIN_VALUE;
 	}
 
-	/** Whether the live activity heartbeat is due: nothing reached the website (batch or heartbeat) for 60 s. */
+	/** Whether the live activity heartbeat is due: nothing reached the website (batch or heartbeat) for HEARTBEAT_MS. */
 	static boolean shouldHeartbeat(long nowMs, long lastBatchResponseMs, long lastHeartbeatMs) {
 		long last = Math.max(lastBatchResponseMs, lastHeartbeatMs);
 		return last == Long.MIN_VALUE || nowMs - last >= LiveActivityMonitor.HEARTBEAT_MS;

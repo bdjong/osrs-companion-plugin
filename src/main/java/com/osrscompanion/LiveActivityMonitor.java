@@ -36,11 +36,11 @@ import net.runelite.client.eventbus.Subscribe;
  * <ul>
  *   <li>Each tick the status is worked out from what the client already has (a few varbits, your tile,
  *       target and animation, the bank widget, the slayer helper and farm run state). Cheap: no scans.</li>
- *   <li>A change of activity (or idle on / off) goes out as a priority upload once it held for
+ *   <li>A change of activity, area or world (or idle on / off) goes out as a priority upload once it held for
  *       {@link #DEBOUNCE_MS}, at most every {@link #MIN_CHANGE_GAP_MS}.</li>
  *   <li>Otherwise the status rides along with every outbox batch, and the {@link WebVersionWatcher} sends
  *       it as a heartbeat when nothing reached the website for {@link #HEARTBEAT_MS}; the website shows you
- *       as offline after about 2 minutes without one.</li>
+ *       as offline after about 10 minutes without one. Counts (kills left, patches done) ride along.</li>
  *   <li>Logging out (or stopping the plugin) sends "offline" at once. Switching the setting off sends
  *       nothing more: the website then shows you as offline after its timeout.</li>
  * </ul>
@@ -57,7 +57,7 @@ public class LiveActivityMonitor {
 	/** At most one change upload this often (the heartbeat still carries the latest). */
 	static final long MIN_CHANGE_GAP_MS = 5_000;
 	/** The website must hear from the plugin at least this often while you are logged in. */
-	static final long HEARTBEAT_MS = 60_000;
+	static final long HEARTBEAT_MS = 5 * 60_000L;
 	/** A cast counts when Magic XP comes within this many ticks of the click. */
 	static final int CAST_XP_TICKS = 5;
 	/** A teleport counts when you moved far within this many ticks of the click. */
@@ -85,9 +85,9 @@ public class LiveActivityMonitor {
 			this.regionId = regionId;
 		}
 
-		/** Same key: the same activity (counts, world and area changes ride on the heartbeat). */
+		/** Same key: the same activity, world and area (count changes ride along with the next upload or heartbeat). */
 		String key() {
-			return state + "|" + choice.key();
+			return state + "|" + choice.key() + "|" + world + "|" + (area == null ? "" : area);
 		}
 
 		Map<String, Object> body() {
