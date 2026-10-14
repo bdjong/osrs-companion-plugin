@@ -59,7 +59,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncTimeTracking",
 			name = "Farming Time Tracking",
-			description = "Sync farming patches and bird houses to OSRS Companion.",
+			description = "Farming patches and bird houses.",
 			section = SYNC_SECTION,
 			position = 0)
 	default boolean syncTimeTracking() {
@@ -69,7 +69,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncBankMemory",
 			name = "Bank Memory",
-			description = "Sync your bank, seed vault, looting bag, potion storage, boat cargo holds, rune pouch, plank sack and storage items (fish barrel, herb sack, log basket, gem bag, coal bag, seed box, ...) to OSRS Companion.",
+			description = "Bank, seed vault, inventory, worn gear, looting bag, rune pouch, potion storage, boat cargo, storage items (sacks, bags, seed box...).",
 			section = SYNC_SECTION,
 			position = 1)
 	default boolean syncBankMemory() {
@@ -79,7 +79,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncCollectionLog",
 			name = "Collection Log",
-			description = "Sync your Collection Log to OSRS Companion. Reads automatically the first time you open your collection log each session, then updates as you unlock new items.",
+			description = "Collection log items (read when you open the log).",
 			section = SYNC_SECTION,
 			position = 2)
 	default boolean syncCollectionLog() {
@@ -89,7 +89,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncLoadouts",
 			name = "Sync Loadouts",
-			description = "Sync your active equipment and Inventory Setups loadouts to OSRS Companion.",
+			description = "Worn gear and Inventory Setups loadouts.",
 			section = SYNC_SECTION,
 			position = 3)
 	default boolean syncLoadouts() {
@@ -99,7 +99,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncLoot",
 			name = "Loot Tracking",
-			description = "Sync loot drops and kill counts to OSRS Companion.",
+			description = "Loot drops and kill counts.",
 			section = SYNC_SECTION,
 			position = 4)
 	default boolean syncLoot() {
@@ -109,7 +109,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncQuests",
 			name = "Quests",
-			description = "Sync your quest progress to OSRS Companion. Reads on login and updates in real time as you complete quests.",
+			description = "Quest progress.",
 			section = SYNC_SECTION,
 			position = 5)
 	default boolean syncQuests() {
@@ -119,7 +119,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncAchievementDiaries",
 			name = "Achievement Diaries",
-			description = "Sync your achievement diary completion to OSRS Companion. Reads on login and updates in real time as you complete diary tasks.",
+			description = "Achievement diary tasks done.",
 			section = SYNC_SECTION,
 			position = 6)
 	default boolean syncAchievementDiaries() {
@@ -129,7 +129,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncCombatAchievements",
 			name = "Combat Achievements",
-			description = "Sync your combat achievement completion to OSRS Companion. Reads on login and updates in real time as you complete combat achievements.",
+			description = "Combat achievements done.",
 			section = SYNC_SECTION,
 			position = 7)
 	default boolean syncCombatAchievements() {
@@ -139,7 +139,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncKillCounts",
 			name = "Boss Kill Counts",
-			description = "Sync your boss kill counts to OSRS Companion, read from RuneLite's stored kill counts (the same source the !kc command uses). Updates on login and as you get new kills.",
+			description = "Boss kill counts (RuneLite's !kc counts).",
 			section = SYNC_SECTION,
 			position = 8)
 	default boolean syncKillCounts() {
@@ -149,7 +149,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncSlayer",
 			name = "Slayer",
-			description = "Sync your slayer task, points, streak, block list and unlocks to OSRS Companion. Reads on login and updates as tasks progress.",
+			description = "Slayer task, points, streak, block list and unlocks.",
 			section = SYNC_SECTION,
 			position = 9)
 	default boolean syncSlayer() {
@@ -159,7 +159,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncHouseLocation",
 			name = "House Location",
-			description = "Sync where your player-owned house is to OSRS Companion so Farm Routes only suggest house teleports that land there. Reads on login and updates when you move house.",
+			description = "Where your house is (for farm route teleports).",
 			section = SYNC_SECTION,
 			position = 10)
 	default boolean syncHouseLocation() {
@@ -169,7 +169,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncKingdom",
 			name = "Kingdom of Miscellania",
-			description = "Sync your Managing Miscellania approval rating, coffer and worker allocation to OSRS Companion. Reads on login and updates when they change.",
+			description = "Miscellania approval, coffer and workers.",
 			section = SYNC_SECTION,
 			position = 11)
 	default boolean syncKingdom() {
@@ -179,7 +179,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncDeaths",
 			name = "Deaths",
-			description = "Send your deaths (what killed you, where and when) to OSRS Companion. Off by default: the website does not store deaths yet.",
+			description = "Deaths: what killed you, where and when. Off by default.",
 			section = SYNC_SECTION,
 			position = 12)
 	default boolean syncDeaths() {
@@ -189,7 +189,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncFarmHarvests",
 			name = "Farm Harvests",
-			description = "Send each patch you pick clean (crop, how many, Farming cape, magic secateurs, compost, disease, anima plant, diaries and Farming level) and each dead crop you clear to OSRS Companion for the Harvest stats page.",
+			description = "Harvests: crop, amount and what boosted it (cape, compost, secateurs...).",
 			section = SYNC_SECTION,
 			position = 13)
 	default boolean syncFarmHarvests() {
@@ -199,7 +199,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncFarmRuns",
 			name = "Farm runs",
-			description = "When a guided farm run ends (complete, or stopped after at least one patch), send it to OSRS Companion for the Run history: route, time, patches done, Farming XP gained and the seeds planted. Its harvests are matched by time.",
+			description = "Finished guided farm runs: route, time, patches, Farming XP and seeds planted.",
 			section = SYNC_SECTION,
 			position = 14)
 	default boolean syncFarmRuns() {
@@ -209,7 +209,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = SHARE_LIVE_ACTIVITY_KEY,
 			name = "Share live activity",
-			description = "While you are logged in, share your online status, your current activity (for example a raid, boss, slayer task, farm run, skill or banking, or idle), your world and the area name with OSRS Companion, so you and the site admin can see what you are doing right now. Off: nothing new is sent, and the website shows you as offline after about half a minute.",
+			description = "Online status, current activity, world and area. Off: shown as offline after about 2 minutes.",
 			section = SYNC_SECTION,
 			position = 16)
 	default boolean shareLiveActivity() {
@@ -220,7 +220,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncSkills",
 			name = "Skills & XP",
-			description = "Sync your levels and XP (with your total and combat level and account type) to OSRS Companion, for your XP history, goals and the tools that check your levels.",
+			description = "Levels, XP, total and combat level, account type.",
 			section = SYNC_SECTION,
 			position = 17)
 	default boolean syncSkills() {
@@ -230,7 +230,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "syncSessions",
 			name = "Play sessions",
-			description = "Tell OSRS Companion when you log in and out (and a ping every few minutes while you play), for your play time and the session summary on your home page.",
+			description = "Log in, log out and a ping every few minutes (play time).",
 			section = SYNC_SECTION,
 			position = 18)
 	default boolean syncSessions() {
