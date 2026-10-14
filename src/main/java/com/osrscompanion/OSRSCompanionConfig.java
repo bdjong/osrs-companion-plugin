@@ -209,7 +209,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = SHARE_LIVE_ACTIVITY_KEY,
 			name = "Share live activity",
-			description = "Online status, current activity, world and area. Off: shown as offline after about 2 minutes.",
+			description = "Online status, current activity, world and area. Off: shown as offline after about 10 minutes.",
 			section = SYNC_SECTION,
 			position = 16)
 	default boolean shareLiveActivity() {
