@@ -18,6 +18,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # the plugin version counts commits (see build.gradle)
+      - name: The friend kit is not on main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # friend/ and run-dev.bat live on development only (CLAUDE.md, DEVELOPMENT.md > Branches).
+          if [ -e friend ] || [ -e run-dev.bat ]; then
+            echo "::error::The friend kit (friend/ or run-dev.bat) is on main. Delete it from main; it belongs on development only."
+            exit 1
+          fi
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
