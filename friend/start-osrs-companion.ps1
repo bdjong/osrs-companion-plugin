@@ -23,7 +23,7 @@ $BuildLog    = Join-Path $PackageDir 'build-log.txt'
 $RuneLiteDir = Join-Path $env:USERPROFILE '.runelite'
 $Credentials = Join-Path $RuneLiteDir 'credentials.properties'
 $RuneLiteApp = Join-Path $env:LOCALAPPDATA 'RuneLite'
-$Website     = 'https://osrs-companion-web.vercel.app'
+$Website     = 'https://osrs-companion.duckdns.org'
 
 function Title($text) { Write-Host ''; Write-Host "  $text" -ForegroundColor Cyan }
 function Ok($text)    { Write-Host "  [OK]    $text" -ForegroundColor Green }

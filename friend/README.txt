@@ -33,7 +33,7 @@ starts it. It also puts a "RuneLite (OSRS Companion)" shortcut on your desktop.
 
 First time in RuneLite
 ----------------------
-1. Make an account on https://osrs-companion-web.vercel.app (Register),
+1. Make an account on https://osrs-companion.duckdns.org (Register),
    open Settings and copy your App Key.
 2. In RuneLite: wrench (Configuration) > search "OSRS Companion" > paste the App Key.
 3. Log in to the game.
