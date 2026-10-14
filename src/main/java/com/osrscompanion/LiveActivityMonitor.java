@@ -40,7 +40,7 @@ import net.runelite.client.eventbus.Subscribe;
  *       {@link #DEBOUNCE_MS}, at most every {@link #MIN_CHANGE_GAP_MS}.</li>
  *   <li>Otherwise the status rides along with every outbox batch, and the {@link WebVersionWatcher} sends
  *       it as a heartbeat when nothing reached the website for {@link #HEARTBEAT_MS}; the website shows you
- *       as offline after about 35 s without one.</li>
+ *       as offline after about 2 minutes without one.</li>
  *   <li>Logging out (or stopping the plugin) sends "offline" at once. Switching the setting off sends
  *       nothing more: the website then shows you as offline after its timeout.</li>
  * </ul>
@@ -57,7 +57,7 @@ public class LiveActivityMonitor {
 	/** At most one change upload this often (the heartbeat still carries the latest). */
 	static final long MIN_CHANGE_GAP_MS = 5_000;
 	/** The website must hear from the plugin at least this often while you are logged in. */
-	static final long HEARTBEAT_MS = 15_000;
+	static final long HEARTBEAT_MS = 60_000;
 	/** A cast counts when Magic XP comes within this many ticks of the click. */
 	static final int CAST_XP_TICKS = 5;
 	/** A teleport counts when you moved far within this many ticks of the click. */
