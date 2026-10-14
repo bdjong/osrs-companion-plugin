@@ -26,7 +26,7 @@ START_COMMAND="$PACKAGE_DIR/Start OSRS Companion.command"
 BUILD_LOG="$PACKAGE_DIR/build-log.txt"
 CREDENTIALS="$HOME/.runelite/credentials.properties"
 RUNELITE_APP="/Applications/RuneLite.app"
-WEBSITE="https://osrs-companion-web.vercel.app"
+WEBSITE="https://osrs-companion.duckdns.org"
 # Overridable so the checks can be tested on other systems.
 JAVA_HOME_TOOL="${OSRS_JAVA_HOME_TOOL:-/usr/libexec/java_home}"
 

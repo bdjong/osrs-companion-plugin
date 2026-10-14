@@ -18,7 +18,7 @@ The **Slayer helper** tile in the side panel shows your task (kills left, master
 
 ## Data sent and privacy
 
-This plugin sends data to a **third-party server**: the OSRS Companion website at `https://osrs-companion-web.vercel.app`. It is not run or checked by the RuneLite developers.
+This plugin sends data to a **third-party server**: the OSRS Companion website at `https://osrs-companion.duckdns.org`. It is not run or checked by the RuneLite developers.
 
 - **Nothing is sent until you enter an App Key** (from your account settings on the website). RuneLite asks you to confirm when you set it. Clear the App Key to stop all sending.
 - Every request carries your App Key (to link it to your website account) and your RuneScape name.
@@ -28,7 +28,7 @@ This plugin sends data to a **third-party server**: the OSRS Companion website a
 - The plugin also loads your roadmaps, farm routes and the farm run's state, boss gear setups and slayer guide from the website, and goal images from the OSRS Wiki (`oldschool.runescape.wiki`).
 - The plugin skips syncing on Leagues, Deadman and other special game-mode worlds. It collects no data about other players.
 - You can delete your account on the website (Settings): that removes your email, your characters and all their data.
-- The website's [privacy page](https://osrs-companion-web.vercel.app/privacy) explains what is stored, who can see it and how long it is kept.
+- The website's [privacy page](https://osrs-companion.duckdns.org/privacy) explains what is stored, who can see it and how long it is kept.
 
 ## Collection log: why the plugin opens the log's search
 

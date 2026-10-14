@@ -17,7 +17,7 @@ The pull request text (below the line):
 
 ## OSRS Companion
 
-Adds **OSRS Companion**: it syncs the player's own game data to the OSRS Companion website (a third-party site, `https://osrs-companion-web.vercel.app`) and brings the website's tools into the game: the current roadmap goal, a farm run guide, boss gear setups with bank layouts, a slayer helper and a trip planner.
+Adds **OSRS Companion**: it syncs the player's own game data to the OSRS Companion website (a third-party site, `https://osrs-companion.duckdns.org`) and brings the website's tools into the game: the current roadmap goal, a farm run guide, boss gear setups with bank layouts, a slayer helper and a trip planner.
 
 This is a resubmission of #18254, which was closed because the plugin was over the 200,000-token review limit. It has been reworked to about 193,500 tokens (estimated by `PluginSizeTest`, which fails the build above 195,000): the calculations moved to the website, which works them out from the game data the plugin sends, and fixed tables are a data file (`src/main/resources/com/osrscompanion/tables.json`).
 
