@@ -2,17 +2,23 @@
 
 A RuneLite plugin that syncs your game data (farming timers, bank, skills, loadouts, loot, collection log, quests, diaries, combat achievements, boss kill counts, slayer and your Kingdom of Miscellania) to the OSRS Companion website, and brings the website's tools into the game: your current roadmap goal, the farm run guide, boss gear and the slayer helper. Most of the work (timers, trips, task outcomes, guide steps) is done by the website from what the plugin sends, which keeps the plugin small.
 
-![The side panel: the tools menu, the Roadmap page and the Farm run page](docs/screenshots/side-panel.png)
+![The side panel's tools menu](docs/screenshots/menu.png)
 
 ## Settings
 
 Settings are grouped into **Data Syncing** (which data the plugin sends to the app; one toggle per source) and **Plugin Features** (the in-game current goal overlay with its progress bar, the goal completion popup and its sound). Your OSRS Companion App Key sits at the top.
 
-![The settings: Data Syncing and Plugin Features](docs/screenshots/settings.png)
+![Data Syncing settings](docs/screenshots/data-syncing.png) ![Plugin Features settings](docs/screenshots/plugin-features.png)
+
+## Roadmap
+
+![The Roadmap button and its page](docs/screenshots/roadmap.png)
 
 The goal overlay shows your current roadmap goal and the progress the website works out from what the plugin syncs (it updates within about 30 seconds). Your roadmaps are set up on the website; the side panel's **Roadmap** page links there. The completion sound (an in-game sound effect, at your sound effect volume) can be switched off in the settings.
 
 ## Farm run guide
+
+![The Farm run button and its page](docs/screenshots/farm-run.png)
 
 Start a run from the side panel's **Farm run** page or the farm run window: the guide points you from stop to stop, says what to do at each patch and what to bring. It reads the patches from the game itself, so a stop is ticked off the moment you plant it, also when the website cannot be reached; the website keeps the run's state and the run history.
 
