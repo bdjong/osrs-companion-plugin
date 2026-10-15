@@ -58,9 +58,9 @@ This plugin sends data to a **third-party server**: the OSRS Companion website a
 
 The plugin loads only two pictures from the OSRS Wiki: your current roadmap goal's and your active boss setup's, each once. The website loads item names, prices and WikiSync data from the wiki. What exactly, how often, and an estimate of the data per player per day are in [docs/wiki-usage.md](docs/wiki-usage.md).
 
-## Collection log: why the plugin opens the log's search
+## Collection log
 
-The game only draws the collection log items of the page you look at. To read the whole log at once, the plugin does what the [WikiSync](https://github.com/weirdgloop/WikiSync) plugin does: the first time you open your collection log in a session (with **Collection Log** syncing on and an App Key set), it calls `client.menuAction` once for the log's own **Search** button and runs the client's search script. That makes the game draw every item you have, which the plugin reads. It is a client-side action on an interface you opened yourself; it sends no game action to the server, clicks nothing else, and never runs on its own outside that moment.
+To read your whole collection log, the plugin presses the log's own **Search** button once (`client.menuAction`) the first time you open the log in a session, the way the WikiSync plugin does. Why and exactly what it does: [docs/collection-log.md](docs/collection-log.md).
 
 ## Settings that change clicks (off by default)
 
