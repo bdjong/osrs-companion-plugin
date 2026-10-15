@@ -237,14 +237,19 @@ public class BossGearWindow extends GameWindow {
 		return switchButton;
 	}
 
-	/** Asks for the new set's name in the chatbox, then saves the gear worn and carried now. */
+	/**
+	 * Asks for the set's name in the chatbox, then saves the gear worn and carried now. Starts with the
+	 * loaded build's name (your custom build's own name, else the wiki setup's style): saving under the
+	 * name of one of your sets for this boss overwrites it, so Enter updates the build you are on.
+	 */
 	private void askSaveName() {
 		BossGear set = manager.getSet();
 		if (set == null) {
 			return;
 		}
-		chatbox.openTextInput("Name your " + set.getBossName() + " set:")
-			.value(set.getStyle() + " (mine)")
+		BossGear.SetSummary loaded = inUse(set);
+		chatbox.openTextInput("Name your " + set.getBossName() + " set (same name overwrites):")
+			.value(loaded != null && loaded.getLabel() != null ? loaded.getLabel() : set.getStyle())
 			.onDone((String name) -> Guard.invokeLater(clientThread, GUARD_FEATURE, () -> {
 				String n = name == null ? "" : name.trim();
 				if (!n.isEmpty()) {

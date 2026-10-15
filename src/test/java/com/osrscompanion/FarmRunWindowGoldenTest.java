@@ -80,7 +80,7 @@ public class FarmRunWindowGoldenTest {
 		when(manager.statusOf(route.getStops().get(0).getPatches().get(0))).thenReturn(Status.DONE);
 		when(manager.statusOf(route.getStops().get(0).getPatches().get(1))).thenReturn(Status.SKIPPED);
 		when(manager.statusOf(route.getStops().get(0).getPatches().get(2))).thenReturn(Status.NOT_READY);
-		when(manager.nextRunAt()).thenReturn(System.currentTimeMillis() / 1000 + 2 * 3600 + 15 * 60 + 30);
+		when(manager.nextRunAt()).thenReturn(System.currentTimeMillis() / 1000 + 2 * 3600 + 15 * 60 + 45); // 2h 15m 45s: "~2h 16m" even if the clock ticks during the test
 		UiKit.golden("farm-window-running", render());
 	}
 
