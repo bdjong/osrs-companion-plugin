@@ -8,27 +8,29 @@ A RuneLite plugin that syncs your game data (farming timers, bank, skills, loado
 
 Settings are grouped into **Data Syncing** (which data the plugin sends to the app; one toggle per source) and **Plugin Features** (the in-game current goal overlay with its progress bar, the goal completion popup and its sound). Your OSRS Companion App Key sits at the top.
 
-![Data Syncing settings](docs/screenshots/data-syncing.png) ![Plugin Features settings](docs/screenshots/plugin-features.png)
-
 ## Roadmap
 
-![The Roadmap button and its page](docs/screenshots/roadmap.png)
+![The Roadmap button and its page](docs/screenshots/roadmap.png) ![The Roadmap settings](docs/screenshots/settings-roadmap.png)
 
 The goal overlay shows your current roadmap goal and the progress the website works out from what the plugin syncs (it updates within about 30 seconds). Your roadmaps are set up on the website; the side panel's **Roadmap** page links there. The completion sound (an in-game sound effect, at your sound effect volume) can be switched off in the settings.
 
 ## Farm run guide
 
-![The Farm run button and its page](docs/screenshots/farm-run.png)
+![The Farm run button and its page](docs/screenshots/farm-run.png) ![The farm run settings](docs/screenshots/settings-farm-run.png)
 
 Start a run from the side panel's **Farm run** page or the farm run window: the guide points you from stop to stop, says what to do at each patch and what to bring. It reads the patches from the game itself, so a stop is ticked off the moment you plant it, also when the website cannot be reached; the website keeps the run's state and the run history.
 
 ## Slayer helper
+
+![The Slayer settings](docs/screenshots/settings-slayer.png)
 
 The **Slayer helper** tile in the side panel shows your task (kills left, master) and the best place to do it (or the one you picked on the website). Switch the **Guide** on and a step box, the hint arrow and a Slayer icon on the world map lead you there; click the icon for the way there in a popup. Once you are in the area the box shows the task's stats instead: time at the location, average kill time (each monster timed on its own, so barraging stays valid), kills per hour, estimated time left and loot. Each visit is sent to the website (with Slayer syncing on), which charts it per task.
 
 ## Data sent and privacy
 
 This plugin sends data to a **third-party server**: the OSRS Companion website at `https://osrs-companion.duckdns.org`. It is not run or checked by the RuneLite developers.
+
+![Data Syncing settings](docs/screenshots/data-syncing.png)
 
 - **Nothing is sent until you enter an App Key** (from your account settings on the website). RuneLite asks you to confirm when you set it. Clear the App Key to stop all sending.
 - Every request carries your App Key (to link it to your website account) and your RuneScape name.
@@ -46,10 +48,14 @@ The game only draws the collection log items of the page you look at. To read th
 
 ## Settings that change clicks (off by default)
 
+![The settings that change clicks](docs/screenshots/settings-clicks.png)
+
 - **Auto set teleport left click** (Plugin Features): during a farm run or a Slayer guide step, the teleport the step uses becomes the left click of that item, the way RuneLite's Menu Entry Swapper swaps options. Off by default.
 - **Farming cape for herbs** (Plugin Features): **Remind** (the default) adds the cape to the run and reminds you to wear it. **Force** also makes a left click on a ready herb patch walk instead of pick until you wear the cape. **Off** does neither.
 
 ## Bank Tag Layouts plugin
+
+![The bank layout settings](docs/screenshots/settings-bank.png)
 
 The boss, farm run and slayer gear bank layouts use RuneLite's built-in Bank Tags layouts. If you also run the **Bank Tag Layouts** plugin from the Plugin Hub with **Enable layout by default** on, it re-sorts our layout into its own order (and keeps that order for good): the bank still shows only the items you need, just not in their slots. OSRS Companion never changes another plugin's settings, so on the first bank visit of each login where one of our layouts opens, it tells you in the chat that turning the Bank Tag Layouts plugin off gives our neater layout.
 
