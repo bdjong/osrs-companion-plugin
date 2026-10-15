@@ -50,8 +50,11 @@ import okhttp3.Response;
 @Singleton
 public class OSRSCompanionApiClient
 {
-	/** The OSRS Companion website every request goes to. */
-	public static final String BASE_URL = "https://osrs-companion-web.vercel.app";
+	/**
+	 * The OSRS Companion website every request goes to. A name of our own (not the host's), so the website can
+	 * move to another host without a plugin update; older versions used osrs-companion-web.vercel.app.
+	 */
+	public static final String BASE_URL = "https://osrs-companion.duckdns.org";
 	private static final long REQUEST_TIMEOUT_SECONDS = 10;
 	private static final long LARGE_REQUEST_TIMEOUT_SECONDS = 60;
 	private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json");

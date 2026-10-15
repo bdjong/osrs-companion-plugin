@@ -3,7 +3,7 @@ text 'Progress updates as you play and syncs ' 0,21 RuneScape Small/2/16 #a5a5a5
 text 'with the website in the background.' 0,33 RuneScape Small/2/16 #a5a5a5ff @t(10,330) clip(0,0,222,58)
 text ' ' 174,33 RuneScape Small/0/16 #a5a5a5ff @t(10,330) clip(0,0,222,58)
 text ' ' 0,45 RuneScape Small/0/16 #a5a5a5ff @t(10,330) clip(0,0,222,58)
-text 'OSRS Companion v1.0.0' 0,57 RuneScape Small/0/16 #a5a5a5ff @t(10,330) clip(0,0,222,58)
+text 'OSRS Companion v1.0.1' 0,57 RuneScape Small/0/16 #a5a5a5ff @t(10,330) clip(0,0,222,58)
 fillRect 0,0,222,320 #282828ff @t(10,10) clip(0,0,222,320)
 fill Float[0:0.500,7.500 1:0.500,50 3:0.500,53.866 1:214,57 3:217.866,57 1:221,7.500 3:221,3.634 1:7.500,0.500 3:3.634,0.500 4:3.634,0.500 ] GradientPaint @t(10,264) clip(0,0,222,58)
 fill Float[0:0.500,7.500 1:0.500,50 3:0.500,53.866 1:214,57 3:217.866,57 1:221,7.500 3:221,3.634 1:7.500,0.500 3:3.634,0.500 4:3.634,0.500 ] RadialGradientPaint @t(10,264) clip(0,0,222,58)
