@@ -1,10 +1,10 @@
 # OSRS Wiki usage
 
-What OSRS Companion loads from the Old School RuneScape Wiki, how often, and how much data that is. The plugin's own part is summed up in the [README](../README.md#osrs-wiki-what-is-loaded-and-how-often); it is repeated here so this page is complete.
+What OSRS Companion loads from the Old School RuneScape Wiki, how often, and how much data that is.
 
 ## The plugin
 
-**The plugin** loads only two kinds of picture from the wiki:
+The plugin loads only two kinds of picture from the wiki:
 - **The current roadmap goal's picture**, in the roadmap box and on the side panel's Roadmap page. A roadmap shows one goal at a time (the first one not done yet), so at most **one** picture until that goal is reached; then the next goal's. Item and skill goals use RuneLite's own icons and load nothing from the wiki.
 - **The active boss setup's picture** on the side panel's Boss gear page: one, until you load another setup.
 
@@ -12,7 +12,7 @@ Each picture is loaded once, then kept in memory (at most 512) until RuneLite cl
 
 ## The website
 
-**The website** also asks the wiki for data, from its server. Every request names the site and the contact `Discord: Zeekr` in its User-Agent, as the wiki asks.
+The website also asks the wiki for data, from its server. Every request names the site and the contact `Discord: Zeekr` in its User-Agent, as the wiki asks.
 
 The website's server code runs on Vercel, which starts a copy of it (a *server instance*) when a request comes in and none is running, keeps it for as long as requests keep coming, and stops it after some minutes without any. When it is busy, more copies run side by side. What a copy remembers (the lists below) is gone when it stops, so a newly started copy loads it again. "Per server instance" therefore means: once by each copy that needs it, while that copy runs.
 
