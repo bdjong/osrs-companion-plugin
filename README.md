@@ -56,13 +56,7 @@ This plugin sends data to a **third-party server**: the OSRS Companion website a
 
 ## OSRS Wiki: what is loaded and how often
 
-**The plugin** loads only two kinds of picture from the wiki:
-- **The current roadmap goal's picture**, in the roadmap box and on the side panel's Roadmap page. A roadmap shows one goal at a time (the first one not done yet), so at most **one** picture until that goal is reached; then the next goal's. Item and skill goals use RuneLite's own icons and load nothing from the wiki.
-- **The active boss setup's picture** on the side panel's Boss gear page: one, until you load another setup.
-
-Each picture is loaded once, then kept in memory (at most 512) until RuneLite closes or the plugin is turned off. Only `https://oldschool.runescape.wiki/images/...` files are loaded; any other address is ignored. A picture that fails is not asked again until the next start, and at most 16 load at once. Wiki links (the boss gear's **Go to wiki**, the slayer guide) open in your browser only when you click them.
-
-The website itself also loads data from the wiki (item names, prices, WikiSync). What exactly, how often, and an estimate of the data per player per day are in [docs/wiki-usage.md](docs/wiki-usage.md).
+The plugin loads only two pictures from the OSRS Wiki: your current roadmap goal's and your active boss setup's, each once. The website loads item names, prices and WikiSync data from the wiki. What exactly, how often, and an estimate of the data per player per day are in [docs/wiki-usage.md](docs/wiki-usage.md).
 
 ## Collection log: why the plugin opens the log's search
 
