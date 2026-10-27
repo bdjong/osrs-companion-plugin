@@ -257,7 +257,8 @@ public class RoadmapPanel extends PluginPanel {
 			});
 			deck.repaint();
 		}), null);
-		add(p, toggle("Active in the bank", "Bank shows items during a run", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter),
+		add(p, toggle("Active in the bank", "Bank shows items during a run", "Bank left alone", FARM, "farmRunBankFilter", config::farmRunBankFilter)
+			.withNote(() -> config.farmRunBankFilter() && !config.showFarmRun() ? "Paused while the guide is off" : null),
 			"Only one bank layout is active at a time: turning this on turns the other bank layouts off.");
 		add(p, toggle("Run guide", "Arrow + patch outlines", "Guide hidden", FARM, "showFarmRun", config::showFarmRun), null);
 		add(p, overview("ROUTE", "OVERVIEW", "Stops and what to bring", FARM, new Color(0x08130C), new Color(0x166534), SpriteID.MINIMAP_ORB_WORLD_MAP_PLANET, openWindow).iconSize(28),
@@ -340,7 +341,8 @@ public class RoadmapPanel extends PluginPanel {
 			SlayerGuide.Location l = slayer.getLocation();
 			return l == null || l.getRequirements().isEmpty() ? null : "Needs: " + String.join(", ", l.getRequirements());
 		}), null);
-		add(p, toggle("Bank layout", "Bank shows this setup", "Bank left alone", SLAYER, "slayerGearBankLayout", config::slayerGearBankLayout),
+		add(p, toggle("Bank layout", "Bank shows this setup", "Bank left alone", SLAYER, "slayerGearBankLayout", config::slayerGearBankLayout)
+			.withNote(() -> config.slayerGearBankLayout() && !config.slayerGuide() ? "Paused while the guide is off" : null),
 			"Only one bank layout is active at a time: turning this on turns the other bank layouts off.");
 		add(p, overview("GEAR", "OVERVIEW", "Pick a DPS setup", SLAYER, new Color(0x1F0A0A), new Color(0x991B1B), SpriteID.TAB_EQUIPMENT, openGearWindow),
 			"Open or close the slayer gear window: the website's DPS setups against the task's monster; pick the one to use (Escape closes it).");

@@ -209,8 +209,9 @@ public class SlayerGearWindow extends GameWindow {
 		ly += 13;
 		text(g, "In your bank or storage (B)", lx, ly, STORED);
 		ly += 18;
-		String hint = config.slayerGearBankLayout() ? "Open your bank: it shows only this setup, laid out like your gear."
-			: "Turn on Bank layout on the Slayer helper page to have the bank show this setup.";
+		String hint = !config.slayerGearBankLayout() ? "Turn on Bank layout on the Slayer helper page to have the bank show this setup."
+			: config.slayerGuide() ? "Open your bank: it shows only this setup, laid out like your gear."
+			: "Turn the Slayer guide on to have the bank show this setup.";
 		for (String l : wrap(hint, g.getFontMetrics(), textW)) {
 			if (ly > bottom) {
 				break;

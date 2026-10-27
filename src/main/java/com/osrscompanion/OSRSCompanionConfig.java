@@ -290,7 +290,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "farmRunBankFilter",
 			name = "Farm run active in the bank",
-			description = "While a farm run is going (started in the farm run window and not complete), the bank shows only what your route needs, laid out like the worn gear and the inventory (see Exact bank layout). Without a run going the bank is left alone. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Slayer gear bank layouts off.",
+			description = "While a farm run is going (started in the farm run window and not complete) with the run guide on, the bank shows only what your route needs, laid out like the worn gear and the inventory (see Exact bank layout). Without a run going the bank is left alone. Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Slayer gear bank layouts off.",
 			hidden = true)
 	default boolean farmRunBankFilter() {
 		return true;
@@ -360,7 +360,7 @@ public interface OSRSCompanionConfig extends Config {
 	@ConfigItem(
 			keyName = "slayerGearBankLayout",
 			name = "Slayer gear bank layout",
-			description = "With a slayer task, when you open the bank, it shows only the worn gear of the setup picked in the Slayer gear window (the best until you pick one), laid out like the worn equipment (see Exact bank layout). Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Farm run bank layouts off.",
+			description = "With a slayer task and the Slayer guide on, when you open the bank, it shows only the worn gear of the setup picked in the Slayer gear window (the best until you pick one), laid out like the worn equipment (see Exact bank layout). Click another bank tab to see everything: the bank then stays as you left it until you reopen it. Only one bank layout is active at a time: turning this on turns the Boss gear and Farm run bank layouts off.",
 			hidden = true)
 	default boolean slayerGearBankLayout() {
 		return false;
