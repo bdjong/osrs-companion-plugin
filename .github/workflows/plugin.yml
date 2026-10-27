@@ -32,10 +32,10 @@ jobs:
           java-version: 11
       - uses: gradle/actions/setup-gradle@v4
       - run: chmod +x gradlew && ./gradlew build
-      - name: Check the licence notices are inside the jar
+      - name: Check the licence is inside the jar
         run: |
+          # LICENSE only: THIRD_PARTY_NOTICES.txt was dropped for the Plugin Hub review (LICENSE attributes the authors).
           for jar in build/libs/*.jar; do
-            unzip -l "$jar" | grep -q 'META-INF/osrs-companion/THIRD_PARTY_NOTICES.txt' || { echo "missing notices in $jar"; exit 1; }
             unzip -l "$jar" | grep -q 'META-INF/osrs-companion/LICENSE' || { echo "missing LICENSE in $jar"; exit 1; }
           done
       - uses: actions/upload-artifact@v4
