@@ -115,6 +115,13 @@ public class SlayerGuide {
 		@SerializedName("steps")
 		private List<String> steps;
 
+		/**
+		 * Tiles on the way from the entrance, in order (a passage, a cave entrance), each x, y, plane: the hint arrow
+		 * points at the furthest one in the loaded scene, then at the location's tile.
+		 */
+		@SerializedName("waypoints")
+		private List<List<Integer>> waypoints;
+
 		/** NPC names that count as the task monster here. */
 		@SerializedName("monsters")
 		private List<String> monsters;
@@ -161,6 +168,19 @@ public class SlayerGuide {
 
 		public List<String> getRequirements() {
 			return requirements == null ? Collections.emptyList() : requirements;
+		}
+
+		/** The way points as x, y, plane triples (malformed ones left out), in order. */
+		public List<int[]> getWaypoints() {
+			List<int[]> out = new ArrayList<>();
+			if (waypoints != null) {
+				for (List<Integer> w : waypoints) {
+					if (w != null && w.size() >= 3 && w.get(0) != null && w.get(1) != null && w.get(2) != null) {
+						out.add(new int[]{w.get(0), w.get(1), w.get(2)});
+					}
+				}
+			}
+			return out;
 		}
 
 		public List<String> getSteps() {

@@ -3,6 +3,8 @@ package com.osrscompanion;
 import lombok.RequiredArgsConstructor;
 import com.osrscompanion.model.FarmRoute;
 import com.osrscompanion.model.SlayerGuide;
+import java.util.ArrayList;
+import java.util.List;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -57,23 +59,52 @@ public class SlayerGuideMarkers {
 				return;
 			}
 			WorldPoint target = new WorldPoint(l.getX(), l.getY(), l.getPlane());
-			updateArrow(target);
+			updateArrow(route(l, target));
 			updateMapPoint(l, target);
 		});
 	}
 
-	/** The hint arrow on the location's tile while it is in the loaded scene (a farm run's arrow goes first). */
-	private void updateArrow(WorldPoint target) {
+	/** The way there: the location's way points (a passage, a cave entrance), then its tile. */
+	private static List<WorldPoint> route(SlayerGuide.Location l, WorldPoint target) {
+		List<WorldPoint> out = new ArrayList<>();
+		for (int[] w : l.getWaypoints()) {
+			out.add(new WorldPoint(w[0], w[1], w[2]));
+		}
+		out.add(target);
+		return out;
+	}
+
+	/**
+	 * The hint arrow on the furthest point of the way there that is in the loaded scene: the location's tile, else
+	 * the last way point you can see (a farm run's arrow goes first). Inside an instance (the crash site) a point is
+	 * its template tile, found through the instance's copy of it.
+	 */
+	private void updateArrow(List<WorldPoint> route) {
 		WorldView view = client.getTopLevelWorldView();
-		boolean inScene = view != null && view.getPlane() == target.getPlane() && LocalPoint.fromWorld(view, target) != null;
-		if (!inScene || farmRun.isRunning()) {
+		WorldPoint at = null;
+		if (view != null && !farmRun.isRunning()) {
+			for (int i = route.size() - 1; i >= 0 && at == null; i--) {
+				at = inScene(view, route.get(i));
+			}
+		}
+		if (at == null) {
 			clearArrow();
 			return;
 		}
-		if (!target.equals(arrowAt)) {
-			client.setHintArrow(target);
-			arrowAt = target;
+		if (!at.equals(arrowAt)) {
+			client.setHintArrow(at);
+			arrowAt = at;
 		}
+	}
+
+	/** The point as it is in the loaded scene (an instance's copy of a template tile), or null when it is not. */
+	private static WorldPoint inScene(WorldView view, WorldPoint p) {
+		for (WorldPoint w : WorldPoint.toLocalInstance(view, p)) {
+			if (w.getPlane() == view.getPlane() && LocalPoint.fromWorld(view, w) != null) {
+				return w;
+			}
+		}
+		return null;
 	}
 
 	private void updateMapPoint(SlayerGuide.Location l, WorldPoint target) {
