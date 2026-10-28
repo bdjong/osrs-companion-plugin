@@ -19,6 +19,7 @@ import net.runelite.api.Point;
 import net.runelite.api.Scene;
 import net.runelite.api.Tile;
 import net.runelite.api.WorldView;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
@@ -286,7 +287,11 @@ public class FarmRunSceneOverlay extends Overlay {
 			}
 		}
 		if (target == null) {
-			target = new WorldPoint(stop.getX(), stop.getY(), stop.getPlane());
+			// Not in view yet: the furthest tile of the way there you can see (a boat), else the stop's tile.
+			WorldPoint at = new WorldPoint(stop.getX(), stop.getY(), stop.getPlane());
+			WorldView view = client.getTopLevelWorldView();
+			target = view == null || inScene(view, at) != null ? null : furthestOnWay(view, manager.travelOf(stop));
+			target = target == null ? at : target;
 		}
 		if (!target.equals(arrowAt)) {
 			client.setHintArrow(target);
@@ -307,6 +312,31 @@ public class FarmRunSceneOverlay extends Overlay {
 			mapPoint.setJumpOnClick(true);
 			worldMap.add(mapPoint);
 		}
+	}
+
+	/**
+	 * The furthest tile of the travel's way (from the website) in the loaded scene, else null. Shared with the
+	 * Slayer guide ({@link SlayerGuideMarkers}).
+	 */
+	static WorldPoint furthestOnWay(WorldView view, FarmRoute.Travel travel) {
+		List<int[]> way = travel == null ? Collections.emptyList() : travel.getWay();
+		for (int i = way.size() - 1; i >= 0; i--) {
+			WorldPoint at = inScene(view, new WorldPoint(way.get(i)[0], way.get(i)[1], way.get(i)[2]));
+			if (at != null) {
+				return at;
+			}
+		}
+		return null;
+	}
+
+	/** The tile as it is in the loaded scene (an instance's copy of a template tile too), or null when it is not. */
+	static WorldPoint inScene(WorldView view, WorldPoint p) {
+		for (WorldPoint w : WorldPoint.toLocalInstance(view, p)) {
+			if (w.getPlane() == view.getPlane() && LocalPoint.fromWorld(view, w) != null) {
+				return w;
+			}
+		}
+		return null;
 	}
 
 	/** Removes the arrow (only if it is ours) and the map marker. Client thread. */
