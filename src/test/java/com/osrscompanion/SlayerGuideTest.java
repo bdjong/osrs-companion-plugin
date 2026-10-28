@@ -47,6 +47,18 @@ public class SlayerGuideTest {
 	}
 
 	@Test
+	public void readsTheWayThere() {
+		SlayerGuide g = new Gson().fromJson(GUIDE.replace("\"spell\":false}", "\"spell\":false,\"way\":[[2453,3520,0],[1,2],null,[2027,5612,0]]}"),
+			SlayerGuide.class);
+		java.util.List<int[]> way = g.selectedLocation().getTravel().getWay();
+		// The short and null tiles are left out.
+		assertEquals(2, way.size());
+		assertTrue(Arrays.equals(new int[]{2453, 3520, 0}, way.get(0)));
+		assertTrue(Arrays.equals(new int[]{2027, 5612, 0}, way.get(1)));
+		assertTrue(new Gson().fromJson(GUIDE, SlayerGuide.class).selectedLocation().getTravel().getWay().isEmpty());
+	}
+
+	@Test
 	public void picksTheSelectedThenTheRecommendedLocation() {
 		Gson gson = new Gson();
 		SlayerGuide picked = gson.fromJson(GUIDE.replace("\"selected\":\"abyssal-demons-catacombs\"", "\"selected\":\"abyssal-demons-slayer-tower\""),

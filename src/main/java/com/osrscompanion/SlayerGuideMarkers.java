@@ -14,7 +14,6 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.SpriteID;
 import net.runelite.api.WorldView;
-import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.Subscribe;
@@ -57,22 +56,29 @@ public class SlayerGuideMarkers {
 				return;
 			}
 			WorldPoint target = new WorldPoint(l.getX(), l.getY(), l.getPlane());
-			updateArrow(target);
+			updateArrow(target, l.getTravel());
 			updateMapPoint(l, target);
 		});
 	}
 
-	/** The hint arrow on the location's tile while it is in the loaded scene (a farm run's arrow goes first). */
-	private void updateArrow(WorldPoint target) {
+	/**
+	 * The hint arrow on the location's tile while it is in the loaded scene, else on the furthest tile of the way
+	 * there you can see (a farm run's arrow goes first).
+	 */
+	private void updateArrow(WorldPoint target, FarmRoute.Travel travel) {
 		WorldView view = client.getTopLevelWorldView();
-		boolean inScene = view != null && view.getPlane() == target.getPlane() && LocalPoint.fromWorld(view, target) != null;
-		if (!inScene || farmRun.isRunning()) {
+		WorldPoint at = null;
+		if (view != null && !farmRun.isRunning()) {
+			at = FarmRunSceneOverlay.inScene(view, target);
+			at = at != null ? at : FarmRunSceneOverlay.furthestOnWay(view, travel);
+		}
+		if (at == null) {
 			clearArrow();
 			return;
 		}
-		if (!target.equals(arrowAt)) {
-			client.setHintArrow(target);
-			arrowAt = target;
+		if (!at.equals(arrowAt)) {
+			client.setHintArrow(at);
+			arrowAt = at;
 		}
 	}
 
