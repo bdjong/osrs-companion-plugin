@@ -105,3 +105,21 @@ Before merging `development` into `main`, build it (`./gradlew build` must pass)
 ## Releasing to the Plugin Hub
 
 A Plugin Hub update points `plugins/osrs-companion` in `runelite/plugin-hub` at a commit on `main`. The plugin version is set by hand in `src/main/resources/com/osrscompanion/version.properties` (`version=1.0.0`) and again as `version=` in `runelite-plugin.properties`, which is the version the Plugin Hub shows (without it the hub shows the commit hash); raise both (1.0.1, 1.1.0 ... 2.0.0) in the commit a hub update points at. `PluginVersionTest` fails when the two differ. Every request to OSRS Companion carries it as `X-OSRSCompanion-Plugin-Version` and the live activity status as `plugin_version`; the website shows it per character in Admin, Activity. The pull request text for the first submission is in `docs/plugin-hub-pr.md`.
+
+## After 1.0.2 is on the Plugin Hub
+
+1.0.2 is the plugin-hub pull request `update osrs-companion to 1.0.2` (`commit=d73d031`). When it is merged:
+
+Works by itself once players update (nothing to do):
+
+- The farm run markers stay on after leaving your house (the POH bug that turned them off for the session).
+- The arrow follows the way there the website sends: Harmony Island by boat (Bill Teach at Port Phasmatys, then Brother Tranquility) is already set on the website.
+- Skill goals tick off about a second after reaching them; skills go up every 10 s while training (the website already keeps one snapshot per 5 minutes).
+
+To do then:
+
+1. Delete the `release/1.0.1` branch: it only keeps the commit the 1.0.1 hub entry pointed at (`91fe798`, the history before the authorship rewrite) from being cleaned up.
+2. Update or remove the website's announcement banner about the farm markers turning off after the POH.
+3. Add more arrow tiles on the website (`way` on a teleport in `src/lib/farmCatalog.ts`, or on a Slayer location in `src/lib/slayerLocations.ts`), now that the plugin follows them:
+   - the Ectophial walk from the Ectofuntus to the patches west of Port Phasmatys (the patches are out of view on arrival);
+   - the Crash Site Cavern (demonic gorillas): the pass-through at 2453,3520 then the cavern entrance at 2027,5612 (an instance: the plugin finds its copy of the tile), with the location's tile on the gorillas.
