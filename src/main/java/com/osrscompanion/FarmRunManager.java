@@ -9,6 +9,7 @@ import com.osrscompanion.model.FarmRoute;
 import java.util.*;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
+import lombok.extern.slf4j.Slf4j;
 import javax.inject.Singleton;
 import lombok.Getter;
 import net.runelite.api.ChatMessageType;
@@ -45,6 +46,7 @@ import net.runelite.client.util.QuantityFormatter;
  * pops up a summary and stops by itself when you leave the last stop.
  */
 @RequiredArgsConstructor(onConstructor_ = @Inject)
+@Slf4j
 @Singleton
 public class FarmRunManager {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
@@ -340,6 +342,9 @@ public class FarmRunManager {
 		if (answer.patches == null) {
 			answer.patches = Collections.emptyMap();
 		}
+		// Temporary (debugging the Morytania stop): what the website answered.
+		log.info("[farm-run] answer: running={} stop_index={} complete={} (plugin running={} stopIndex={})",
+			answer.running, answer.stop_index, answer.complete, running, stopIndex);
 		state = answer;
 		if (running && answer.running) {
 			stopIndex = answer.stop_index;
