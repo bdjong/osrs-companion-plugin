@@ -273,7 +273,7 @@ public class FarmRunSceneOverlay extends Overlay {
 	private void logState(String line) {
 		if (!line.equals(lastLog)) {
 			lastLog = line;
-			log.info("[farm-run-markers] {}", line);
+			log.warn("[farm-run-markers] {}", line);
 		}
 	}
 

@@ -343,7 +343,7 @@ public class FarmRunManager {
 			answer.patches = Collections.emptyMap();
 		}
 		// Temporary (debugging the Morytania stop): what the website answered.
-		log.info("[farm-run] answer: running={} stop_index={} complete={} (plugin running={} stopIndex={})",
+		log.warn("[farm-run] answer: running={} stop_index={} complete={} (plugin running={} stopIndex={})",
 			answer.running, answer.stop_index, answer.complete, running, stopIndex);
 		state = answer;
 		if (running && answer.running) {
