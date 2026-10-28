@@ -205,12 +205,27 @@ public class FarmRoute {
 		@SerializedName("fallback")
 		private Travel fallback;
 
+		/** Tiles on the way, in order, each x, y, plane (a boat, a cave entrance): the arrow until the stop is in view. */
+		@SerializedName("way")
+		private List<List<Integer>> way;
+
 		public String getName() {
 			return name == null ? "Walk there" : name;
 		}
 
 		public String getHow() {
 			return how == null ? "" : how;
+		}
+
+		/** The way's tiles (malformed ones left out), in order. */
+		public List<int[]> getWay() {
+			List<int[]> out = new ArrayList<>();
+			for (List<Integer> w : way == null ? Collections.<List<Integer>>emptyList() : way) {
+				if (w != null && w.size() >= 3 && !w.contains(null)) {
+					out.add(new int[]{w.get(0), w.get(1), w.get(2)});
+				}
+			}
+			return out;
 		}
 
 		public List<Integer> getItems() {
