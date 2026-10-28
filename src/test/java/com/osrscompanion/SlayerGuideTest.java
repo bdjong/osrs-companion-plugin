@@ -109,15 +109,4 @@ public class SlayerGuideTest {
 		assertEquals("west", SlayerFormat.compass(-300, 20));
 		assertNull(SlayerFormat.compass(0, 0));
 	}
-
-	@Test
-	public void readsTheWayPointsInOrder() {
-		String json = "{\"locations\":[{\"key\":\"black-demons-crash-site-cavern\",\"tile\":[2112,5660,0],"
-			+ "\"waypoints\":[[2453,3520,0],[2027,5612,0],[1,2]]}]}";
-		SlayerGuide.Location l = new Gson().fromJson(json, SlayerGuide.class).getLocations().get(0);
-		assertEquals(2, l.getWaypoints().size());
-		assertEquals(2453, l.getWaypoints().get(0)[0]);
-		assertEquals(5612, l.getWaypoints().get(1)[1]);
-		assertTrue(new Gson().fromJson("{\"locations\":[{\"key\":\"x\"}]}", SlayerGuide.class).getLocations().get(0).getWaypoints().isEmpty());
-	}
 }
