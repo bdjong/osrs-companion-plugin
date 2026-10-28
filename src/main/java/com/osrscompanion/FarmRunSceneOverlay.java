@@ -11,7 +11,6 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
@@ -40,7 +39,6 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
  * (yellow to do, green planted, grey nothing to do, orange still without compost: the
  * stop just left counts too while you are still there).
  */
-@Slf4j
 public class FarmRunSceneOverlay extends Overlay {
 	/** This class's feature for {@link Guard} (breaker, reports, the chat message). */
 	static final String GUARD_FEATURE = "farm-run-markers";
@@ -59,10 +57,8 @@ public class FarmRunSceneOverlay extends Overlay {
 	private WorldMapPoint mapPoint;
 	private WorldPoint arrowAt;
 	private int ticks;
-	/** Temporary (debugging the Morytania stop): the last line logged, so a line is written only when it changes. */
-	private String lastLog;
-	/** Temporary: the patch objects near the stop the last scan saw (id, varbit, tile), for the log. */
-	private String nearby = "";
+	/** The stop the objects found are for. */
+	private FarmRoute.Stop foundFor;
 	/** In your house on the way to the stop: the portal, nexus, fairy ring... the travel uses, and its name. */
 	private volatile GameObject houseObject;
 	private volatile String houseObjectName;
@@ -112,15 +108,16 @@ public class FarmRunSceneOverlay extends Overlay {
 			// A finished run keeps pointing at the last patches while one of them still has no compost.
 			boolean active = manager.isRunning() && (!manager.isComplete() || manager.hasCompostToDo());
 			FarmRoute.Stop stop = active ? manager.getCurrentStop() : null;
-			logState("running=" + manager.isRunning() + " complete=" + manager.isComplete() + " compostToDo=" + manager.hasCompostToDo()
-				+ " active=" + active + " stop=" + (stop == null ? "-" : stop.getName() + " (" + stop.getX() + "," + stop.getY() + ")")
-				+ " found=" + found.size() + " nearby=[" + nearby + "] arrowAt=" + arrowAt + " hintArrow=" + client.getHintArrowPoint()
-				+ " house=" + (houseObject != null));
 			if (stop == null || client.getGameState() != GameState.LOGGED_IN) {
 				found = Collections.emptyList();
 				houseObject = null;
 				clearPointers();
 				return;
+			}
+			if (stop != foundFor) {
+				// On to the next stop: the last stop's patches are not this one's (until the next scan they were).
+				found = Collections.emptyList();
+				foundFor = stop;
 			}
 			if (++ticks % SCAN_EVERY_TICKS == 0 || found.isEmpty()) {
 				List<Found> all = new ArrayList<>(scan(stop));
@@ -240,7 +237,6 @@ public class FarmRunSceneOverlay extends Overlay {
 		Tile[][] tiles = scene.getTiles()[plane];
 		WorldPoint centre = new WorldPoint(stop.getX(), stop.getY(), stop.getPlane());
 		List<Found> out = new ArrayList<>();
-		StringBuilder seen = new StringBuilder();
 		for (Tile[] column : tiles) {
 			for (Tile tile : column) {
 				if (tile == null) {
@@ -254,10 +250,6 @@ public class FarmRunSceneOverlay extends Overlay {
 					if (comp == null || comp.getImpostorIds() == null) {
 						continue;
 					}
-					if (seen.length() < 400) {
-						seen.append(seen.length() == 0 ? "" : " ").append(object.getId()).append(':').append(comp.getVarbitId())
-							.append('@').append(object.getWorldLocation().getX()).append(',').append(object.getWorldLocation().getY());
-					}
 					FarmRoute.Patch patch = byVarbit.get(comp.getVarbitId());
 					if (patch != null && out.stream().noneMatch(f -> f.object == object)) {
 						out.add(new Found(object, patch));
@@ -265,16 +257,7 @@ public class FarmRunSceneOverlay extends Overlay {
 				}
 			}
 		}
-		nearby = "route varbits " + byVarbit.keySet() + "; " + seen;
 		return out;
-	}
-
-	/** Temporary (debugging the Morytania stop): logs what the outline and the arrow work from, when it changes. */
-	private void logState(String line) {
-		if (!line.equals(lastLog)) {
-			lastLog = line;
-			log.warn("[farm-run-markers] {}", line);
-		}
 	}
 
 	/**
