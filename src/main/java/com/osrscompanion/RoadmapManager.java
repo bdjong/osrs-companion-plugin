@@ -3,6 +3,7 @@ package com.osrscompanion;
 import lombok.Getter;
 import com.osrscompanion.api.OSRSCompanionApiClient;
 import com.osrscompanion.model.Roadmap;
+import com.osrscompanion.model.RoadmapGoal;
 import com.osrscompanion.model.RoadmapList;
 import com.osrscompanion.model.RoadmapSummary;
 import java.util.*;
@@ -280,6 +281,21 @@ public class RoadmapManager {
 		}
 		listCache.invalidate();
 		refreshAllQuietly();
+	}
+
+	/**
+	 * Whether XP rising from {@code before} to {@code now} in the skill reaches an unfinished skill goal of the
+	 * roadmap shown ("Runecraft" matches a "runecrafting" goal).
+	 */
+	public boolean reachesSkillGoal(String skill, int before, int now) {
+		Roadmap roadmap = currentRoadmap;
+		for (RoadmapGoal g : roadmap == null ? Collections.<RoadmapGoal>emptyList() : roadmap.getGoals()) {
+			Long at = g.getCompletingXp();
+			if (at != null && g.getSkillName() != null && g.getSkillName().toLowerCase().startsWith(skill.toLowerCase()) && before < at && now >= at) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Re-reads the roadmap list and every roadmap now (the website changed something). */

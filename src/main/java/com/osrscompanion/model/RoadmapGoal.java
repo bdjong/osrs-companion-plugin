@@ -84,6 +84,14 @@ public class RoadmapGoal {
 		return meta == null ? null : meta.npcName;
 	}
 
+	/**
+	 * For an unfinished skill goal: the skill's XP that completes it (the XP when it was added plus the XP it needs;
+	 * current and target are XP gained and needed). Null otherwise, or for goals from before start_xp was kept.
+	 */
+	public Long getCompletingXp() {
+		return complete || !getType().isSkill() || meta == null || meta.startXp == null ? null : (long) meta.startXp + target;
+	}
+
 	/** Diary task id (OSRS Companion pk) or combat achievement in-game task id; null otherwise. */
 	public Integer getTaskId() {
 		return meta == null ? null : meta.taskId;
@@ -108,6 +116,9 @@ public class RoadmapGoal {
 
 		@SerializedName("task_id")
 		private Integer taskId;
+
+		@SerializedName("start_xp")
+		private Integer startXp;
 	}
 
 	/** The parsed goal type; {@link GoalType#UNKNOWN} for unrecognised values. */

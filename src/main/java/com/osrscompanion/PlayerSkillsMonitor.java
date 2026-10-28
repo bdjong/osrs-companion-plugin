@@ -22,6 +22,8 @@ import net.runelite.client.eventbus.Subscribe;
  * Uploads skill levels and XP: on login, on logout, and while training (at most
  * every {@link #TRAINING_SYNC_INTERVAL_SECONDS} while XP is actually rising) so
  * the server can keep roadmap skill goals current without waiting for logout.
+ * The XP drop that reaches a skill goal of the roadmap shown goes up at once, and
+ * the roadmaps are re-read when it has arrived, so the goal ticks off in about a second.
  */
 @Slf4j
 @Singleton
@@ -31,13 +33,14 @@ public class PlayerSkillsMonitor {
 
 	private static final int LOGIN_SYNC_DELAY_SECONDS = 3;
 	/** How often to re-upload while training; nothing is sent when XP is static. */
-	static final int TRAINING_SYNC_INTERVAL_SECONDS = 60;
+	static final int TRAINING_SYNC_INTERVAL_SECONDS = 10;
 
 	private final Client client;
 	private final ClientThread clientThread;
 	private final OSRSCompanionConfig config;
 	private final OSRSCompanionApiClient apiClient;
 	private final ScheduledExecutorService executorService;
+	private final RoadmapManager roadmapManager;
 
 	private GameState previousGameState = GameState.UNKNOWN;
 	/** Last XP seen per skill (client thread); the first value after login is the replay. */
@@ -51,13 +54,15 @@ public class PlayerSkillsMonitor {
 			ClientThread clientThread,
 			OSRSCompanionConfig config,
 			OSRSCompanionApiClient apiClient,
-			ScheduledExecutorService executorService) {
+			ScheduledExecutorService executorService,
+			RoadmapManager roadmapManager) {
 		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
 		this.config = config;
 		this.apiClient = apiClient;
 		this.executorService = executorService;
+		this.roadmapManager = roadmapManager;
 	}
 
 	public void start() {
@@ -84,7 +89,7 @@ public class PlayerSkillsMonitor {
 
 	/** The game is read on the client thread only: RuneLite asserts it for varbits and the local player. */
 	private void syncOnClientThread() {
-		Guard.invokeLater(clientThread, GUARD_FEATURE, this::syncPlayerSkills);
+		Guard.invokeLater(clientThread, GUARD_FEATURE, () -> syncPlayerSkills());
 	}
 
 	@Subscribe
@@ -110,6 +115,10 @@ public class PlayerSkillsMonitor {
 			Integer previous = lastSeenXp.put(event.getSkill().getName(), event.getXp());
 			if (xpIncreased(previous, event.getXp())) {
 				xpDirty = true;
+				if (roadmapManager.reachesSkillGoal(event.getSkill().getName(), previous, event.getXp())) {
+					xpDirty = false;
+					syncPlayerSkills(roadmapManager::refreshAllQuietly);
+				}
 			}
 		});
 	}
@@ -133,6 +142,11 @@ public class PlayerSkillsMonitor {
 	 * total and combat levels, and sends it to the OSRS Companion API. Client thread.
 	 */
 	private void syncPlayerSkills() {
+		syncPlayerSkills(null);
+	}
+
+	/** The upload; {@code onSuccess} runs once the website has it (OkHttp thread). */
+	private void syncPlayerSkills(Runnable onSuccess) {
 		if (!SyncGuard.hasAppKey(config)) {
 			return;
 		}
@@ -168,6 +182,6 @@ public class PlayerSkillsMonitor {
 		// Account type (Group Ironman helmet on the website): varbit IRONMAN, sent only when it names an iron type.
 		Integer accountType = PlayerSkillsSyncPayload.accountTypeOf(client.getVarbitValue(VarbitID.IRONMAN));
 		PlayerSkillsSyncPayload payload = new PlayerSkillsSyncPayload(playerUsername, skills, totalLevel, combatLevel, accountType);
-		apiClient.sendPlayerSkillsSync(payload);
+		apiClient.sendPlayerSkillsSync(payload, onSuccess);
 	}
 }
