@@ -10,6 +10,7 @@ import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
 import net.runelite.api.Point;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.ui.overlay.Overlay;
@@ -48,6 +49,17 @@ public class SlayerGuideHouseOverlay extends Overlay {
 		this.outlines = outlines;
 		setPosition(OverlayPosition.DYNAMIC);
 		setLayer(OverlayLayer.ABOVE_SCENE);
+	}
+
+	/** A new scene loads (leaving your house): the object found belongs to the old one, and drawing it fails. */
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged e) {
+		Guard.run(GUARD_FEATURE, () -> {
+			if (e.getGameState() != GameState.LOGGED_IN) {
+				houseObject = null;
+				houseObjectName = null;
+			}
+		});
 	}
 
 	@Subscribe

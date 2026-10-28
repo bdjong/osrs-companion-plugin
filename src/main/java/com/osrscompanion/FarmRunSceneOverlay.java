@@ -21,6 +21,7 @@ import net.runelite.api.Scene;
 import net.runelite.api.Tile;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.eventbus.Subscribe;
@@ -88,6 +89,21 @@ public class FarmRunSceneOverlay extends Overlay {
 		this.itemManager = itemManager;
 		setPosition(OverlayPosition.DYNAMIC);
 		setLayer(OverlayLayer.ABOVE_SCENE);
+	}
+
+	/**
+	 * A new scene loads (a teleport, leaving your house): the objects found belong to the old one. Drawn
+	 * there, the client fails on every frame until the next scan, which turned the markers off.
+	 */
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged e) {
+		Guard.run(GUARD_FEATURE, () -> {
+			if (e.getGameState() != GameState.LOGGED_IN) {
+				found = Collections.emptyList();
+				houseObject = null;
+				houseObjectName = null;
+			}
+		});
 	}
 
 	@Subscribe
