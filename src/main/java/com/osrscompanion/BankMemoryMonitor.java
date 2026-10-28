@@ -62,6 +62,8 @@ public class BankMemoryMonitor {
 	private GameState previousGameState = GameState.UNKNOWN;
 	/** The group storage interface is open (its container is only read then). */
 	private boolean groupStorageOpen;
+	/** The nothing-equipped read went up this session (once; later changes go up with the containers). */
+	private boolean nothingWornSent;
 	/** When INV / WORN / the bank may be read (see the class comment). */
 	private final CarriedReadGate gate = new CarriedReadGate();
 	/** Inventory + gear as last read, for deposit diffs. */
@@ -150,6 +152,19 @@ public class BankMemoryMonitor {
 		});
 	}
 
+	/**
+	 * Reads the bank / inventory / worn gear now and sends what changed at once (no debounce), then runs
+	 * {@code then} (on the client thread). Used before the Slayer guide reads the gear, so an item just moved
+	 * into the inventory counts. Unchanged contents are not re-sent.
+	 */
+	public void syncNow(Runnable then) {
+		// Only the read is this feature's: with it turned off (or failing) {@code then} still runs.
+		clientThread.invokeLater(() -> {
+			Guard.run(GUARD_FEATURE, () -> push(true, true));
+			then.run();
+		});
+	}
+
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
 		GameState newState = event.getGameState();
@@ -161,6 +176,9 @@ public class BankMemoryMonitor {
 		}
 		Guard.run(GUARD_FEATURE, () -> {
 			gate.onGameState(newState);
+			if (newState == GameState.LOGIN_SCREEN || newState == GameState.LOGGING_IN || newState == GameState.HOPPING) {
+				nothingWornSent = false;
+			}
 			if (SyncGuard.isLogout(previousGameState, newState)) {
 				groupStorageOpen = false;
 				deposits.resetSession();
@@ -187,8 +205,24 @@ public class BankMemoryMonitor {
 			if (id != InventoryID.BANK && id != InventoryID.INV && id != InventoryID.WORN && id != InventoryID.INV_GROUP_TEMP) {
 				return;
 			}
-			gate.onContainerChanged(id, client.getItemContainer(id) != null);
+			gate.onContainerChanged(id, client.getItemContainer(id) != null, client.getTickCount());
 			push(true, false);
+		});
+	}
+
+	/**
+	 * Nothing equipped: the game never sends a WORN container, so once the inventory has been there
+	 * {@link CarriedReadGate#NO_WORN_TICKS} ticks the carried items are read (worn gear empty). Unchanged
+	 * contents are not re-sent.
+	 */
+	@Subscribe
+	public void onGameTick(GameTick event) {
+		Guard.run(GUARD_FEATURE, () -> {
+			if (client.getItemContainer(InventoryID.WORN) == null
+				&& gate.nothingWorn(false, client.getTickCount()) && !nothingWornSent) {
+				nothingWornSent = true;
+				push(true, false);
+			}
 		});
 	}
 
@@ -283,12 +317,15 @@ public class BankMemoryMonitor {
 		}
 		ItemContainer inv = client.getItemContainer(InventoryID.INV);
 		ItemContainer worn = client.getItemContainer(InventoryID.WORN);
-		if (gate.canReadCarried(state, playerLoaded, inv != null, worn != null)) {
-			// Read together, sent together: never one without the other.
+		if (gate.canReadCarried(state, playerLoaded, inv != null, worn != null, client.getTickCount())) {
+			// Read together, sent together: never one without the other. No WORN container (nothing equipped)
+			// reads as empty worn gear.
 			Map<Integer, Integer> invQuantities = new LinkedHashMap<>();
 			ItemCollector.collectItems(inv, itemManager, invQuantities);
 			Map<Integer, Integer> wornQuantities = new LinkedHashMap<>();
-			ItemCollector.collectItems(worn, itemManager, wornQuantities);
+			if (worn != null) {
+				ItemCollector.collectItems(worn, itemManager, wornQuantities);
+			}
 			bySource.put(SOURCE_INVENTORY, invQuantities);
 			bySource.put(SOURCE_WORN, wornQuantities);
 		} else {

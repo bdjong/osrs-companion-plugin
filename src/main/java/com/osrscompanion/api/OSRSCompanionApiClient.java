@@ -759,6 +759,13 @@ public class OSRSCompanionApiClient
 		}
 	}
 
+	/** Whether an upload of this label (e.g. "bank") is still queued or on its way. */
+	public boolean hasPendingUpload(String label)
+	{
+		SyncOutbox box = outbox;
+		return box != null && box.hasPending(label);
+	}
+
 	/** Sends what is queued soon (a goal or a container that should show quickly). */
 	public void requestOutboxFlush()
 	{

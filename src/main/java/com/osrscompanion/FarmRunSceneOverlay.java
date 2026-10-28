@@ -20,6 +20,7 @@ import net.runelite.api.Scene;
 import net.runelite.api.Tile;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.eventbus.Subscribe;
@@ -56,6 +57,8 @@ public class FarmRunSceneOverlay extends Overlay {
 	private WorldMapPoint mapPoint;
 	private WorldPoint arrowAt;
 	private int ticks;
+	/** The stop the objects found are for. */
+	private FarmRoute.Stop foundFor;
 	/** In your house on the way to the stop: the portal, nexus, fairy ring... the travel uses, and its name. */
 	private volatile GameObject houseObject;
 	private volatile String houseObjectName;
@@ -84,6 +87,21 @@ public class FarmRunSceneOverlay extends Overlay {
 		setLayer(OverlayLayer.ABOVE_SCENE);
 	}
 
+	/**
+	 * A new scene loads (a teleport, leaving your house): the objects found belong to the old one. Drawn
+	 * there, the client fails on every frame until the next scan, which turned the markers off.
+	 */
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged e) {
+		Guard.run(GUARD_FEATURE, () -> {
+			if (e.getGameState() != GameState.LOGGED_IN) {
+				found = Collections.emptyList();
+				houseObject = null;
+				houseObjectName = null;
+			}
+		});
+	}
+
 	@Subscribe
 	public void onGameTick(GameTick tick) {
 		Guard.run(GUARD_FEATURE, () -> {
@@ -95,6 +113,11 @@ public class FarmRunSceneOverlay extends Overlay {
 				houseObject = null;
 				clearPointers();
 				return;
+			}
+			if (stop != foundFor) {
+				// On to the next stop: the last stop's patches are not this one's (until the next scan they were).
+				found = Collections.emptyList();
+				foundFor = stop;
 			}
 			if (++ticks % SCAN_EVERY_TICKS == 0 || found.isEmpty()) {
 				List<Found> all = new ArrayList<>(scan(stop));

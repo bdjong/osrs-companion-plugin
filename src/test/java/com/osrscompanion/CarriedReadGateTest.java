@@ -89,4 +89,45 @@ public class CarriedReadGateTest {
 		assertFalse("player not loaded", gate.canReadGroupStorage(GameState.LOGGED_IN, false, true, true));
 		assertFalse("hopping", gate.canReadGroupStorage(GameState.HOPPING, true, true, true));
 	}
+
+	@Test
+	public void nothingEquippedReadsAsEmptyWornAfterAFewTicks() {
+		CarriedReadGate gate = new CarriedReadGate();
+		gate.onGameState(GameState.LOGGING_IN);
+		gate.onGameState(GameState.LOGGED_IN);
+		// The game never sends WORN when nothing is equipped.
+		gate.onContainerChanged(InventoryID.INV, true, 100);
+		assertFalse("right after the inventory arrived WORN may still come",
+			gate.canReadCarried(GameState.LOGGED_IN, true, true, false, 101));
+		assertTrue(gate.canReadCarried(GameState.LOGGED_IN, true, true, false, 100 + CarriedReadGate.NO_WORN_TICKS));
+		assertTrue(gate.nothingWorn(false, 100 + CarriedReadGate.NO_WORN_TICKS));
+		assertFalse("without a tick a null WORN stays unknown", gate.canReadCarried(GameState.LOGGED_IN, true, true, false));
+	}
+
+	@Test
+	public void nothingEquippedStillNeedsTheInventory() {
+		CarriedReadGate gate = new CarriedReadGate();
+		gate.onGameState(GameState.HOPPING);
+		gate.onGameState(GameState.LOGGED_IN);
+		assertFalse(gate.canReadCarried(GameState.LOGGED_IN, true, true, false, 500));
+		assertFalse(gate.canReadCarried(GameState.LOGGED_IN, true, false, false, 500));
+	}
+
+	@Test
+	public void startedWhileLoggedInWithNothingEquipped() {
+		CarriedReadGate gate = new CarriedReadGate();
+		assertTrue(gate.canReadCarried(GameState.LOGGED_IN, true, true, false, 7));
+	}
+
+	@Test
+	public void aWornContainerThatArrivesIsStillWaitedFor() {
+		CarriedReadGate gate = new CarriedReadGate();
+		gate.onGameState(GameState.LOGGING_IN);
+		gate.onGameState(GameState.LOGGED_IN);
+		gate.onContainerChanged(InventoryID.INV, true, 10);
+		// WORN present but not arrived yet (an old copy): not read, however long it takes.
+		assertFalse(gate.canReadCarried(GameState.LOGGED_IN, true, true, true, 50));
+		gate.onContainerChanged(InventoryID.WORN, true, 51);
+		assertTrue(gate.canReadCarried(GameState.LOGGED_IN, true, true, true, 51));
+	}
 }

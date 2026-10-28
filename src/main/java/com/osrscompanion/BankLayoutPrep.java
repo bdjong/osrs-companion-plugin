@@ -307,10 +307,10 @@ public class BankLayoutPrep {
 					lastBossRefresh = now;
 					bossGear.refresh();
 				}
-				if (config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isOpen()) {
+				if (config.farmRunBankFilter() && config.showFarmRun() && farmRun.isRunning() && !farmRun.isOpen()) {
 					farmRun.refreshIfStale();
 				}
-				if (config.slayerGearBankLayout() && slayer.getTask() != null) {
+				if (config.slayerGearBankLayout() && config.slayerGuide() && slayer.getTask() != null) {
 					slayer.refreshIfStale();
 				}
 				verifyUntilTick = client.getTickCount() + VERIFY_TICKS;
@@ -432,15 +432,15 @@ public class BankLayoutPrep {
 	}
 
 	/**
-	 * Which feature drives the bank now. Each is "active in the bank" by its own setting, and the farm
-	 * route only while a farm run is going (started and not complete), the slayer setup only with a
-	 * task. When more are, an open boss gear / slayer gear window wins, then the farm run, then the
+	 * Which feature drives the bank now. Each is "active in the bank" by its own setting and only while its
+	 * guide is on (the boss setup Active, the farm run guide, the Slayer guide): the farm route only while a
+	 * farm run is going (started and not complete), the slayer setup only with a task. When more are, an open boss gear / slayer gear window wins, then the farm run, then the
 	 * boss setup, then the slayer setup.
 	 */
 	Driver driver() {
 		boolean boss = bossGear.isSetActive() && config.bossGearBankLayout();
-		boolean farm = farmRun.getRoute() != null && config.farmRunBankFilter() && farmRun.isRunning() && !farmRun.isComplete();
-		boolean slayerGear = config.slayerGearBankLayout() && slayer.getTask() != null && slayer.getGearSet() != null;
+		boolean farm = farmRun.getRoute() != null && config.farmRunBankFilter() && config.showFarmRun() && farmRun.isRunning() && !farmRun.isComplete();
+		boolean slayerGear = config.slayerGearBankLayout() && config.slayerGuide() && slayer.getTask() != null && slayer.getGearSet() != null;
 		return pick(boss, bossGear.isOpen(), farm, slayerGear, slayer.isGearOpen());
 	}
 
