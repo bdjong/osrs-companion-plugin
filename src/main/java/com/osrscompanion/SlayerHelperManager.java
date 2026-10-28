@@ -9,6 +9,8 @@ import com.osrscompanion.model.SlayerGear;
 import com.osrscompanion.model.SlayerGuide;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
@@ -195,6 +197,8 @@ public class SlayerHelperManager {
 	private final GoalCompletionNotifier popups;
 	private final TeleportLeftClick teleports;
 	private final FarmRunManager farmRun;
+	private final BankMemoryMonitor bankMemory;
+	private final ScheduledExecutorService executor;
 
 	private final SlayerKillTimer timer = new SlayerKillTimer();
 	private final Map<String, String> taskNames = new ConcurrentHashMap<>();
@@ -273,6 +277,24 @@ public class SlayerHelperManager {
 		}
 		loading = true;
 		fetchedAtMs = System.currentTimeMillis();
+		// What you carry goes up first (an item just taken out of the bank), then the guide and gear are read.
+		bankMemory.syncNow(() -> Guard.run(GUARD_FEATURE, () -> afterItemsSent(System.currentTimeMillis() + ITEMS_SENT_WAIT_MS, () -> loadGuide(name))));
+	}
+
+	/** At most this long the guide waits for the item upload to go (a slow or offline website). */
+	static final long ITEMS_SENT_WAIT_MS = 3_000L;
+	private static final long ITEMS_SENT_POLL_MS = 150L;
+
+	/** Runs {@code then} once no bank-memory upload is queued any more, or at {@code deadlineMs}. */
+	private void afterItemsSent(long deadlineMs, Runnable then) {
+		if (!apiClient.hasPendingUpload("bank") || System.currentTimeMillis() >= deadlineMs) {
+			then.run();
+			return;
+		}
+		executor.schedule(() -> Guard.run(GUARD_FEATURE, () -> afterItemsSent(deadlineMs, then)), ITEMS_SENT_POLL_MS, TimeUnit.MILLISECONDS);
+	}
+
+	private void loadGuide(String name) {
 		apiClient.getSlayerGuide(name, new OSRSCompanionApiClient.RoadmapCallback<SlayerGuide>() {
 			@Override
 			public void onSuccess(SlayerGuide result) {

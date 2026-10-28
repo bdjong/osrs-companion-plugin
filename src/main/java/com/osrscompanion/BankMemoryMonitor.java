@@ -152,6 +152,19 @@ public class BankMemoryMonitor {
 		});
 	}
 
+	/**
+	 * Reads the bank / inventory / worn gear now and sends what changed at once (no debounce), then runs
+	 * {@code then} (on the client thread). Used before the Slayer guide reads the gear, so an item just moved
+	 * into the inventory counts. Unchanged contents are not re-sent.
+	 */
+	public void syncNow(Runnable then) {
+		// Only the read is this feature's: with it turned off (or failing) {@code then} still runs.
+		clientThread.invokeLater(() -> {
+			Guard.run(GUARD_FEATURE, () -> push(true, true));
+			then.run();
+		});
+	}
+
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event) {
 		GameState newState = event.getGameState();
