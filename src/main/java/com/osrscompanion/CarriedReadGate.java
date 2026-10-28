@@ -28,7 +28,7 @@ import net.runelite.api.gameval.InventoryID;
  */
 final class CarriedReadGate {
 	/** Game ticks after the inventory arrived without a WORN container before nothing equipped is assumed. */
-	static final int NO_WORN_TICKS = 3;
+	static final int NO_WORN_TICKS = 5;
 	/** No tick known (the 4-argument checks): a missing WORN container stays "not known". */
 	static final int NO_TICK = Integer.MIN_VALUE;
 
