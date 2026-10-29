@@ -120,6 +120,6 @@ To do then:
 
 1. Delete the `release/1.0.1` branch: it only keeps the commit the 1.0.1 hub entry pointed at (`91fe798`, the history before the authorship rewrite) from being cleaned up.
 2. Update or remove the website's announcement banner about the farm markers turning off after the POH.
-3. Add more arrow tiles on the website (`way` on a teleport in `src/lib/farmCatalog.ts`, or on a Slayer location in `src/lib/slayerLocations.ts`), now that the plugin follows them:
-   - the Ectophial walk from the Ectofuntus to the patches west of Port Phasmatys (the patches are out of view on arrival);
-   - the Crash Site Cavern (demonic gorillas): the pass-through at 2453,3520 then the cavern entrance at 2027,5612 (an instance: the plugin finds its copy of the tile), with the location's tile on the gorillas.
+3. Arrow tiles on the website (`way` on a teleport in `src/lib/farmCatalog.ts`, or on a Slayer location in `src/lib/slayerLocations.ts`):
+   done for the Crash Site Cavern (the pass-through, then the cavern entrance, then the gorillas). The Ectophial walk
+   needs none: the minimap's red hint arrow already points to the patches west of Port Phasmatys before they load.
