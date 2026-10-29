@@ -46,13 +46,34 @@ tasks.withType(JavaCompile).configureEach {
 	options.release.set(11)
 }
 
+// Local builds (the dev launcher, the friend kit) name their commit in the side panel ("v1.0.2-dev 48a4256").
+// The Plugin Hub builds with its own build.gradle (build=standard), so its jar shows only the version.
+def devBuildDir = layout.buildDirectory.dir('generated/dev-build')
+tasks.register('devBuildInfo') {
+	def out = devBuildDir.get().file('com/osrscompanion/dev-build.properties').asFile
+	outputs.file(out)
+	outputs.upToDateWhen { false }
+	doLast {
+		def commit = 'unknown'
+		try {
+			commit = ['git', 'rev-parse', '--short', 'HEAD'].execute(null, projectDir).text.trim() ?: 'unknown'
+		} catch (ignored) {
+		}
+		out.parentFile.mkdirs()
+		out.text = "commit=${commit}\n"
+	}
+}
+
 // The licence must travel with every distributed jar, not only with the source.
 // Their own folder keeps them from clashing with dependencies' META-INF/LICENSE in shadowJar.
 tasks.withType(Jar).configureEach {
+	dependsOn 'devBuildInfo'
 	from(rootDir) {
 		include 'LICENSE'
 		into 'META-INF/osrs-companion'
 	}
+	// Only in the jar: the tests read the resources folder, so their goldens keep the plain version.
+	from(devBuildDir)
 }
 
 tasks.register('run', JavaExec) {

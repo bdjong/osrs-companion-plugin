@@ -21,9 +21,11 @@ public final class PluginVersion {
 	private PluginVersion() {
 	}
 
-	/** "OSRS Companion v1.0.0", for the side panel. */
+	/** "OSRS Companion v1.0.0", for the side panel; a local build adds its commit ("v1.0.2-dev 48a4256"). */
 	public static String label() {
-		return "OSRS Companion v" + VERSION;
+		Properties dev = load("dev-build.properties");
+		String commit = dev == null ? null : dev.getProperty("commit");
+		return "OSRS Companion v" + VERSION + (commit == null ? "" : "-dev " + commit);
 	}
 
 	/** The file's version, or {@value #FALLBACK} when it is missing or not header-safe. */
