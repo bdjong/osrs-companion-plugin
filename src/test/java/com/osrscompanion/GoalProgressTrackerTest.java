@@ -62,6 +62,17 @@ public class GoalProgressTrackerTest {
 	}
 
 	@Test
+	public void aGoalAlreadyReachedWhenItArrivesTicksOffWhenShown() {
+		// The XP came in before the plugin had the goal: no XP drop crosses it any more.
+		when(client.getSkillExperience(Skill.CRAFTING)).thenReturn(62_000);
+		assertTrue(tracker.progressFor(goal(0)).isComplete());
+		verify(popups).show(goal(0), "My Roadmap", 1, 2);
+		assertEquals(2, tracker.firstIncompleteGoal(roadmap).getId());
+		tracker.progressFor(goal(0));
+		verify(popups, times(1)).show(any(), anyString(), anyInt(), anyInt());
+	}
+
+	@Test
 	public void killCountGoalsFromTheGamesKillCount() {
 		assertFalse(tracker.onKillCount("zulrah", 601));
 		assertEquals(4, tracker.progressFor(goal(1)).getCurrent());

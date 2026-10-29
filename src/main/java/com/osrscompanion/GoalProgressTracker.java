@@ -129,6 +129,10 @@ public class GoalProgressTracker {
 		}
 		int target = Math.max(1, goal.getTarget());
 		int current = (int) Math.min(live, target);
+		if (current >= target && !reachedLocally.contains(goal.getId())) {
+			// Already there when the goal arrived (no XP drop or kill crossed it): reached now.
+			checkReached();
+		}
 		return new GoalProgressView(goal.getType(), current, goal.getTarget(), current * 100 / target, current >= target);
 	}
 
