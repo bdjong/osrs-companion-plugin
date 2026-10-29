@@ -116,10 +116,12 @@ Works by itself once players update (nothing to do):
 - The arrow follows the way there the website sends: Harmony Island by boat (Bill Teach at Port Phasmatys, then Brother Tranquility) is already set on the website.
 - Skill goals tick off about a second after reaching them; skills go up every 10 s while training (the website already keeps one snapshot per 5 minutes).
 
-To do then:
+Done since:
 
-1. Delete the `release/1.0.1` branch: it only keeps the commit the 1.0.1 hub entry pointed at (`91fe798`, the history before the authorship rewrite) from being cleaned up.
-2. Update or remove the website's announcement banner about the farm markers turning off after the POH.
-3. Arrow tiles on the website (`way` on a teleport in `src/lib/farmCatalog.ts`, or on a Slayer location in `src/lib/slayerLocations.ts`):
-   done for the Crash Site Cavern (the pass-through, then the cavern entrance, then the gorillas). The Ectophial walk
-   needs none: the minimap's red hint arrow already points to the patches west of Port Phasmatys before they load.
+- The `release/1.0.1` branch stays: it keeps the commit the 1.0.1 hub entry pointed at (`91fe798`, the history
+  before the authorship rewrite). Do not delete it.
+- The website's announcement banner about the farm markers is removed.
+- Arrow tiles on the website (`way` on a teleport in `src/lib/farmCatalog.ts`, or on a Slayer location in
+  `src/lib/slayerLocations.ts`): set for the Crash Site Cavern (the pass-through, then the cavern entrance, then the
+  gorillas). The Ectophial walk needs none: the minimap's red hint arrow already points to the patches west of Port
+  Phasmatys before they load.
