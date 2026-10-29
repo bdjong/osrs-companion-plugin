@@ -159,12 +159,15 @@ public class OSRSCompanionApiClient
 		sendPlayerSkillsSync(payload, null);
 	}
 
-	/** Skills sync with a success callback (runs on the OkHttp thread). */
+	/**
+	 * Skills sync with a success callback (runs on the OkHttp thread). With a callback (a skill goal just reached)
+	 * it goes out at once instead of with the next outbox flush.
+	 */
 	public void sendPlayerSkillsSync(PlayerSkillsSyncPayload payload, Runnable onSuccess)
 	{
 		// Never dedupe skills: the backend skills endpoint also triggers roadmap
 		// rechecks and WikiSync, so it must run even when the payload is unchanged.
-		postAsync(SKILLS_ENDPOINT, payload.toJson(gson), "skills", false, false, key("skills", payload.getPlayer()), false,
+		postAsync(SKILLS_ENDPOINT, payload.toJson(gson), "skills", false, false, key("skills", payload.getPlayer()), onSuccess != null,
 			() -> {
 				if (onSuccess != null)
 				{
