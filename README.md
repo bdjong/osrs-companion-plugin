@@ -77,9 +77,9 @@ The boss, farm run and slayer gear bank layouts use RuneLite's built-in Bank Tag
 
 ## Plugin Hub release
 
-Version `1.0.1` (set in `src/main/resources/com/osrscompanion/version.properties` and in `runelite-plugin.properties`, which the Plugin Hub shows). The first submission (runelite/plugin-hub#18254) was closed because the plugin was over the hub's 200,000-token review limit; the rework in [docs/rework.md](docs/rework.md) brought it to about 193,500 (`PluginSizeTest` fails the build above 195,000). The review points are in [docs/plugin-hub-review.md](docs/plugin-hub-review.md) and the pull request text in [docs/plugin-hub-pr.md](docs/plugin-hub-pr.md).
+Version `1.0.1` (set in `src/main/resources/com/osrscompanion/version.properties` and in `runelite-plugin.properties`, which the Plugin Hub shows). The first submission (runelite/plugin-hub#18254) was closed because the plugin was over the hub's 200,000-token review limit; the rework in [docs/rework.md](docs/rework.md) brought it to about 193,500 (`PluginSizeTest` fails the build above 197,500). The review points are in [docs/plugin-hub-review.md](docs/plugin-hub-review.md) and the pull request text in [docs/plugin-hub-pr.md](docs/plugin-hub-pr.md).
 
-Every later update: raise `version` in both `version.properties` and `runelite-plugin.properties` (1.0.1, 1.1.0 ...) in the commit the hub update points at, and keep the review size under 195,000.
+Every later update: raise `version` in both `version.properties` and `runelite-plugin.properties` (1.0.1, 1.1.0 ...) in the commit the hub update points at, and keep the review size under 197,500.
 
 ## License
 

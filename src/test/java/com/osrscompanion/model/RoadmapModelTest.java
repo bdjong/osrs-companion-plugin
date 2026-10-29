@@ -18,16 +18,17 @@ public class RoadmapModelTest {
 	private static final Gson GSON = new Gson();
 
 	@Test
-	public void aSkillGoalCompletesAtItsStartXpPlusTheXpItNeeds() {
-		// 45 Crafting added at 60,000 XP: 1,512 more XP (current / target are XP gained / needed).
-		RoadmapGoal goal = GSON.fromJson("{\"id\":1,\"goal_type\":\"skill_level\",\"current\":0,\"target\":1512,"
-			+ "\"is_complete\":false,\"meta\":{\"skill\":\"crafting\",\"start_xp\":60000}}", RoadmapGoal.class);
-		assertEquals(Long.valueOf(61512), goal.getCompletingXp());
-		// Done, another type, or from before start_xp was kept: none.
-		assertNull(GSON.fromJson("{\"goal_type\":\"skill_level\",\"target\":1512,\"is_complete\":true,\"meta\":{\"skill\":\"crafting\",\"start_xp\":60000}}",
-			RoadmapGoal.class).getCompletingXp());
-		assertNull(GSON.fromJson("{\"goal_type\":\"kc\",\"target\":5,\"meta\":{\"start_xp\":1}}", RoadmapGoal.class).getCompletingXp());
-		assertNull(GSON.fromJson("{\"goal_type\":\"skill_xp\",\"target\":5,\"meta\":{\"skill\":\"crafting\"}}", RoadmapGoal.class).getCompletingXp());
+	public void readsWhereSkillAndKillCountGoalsStarted() {
+		// 45 Crafting added at 60,000 XP (current / target are XP gained / needed).
+		RoadmapGoal skill = GSON.fromJson("{\"id\":1,\"goal_type\":\"skill_level\",\"current\":0,\"target\":1512,"
+			+ "\"meta\":{\"skill\":\"crafting\",\"start_xp\":60000}}", RoadmapGoal.class);
+		assertEquals(Integer.valueOf(60000), skill.getStartXp());
+		// 10 more Zulrah kills, added at 597 (current / target count from there).
+		RoadmapGoal kc = GSON.fromJson("{\"id\":2,\"goal_type\":\"kc\",\"current\":0,\"target\":10,\"start_value\":597,"
+			+ "\"meta\":{\"npc_name\":\"Zulrah\"}}", RoadmapGoal.class);
+		assertEquals(Integer.valueOf(597), kc.getStartValue());
+		assertNull(kc.getStartXp());
+		assertNull(GSON.fromJson("{\"goal_type\":\"skill_xp\",\"target\":5,\"meta\":{\"skill\":\"crafting\"}}", RoadmapGoal.class).getStartXp());
 	}
 
 	@Test
