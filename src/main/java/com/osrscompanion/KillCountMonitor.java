@@ -50,6 +50,7 @@ public class KillCountMonitor {
 	private final ConfigManager configManager;
 	private final ScheduledExecutorService executorService;
 	private final Gson gson;
+	private final GoalProgressTracker goals;
 
 	private GameState previousGameState = GameState.UNKNOWN;
 	private boolean kcCheckPending;
@@ -64,7 +65,8 @@ public class KillCountMonitor {
 			OSRSCompanionApiClient apiClient,
 			ConfigManager configManager,
 			ScheduledExecutorService executorService,
-			Gson gson) {
+			Gson gson,
+			GoalProgressTracker goals) {
 		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
@@ -73,6 +75,7 @@ public class KillCountMonitor {
 		this.configManager = configManager;
 		this.executorService = executorService;
 		this.gson = gson;
+		this.goals = goals;
 	}
 
 	public void stop() {
@@ -116,6 +119,11 @@ public class KillCountMonitor {
 		Guard.run(GUARD_FEATURE, () -> {
 			if (KILLCOUNT_GROUP.equals(event.getGroup())) {
 				kcCheckPending = true;
+				// A boss kill: a kill-count goal it reaches shows at once.
+				String n = event.getNewValue();
+				if (event.getKey() != null && n != null && n.matches("\\d{1,9}")) {
+					goals.onKillCount(event.getKey(), Integer.parseInt(n));
+				}
 			}
 		});
 	}

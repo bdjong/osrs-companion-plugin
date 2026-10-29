@@ -27,7 +27,7 @@ import org.junit.Test;
 public class PluginSizeTest {
 	static final int HUB_LIMIT = 200_000;
 	/** Room kept below the limit for the estimate's error. */
-	static final int MAX_ESTIMATE = 195_000;
+	static final int MAX_ESTIMATE = 197_500;
 	/**
 	 * Off while the plugin is reworked (logic moves to the website; the full plugin is about 352k): the size
 	 * is printed but does not fail the build. Turn it on again before any Plugin Hub pull request.

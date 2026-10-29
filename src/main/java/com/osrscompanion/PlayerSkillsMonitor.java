@@ -41,6 +41,7 @@ public class PlayerSkillsMonitor {
 	private final OSRSCompanionApiClient apiClient;
 	private final ScheduledExecutorService executorService;
 	private final RoadmapManager roadmapManager;
+	private final GoalProgressTracker goals;
 
 	private GameState previousGameState = GameState.UNKNOWN;
 	/** Last XP seen per skill (client thread); the first value after login is the replay. */
@@ -55,7 +56,8 @@ public class PlayerSkillsMonitor {
 			OSRSCompanionConfig config,
 			OSRSCompanionApiClient apiClient,
 			ScheduledExecutorService executorService,
-			RoadmapManager roadmapManager) {
+			RoadmapManager roadmapManager,
+			GoalProgressTracker goals) {
 		executorService = GuardedExecutor.wrap(GUARD_FEATURE, executorService);
 		this.client = client;
 		this.clientThread = clientThread;
@@ -63,6 +65,7 @@ public class PlayerSkillsMonitor {
 		this.apiClient = apiClient;
 		this.executorService = executorService;
 		this.roadmapManager = roadmapManager;
+		this.goals = goals;
 	}
 
 	public void start() {
@@ -115,7 +118,8 @@ public class PlayerSkillsMonitor {
 			Integer previous = lastSeenXp.put(event.getSkill().getName(), event.getXp());
 			if (xpIncreased(previous, event.getXp())) {
 				xpDirty = true;
-				if (roadmapManager.reachesSkillGoal(event.getSkill().getName(), previous, event.getXp())) {
+				// A skill goal reached (its popup shows at once): the website gets it now and the roadmaps are re-read.
+				if (goals.checkReached()) {
 					xpDirty = false;
 					syncPlayerSkills(roadmapManager::refreshAllQuietly);
 				}
