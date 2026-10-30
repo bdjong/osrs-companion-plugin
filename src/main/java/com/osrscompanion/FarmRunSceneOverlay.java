@@ -46,6 +46,8 @@ public class FarmRunSceneOverlay extends Overlay {
 
 	/** Patch objects further than this from the stop belong to another stop (varbits repeat between regions). */
 	static final int STOP_RADIUS = 32;
+	/** A point of the way out of view still gets the arrow within this many tiles. */
+	static final int NEAR_WAY_TILES = 100;
 	private static final int SCAN_EVERY_TICKS = 2;
 
 	private final Client client;
@@ -290,7 +292,7 @@ public class FarmRunSceneOverlay extends Overlay {
 			// Not in view yet: the furthest tile of the way there you can see (a boat), else the stop's tile.
 			WorldPoint at = new WorldPoint(stop.getX(), stop.getY(), stop.getPlane());
 			WorldView view = client.getTopLevelWorldView();
-			target = view == null || inScene(view, at) != null ? null : furthestOnWay(view, manager.travelOf(stop));
+			target = view == null || inScene(view, at) != null ? null : furthestOnWay(client, view, manager.travelOf(stop));
 			target = target == null ? at : target;
 		}
 		if (!target.equals(arrowAt)) {
@@ -315,18 +317,26 @@ public class FarmRunSceneOverlay extends Overlay {
 	}
 
 	/**
-	 * The furthest tile of the travel's way (from the website) in the loaded scene, else null. Shared with the
-	 * Slayer guide ({@link SlayerGuideMarkers}).
+	 * The furthest tile of the travel's way (from the website) in the loaded scene, else the nearest within
+	 * {@link #NEAR_WAY_TILES}, else null. Shared with the Slayer guide ({@link SlayerGuideMarkers}).
 	 */
-	static WorldPoint furthestOnWay(WorldView view, FarmRoute.Travel travel) {
+	static WorldPoint furthestOnWay(Client client, WorldView view, FarmRoute.Travel travel) {
 		List<int[]> way = travel == null ? Collections.emptyList() : travel.getWay();
+		WorldPoint me = client.getLocalPlayer() == null ? null : client.getLocalPlayer().getWorldLocation();
+		WorldPoint nearest = null;
 		for (int i = way.size() - 1; i >= 0; i--) {
-			WorldPoint at = inScene(view, new WorldPoint(way.get(i)[0], way.get(i)[1], way.get(i)[2]));
+			WorldPoint p = new WorldPoint(way.get(i)[0], way.get(i)[1], way.get(i)[2]);
+			WorldPoint at = inScene(view, p);
 			if (at != null) {
 				return at;
 			}
+			// None in view yet (the Ardougne cloak lands out of sight of the Monastery's fairy ring): the nearest
+			// within NEAR_WAY_TILES, which the game shows on the minimap; a point already passed is far behind.
+			if (me != null && p.distanceTo2D(me) <= NEAR_WAY_TILES && (nearest == null || p.distanceTo2D(me) < nearest.distanceTo2D(me))) {
+				nearest = p;
+			}
 		}
-		return null;
+		return nearest;
 	}
 
 	/** The tile as it is in the loaded scene (an instance's copy of a template tile too), or null when it is not. */
