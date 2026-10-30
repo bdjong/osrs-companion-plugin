@@ -70,7 +70,7 @@ public class SlayerGuideMarkers {
 		WorldPoint at = null;
 		if (view != null && !farmRun.isRunning()) {
 			at = FarmRunSceneOverlay.inScene(view, target);
-			at = at != null ? at : FarmRunSceneOverlay.furthestOnWay(view, travel);
+			at = at != null ? at : FarmRunSceneOverlay.furthestOnWay(client, view, travel);
 		}
 		if (at == null) {
 			clearArrow();
