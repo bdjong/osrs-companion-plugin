@@ -274,6 +274,16 @@ final class SlayerKillLog {
 			last = null;
 		}
 
+		/**
+		 * A new task: the previous task's monsters no longer name a kill. Without this, a count no death explains
+		 * went to the last monster of the task before (TzTok-Jad's kill logged as a brutal black dragon, an hour
+		 * after a Black dragons task). Counts still waiting keep waiting; with no monster left they go unnamed.
+		 */
+		void newTask() {
+			deaths.clear();
+			last = null;
+		}
+
 		private Death take() {
 			Death pick = null;
 			for (Iterator<Death> it = deaths.descendingIterator(); it.hasNext(); ) {

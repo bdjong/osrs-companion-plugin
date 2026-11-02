@@ -173,4 +173,20 @@ public class SlayerKillLogTest {
 		assertTrue(m.counted(1, 200, false).isEmpty());
 		assertNull(m.died(DEMON, true, 200));
 	}
+
+	@Test
+	public void aNewTaskForgetsThePreviousTasksMonsters() {
+		SlayerKillLog.Matcher m = new SlayerKillLog.Matcher();
+		SlayerKillLog.Npc dragon = new SlayerKillLog.Npc(7275, "Brutal black dragon", 318, 6557, false);
+		// The Black dragons task's last kill.
+		assertNull(m.died(dragon, true, 10));
+		assertEquals(Collections.singletonList(dragon), m.counted(1, 10, true));
+		// TzTok-Jad next: its kill counts but no death is seen in time; it must not be named after the dragon.
+		m.newTask();
+		assertTrue(m.counted(1, 500, true).isEmpty());
+		assertTrue(m.expire(501 + SlayerKillLog.Matcher.WINDOW_TICKS, false).isEmpty());
+		// A monster of the new task names the next counts again.
+		assertNull(m.died(DEMON, true, 600));
+		assertEquals(Collections.singletonList(DEMON), m.counted(1, 600, true));
+	}
 }

@@ -662,6 +662,7 @@ public class SlayerHelperManager {
 	private void taskChanges(Task before, Task now, long nowMs) {
 		if (before == null) {
 			if (now != null) {
+				killMatcher.newTask();
 				rememberStartXp(now);
 				// A new task: load its guide once the website has it.
 				fetchAtMs = nowMs + TASK_CHANGE_FETCH_DELAY_MS;
@@ -699,6 +700,8 @@ public class SlayerHelperManager {
 		guide = null;
 		adhocArea = null;
 		if (now != null) {
+			// Swapped straight to another task: its kills are never named after the old one's monsters.
+			killMatcher.newTask();
 			rememberStartXp(now);
 			fetchAtMs = nowMs + TASK_CHANGE_FETCH_DELAY_MS;
 			retriesLeft = GUIDE_RETRIES;
